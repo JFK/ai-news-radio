@@ -1,0 +1,41 @@
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+
+    # Database
+    database_url: str = "postgresql+asyncpg://postgres:postgres@db:5432/ainewsradio"
+
+    # Redis
+    redis_url: str = "redis://redis:6379/0"
+
+    # AI Provider defaults
+    default_ai_provider: str = "openai"
+    default_ai_model: str = "gpt-4o-mini"
+
+    # Per-step AI configuration
+    pipeline_factcheck_provider: str = "openai"
+    pipeline_factcheck_model: str = "gpt-4o-mini"
+    pipeline_analysis_provider: str = "openai"
+    pipeline_analysis_model: str = "gpt-4o-mini"
+    pipeline_script_provider: str = "openai"
+    pipeline_script_model: str = "gpt-4o"
+
+    # API Keys
+    anthropic_api_key: str = ""
+    openai_api_key: str = ""
+    google_api_key: str = ""
+
+    # VOICEVOX
+    voicevox_host: str = "http://voicevox:50021"
+    voicevox_speaker_id: int = 3  # ずんだもん
+
+    # YouTube
+    youtube_client_id: str = ""
+    youtube_client_secret: str = ""
+
+    model_config = {"env_file": ".env", "extra": "ignore"}
+
+
+settings = Settings()
