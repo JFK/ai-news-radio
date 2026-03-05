@@ -9,11 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.models import PipelineStep, StepName
-from app.pipeline.engine import PipelineEngine
+from app.pipeline import engine
 
 router = APIRouter(tags=["pipeline"])
-
-engine = PipelineEngine()
 
 
 # --- Schemas ---

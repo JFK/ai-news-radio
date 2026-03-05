@@ -10,11 +10,9 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_session
 from app.models import Episode
-from app.pipeline.engine import PipelineEngine
+from app.pipeline import engine
 
 router = APIRouter(tags=["episodes"])
-
-engine = PipelineEngine()
 
 
 # --- Schemas ---

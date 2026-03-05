@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>NHK熊本県のニュース</title>
+    <link>https://www3.nhk.or.jp/lnews/kumamoto/</link>
+    <description>NHK熊本県のニュース</description>
+    <item>
+      <title>熊本市で新しい交通システムの実証実験始まる</title>
+      <link>https://www3.nhk.or.jp/lnews/kumamoto/20260305/5000012345.html</link>
+      <description>熊本市は新しい交通システムの実証実験を開始しました。</description>
+      <pubDate>Wed, 05 Mar 2026 09:00:00 +0900</pubDate>
+    </item>
+    <item>
+      <title>阿蘇山の火山活動 専門家が分析</title>
+      <link>https://www3.nhk.or.jp/lnews/kumamoto/20260305/5000012346.html</link>
+      <description>阿蘇山の最新の火山活動について専門家が分析を行いました。</description>
+      <pubDate>Wed, 05 Mar 2026 10:30:00 +0900</pubDate>
+    </item>
+    <item>
+      <title>県内の小学校で卒業式</title>
+      <link>https://www3.nhk.or.jp/lnews/kumamoto/20260305/5000012347.html</link>
+      <pubDate>Wed, 05 Mar 2026 12:00:00 +0900</pubDate>
+    </item>
+  </channel>
+</rss>
