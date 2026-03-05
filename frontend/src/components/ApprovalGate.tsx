@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
-import type { PipelineStep } from "../types";
+import type { PipelineStep, NewsItem } from "../types";
+import StepDataRenderer from "./step-renderers/StepDataRenderer";
 
 interface Props {
   step: PipelineStep;
+  newsItems: NewsItem[];
   onUpdated: () => void;
 }
 
-export default function ApprovalGate({ step, onUpdated }: Props) {
+export default function ApprovalGate({ step, newsItems, onUpdated }: Props) {
   const { t } = useTranslation();
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
@@ -55,14 +57,21 @@ export default function ApprovalGate({ step, onUpdated }: Props) {
       )}
 
       {step.output_data && (
-        <details className="mb-3">
-          <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
-            {t("approval.showOutput")}
-          </summary>
-          <pre className="mt-2 p-3 bg-white rounded border text-xs overflow-auto max-h-64">
-            {JSON.stringify(step.output_data, null, 2)}
-          </pre>
-        </details>
+        <div className="mb-3">
+          <StepDataRenderer
+            stepName={step.step_name}
+            outputData={step.output_data}
+            newsItems={newsItems}
+          />
+          <details className="mt-2">
+            <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600">
+              {t("pipeline.rawJson")}
+            </summary>
+            <pre className="mt-2 p-3 bg-white rounded border text-xs overflow-auto max-h-64">
+              {JSON.stringify(step.output_data, null, 2)}
+            </pre>
+          </details>
+        </div>
       )}
 
       {!rejecting ? (

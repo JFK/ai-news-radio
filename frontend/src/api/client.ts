@@ -2,6 +2,7 @@ import axios from "axios";
 import type {
   Episode,
   EpisodeListResponse,
+  NewsItem,
   PipelineStep,
   CostStatsResponse,
   EpisodeCostResponse,
@@ -18,6 +19,8 @@ export const api = {
     client.post<Episode>("/episodes", { title }),
   getSteps: (episodeId: number) =>
     client.get<PipelineStep[]>(`/episodes/${episodeId}/steps`),
+  getNewsItems: (episodeId: number) =>
+    client.get<NewsItem[]>(`/episodes/${episodeId}/news-items`),
   runStep: (episodeId: number, stepName: string) =>
     client.post<PipelineStep>(`/episodes/${episodeId}/steps/${stepName}/run`),
   approveStep: (stepId: number) =>

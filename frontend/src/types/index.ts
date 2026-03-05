@@ -40,6 +40,22 @@ export interface Episode {
   pipeline_steps: PipelineStep[];
 }
 
+export interface NewsItem {
+  id: number;
+  episode_id: number;
+  title: string;
+  summary: string | null;
+  source_url: string;
+  source_name: string;
+  fact_check_status: string | null;
+  fact_check_score: number | null;
+  fact_check_details: string | null;
+  reference_urls: string[] | null;
+  analysis_data: Record<string, unknown> | null;
+  script_text: string | null;
+  created_at: string;
+}
+
 export interface EpisodeListResponse {
   episodes: Episode[];
   total: number;

@@ -51,7 +51,8 @@
   },
   "pipeline": {
     "inputData": "Input Data",
-    "outputData": "Output Data"
+    "outputData": "Output Data",
+    "rawJson": "Raw JSON"
   },
   "steps": {
     "collection": "Collection",
@@ -90,6 +91,38 @@
     "noData": "No API usage records yet.",
     "loading": "Loading...",
     "fetchFailed": "Failed to fetch cost stats"
+  },
+  "stepData": {
+    "collection": {
+      "fetched": "Fetched",
+      "saved": "Saved",
+      "title": "Title",
+      "source": "Source"
+    },
+    "factcheck": {
+      "checked": "Checked",
+      "avgScore": "Avg Score",
+      "references": "Reference URLs",
+      "status_verified": "Verified",
+      "status_unverified": "Unverified",
+      "status_partially_verified": "Partially Verified"
+    },
+    "analysis": {
+      "analyzed": "Analyzed",
+      "severity_high": "High",
+      "severity_medium": "Medium",
+      "severity_low": "Low",
+      "background": "Background",
+      "perspectives": "Perspectives",
+      "viewpoint": "Viewpoint",
+      "description": "Description",
+      "dataVerification": "Data Verification",
+      "impact": "Impact Assessment"
+    },
+    "script": {
+      "fullScript": "Full Episode Script",
+      "perArticle": "Per-Article Scripts"
+    }
   },
   "errors": {
     "fetchEpisodes": "Failed to fetch episodes",
