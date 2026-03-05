@@ -1,0 +1,98 @@
+{
+  "app": {
+    "title": "AI News Radio"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "costs": "Cost Stats"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "newEpisode": "New Episode",
+    "titlePlaceholder": "Enter episode title...",
+    "create": "Create",
+    "creating": "Creating...",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "noEpisodes": "No episodes yet. Click \"New Episode\" to create one.",
+    "table": {
+      "id": "ID",
+      "title": "Title",
+      "status": "Status",
+      "currentStep": "Current Step",
+      "createdAt": "Created"
+    }
+  },
+  "episode": {
+    "backToDashboard": "Back to Dashboard",
+    "loading": "Loading...",
+    "notFound": "Episode not found.",
+    "id": "ID",
+    "status": "Status",
+    "createdAt": "Created",
+    "pipeline": "Pipeline",
+    "selectStep": "Click a step to view details.",
+    "runStep": "Run Step",
+    "running": "Running...",
+    "started": "Started",
+    "completed": "Completed",
+    "rejectionReason": "Rejection Reason"
+  },
+  "approval": {
+    "title": "Approval Gate",
+    "showOutput": "Show output data",
+    "approve": "Approve",
+    "reject": "Reject",
+    "confirmReject": "Confirm Reject",
+    "rejectPlaceholder": "Enter rejection reason...",
+    "processing": "Processing...",
+    "approveFailed": "Approval failed",
+    "rejectFailed": "Rejection failed"
+  },
+  "pipeline": {
+    "inputData": "Input Data",
+    "outputData": "Output Data"
+  },
+  "steps": {
+    "collection": "Collection",
+    "factcheck": "Fact Check",
+    "analysis": "Analysis",
+    "script": "Script",
+    "voice": "Voice",
+    "video": "Video",
+    "publish": "Publish"
+  },
+  "stepStatus": {
+    "pending": "Pending",
+    "running": "Running",
+    "needs_approval": "Needs Approval",
+    "approved": "Approved",
+    "rejected": "Rejected"
+  },
+  "episodeStatus": {
+    "draft": "Draft",
+    "in_progress": "In Progress",
+    "completed": "Completed",
+    "published": "Published"
+  },
+  "costs": {
+    "title": "Cost Stats",
+    "totalCost": "Total Cost",
+    "totalRequests": "Total Requests",
+    "byProvider": "By Provider",
+    "byStep": "By Step",
+    "provider": "Provider",
+    "step": "Step",
+    "inputTokens": "Input Tokens",
+    "outputTokens": "Output Tokens",
+    "cost": "Cost",
+    "requests": "Requests",
+    "noData": "No API usage records yet.",
+    "loading": "Loading...",
+    "fetchFailed": "Failed to fetch cost stats"
+  },
+  "errors": {
+    "fetchEpisodes": "Failed to fetch episodes",
+    "fetchEpisode": "Failed to fetch episode"
+  }
+}

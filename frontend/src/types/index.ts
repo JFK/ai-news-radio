@@ -1,0 +1,76 @@
+export type StepName =
+  | "collection"
+  | "factcheck"
+  | "analysis"
+  | "script"
+  | "voice"
+  | "video"
+  | "publish";
+
+export type StepStatus =
+  | "pending"
+  | "running"
+  | "needs_approval"
+  | "approved"
+  | "rejected";
+
+export type EpisodeStatus = "draft" | "in_progress" | "completed" | "published";
+
+export interface PipelineStep {
+  id: number;
+  episode_id: number;
+  step_name: StepName;
+  status: StepStatus;
+  input_data: Record<string, unknown> | null;
+  output_data: Record<string, unknown> | null;
+  started_at: string | null;
+  completed_at: string | null;
+  approved_at: string | null;
+  rejected_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+}
+
+export interface Episode {
+  id: number;
+  title: string;
+  status: EpisodeStatus;
+  created_at: string;
+  published_at: string | null;
+  pipeline_steps: PipelineStep[];
+}
+
+export interface EpisodeListResponse {
+  episodes: Episode[];
+  total: number;
+}
+
+export interface CostByProvider {
+  provider: string;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cost_usd: number;
+  request_count: number;
+}
+
+export interface CostByStep {
+  step_name: string;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cost_usd: number;
+  request_count: number;
+}
+
+export interface CostStatsResponse {
+  by_provider: CostByProvider[];
+  by_step: CostByStep[];
+  total_cost_usd: number;
+  total_requests: number;
+}
+
+export interface EpisodeCostResponse {
+  episode_id: number;
+  by_step: CostByStep[];
+  total_cost_usd: number;
+  total_requests: number;
+}
