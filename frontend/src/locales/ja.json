@@ -1,0 +1,98 @@
+{
+  "app": {
+    "title": "AI News Radio"
+  },
+  "nav": {
+    "dashboard": "ダッシュボード",
+    "costs": "コスト統計"
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "newEpisode": "新規エピソード",
+    "titlePlaceholder": "エピソードタイトルを入力...",
+    "create": "作成",
+    "creating": "作成中...",
+    "cancel": "キャンセル",
+    "loading": "読み込み中...",
+    "noEpisodes": "エピソードがありません。「新規エピソード」で作成してください。",
+    "table": {
+      "id": "ID",
+      "title": "タイトル",
+      "status": "ステータス",
+      "currentStep": "進行中ステップ",
+      "createdAt": "作成日"
+    }
+  },
+  "episode": {
+    "backToDashboard": "ダッシュボードに戻る",
+    "loading": "読み込み中...",
+    "notFound": "エピソードが見つかりません。",
+    "id": "ID",
+    "status": "ステータス",
+    "createdAt": "作成日",
+    "pipeline": "パイプライン",
+    "selectStep": "ステップをクリックして詳細を表示してください。",
+    "runStep": "ステップを実行",
+    "running": "実行中...",
+    "started": "開始",
+    "completed": "完了",
+    "rejectionReason": "却下理由"
+  },
+  "approval": {
+    "title": "承認ゲート",
+    "showOutput": "出力データを表示",
+    "approve": "承認",
+    "reject": "却下",
+    "confirmReject": "却下を確定",
+    "rejectPlaceholder": "却下理由を入力してください...",
+    "processing": "処理中...",
+    "approveFailed": "承認に失敗しました",
+    "rejectFailed": "却下に失敗しました"
+  },
+  "pipeline": {
+    "inputData": "入力データ",
+    "outputData": "出力データ"
+  },
+  "steps": {
+    "collection": "収集",
+    "factcheck": "ファクトチェック",
+    "analysis": "分析",
+    "script": "台本生成",
+    "voice": "音声生成",
+    "video": "動画化",
+    "publish": "YouTube投稿"
+  },
+  "stepStatus": {
+    "pending": "待機中",
+    "running": "実行中",
+    "needs_approval": "承認待ち",
+    "approved": "承認済",
+    "rejected": "却下"
+  },
+  "episodeStatus": {
+    "draft": "下書き",
+    "in_progress": "進行中",
+    "completed": "完了",
+    "published": "公開済"
+  },
+  "costs": {
+    "title": "コスト統計",
+    "totalCost": "合計コスト",
+    "totalRequests": "合計リクエスト数",
+    "byProvider": "プロバイダー別",
+    "byStep": "ステップ別",
+    "provider": "プロバイダー",
+    "step": "ステップ",
+    "inputTokens": "入力トークン",
+    "outputTokens": "出力トークン",
+    "cost": "コスト",
+    "requests": "リクエスト数",
+    "noData": "まだAPIの使用記録がありません。",
+    "loading": "読み込み中...",
+    "fetchFailed": "コスト統計の取得に失敗しました"
+  },
+  "errors": {
+    "fetchEpisodes": "エピソード一覧の取得に失敗しました",
+    "fetchEpisode": "エピソードの取得に失敗しました"
+  }
+}
