@@ -31,8 +31,13 @@ class PipelineStep(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"))
-    step_name: Mapped[StepName] = mapped_column(Enum(StepName))
-    status: Mapped[StepStatus] = mapped_column(Enum(StepStatus), default=StepStatus.PENDING)
+    step_name: Mapped[StepName] = mapped_column(
+        Enum(StepName, values_callable=lambda e: [x.value for x in e]),
+    )
+    status: Mapped[StepStatus] = mapped_column(
+        Enum(StepStatus, values_callable=lambda e: [x.value for x in e]),
+        default=StepStatus.PENDING,
+    )
 
     input_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     output_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)

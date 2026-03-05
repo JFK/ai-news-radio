@@ -19,7 +19,10 @@ class Episode(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(500))
-    status: Mapped[EpisodeStatus] = mapped_column(Enum(EpisodeStatus), default=EpisodeStatus.DRAFT)
+    status: Mapped[EpisodeStatus] = mapped_column(
+        Enum(EpisodeStatus, values_callable=lambda e: [x.value for x in e]),
+        default=EpisodeStatus.DRAFT,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
