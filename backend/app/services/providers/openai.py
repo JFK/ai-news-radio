@@ -28,7 +28,7 @@ class OpenAIProvider(AIProvider):
         response = await self._client.chat.completions.create(
             model=model,
             messages=messages,
-            max_tokens=kwargs.get("max_tokens", 4096),
+            max_completion_tokens=kwargs.get("max_tokens", 4096),
         )
 
         usage = response.usage
