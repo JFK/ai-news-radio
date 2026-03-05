@@ -7,7 +7,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY pyproject.toml .
-RUN pip install --no-cache-dir $(python -c "import tomllib; deps=tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']; print(' '.join(deps))")
+RUN pip install --no-cache-dir $(python -c "\
+import tomllib; \
+cfg=tomllib.load(open('pyproject.toml','rb')); \
+deps=cfg['project']['dependencies']+cfg['project'].get('optional-dependencies',{}).get('dev',[]); \
+print(' '.join(deps))")
 
 COPY . .
 

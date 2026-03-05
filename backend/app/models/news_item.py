@@ -1,8 +1,8 @@
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import ARRAY, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.types import JSON
 
 from app.models.base import Base
 
@@ -21,7 +21,7 @@ class NewsItem(Base):
     fact_check_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
     fact_check_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     fact_check_details: Mapped[str | None] = mapped_column(Text, nullable=True)
-    reference_urls: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
+    reference_urls: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
     # Analysis
     analysis_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
