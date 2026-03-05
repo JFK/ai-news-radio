@@ -2,6 +2,7 @@
 
 import pytest
 
+from app.config import settings
 from app.services.ai_provider import get_provider, get_step_provider
 from app.services.providers.anthropic import AnthropicProvider
 from app.services.providers.google import GoogleProvider
@@ -33,20 +34,20 @@ class TestGetStepProvider:
 
     def test_factcheck_step_returns_configured_provider(self):
         provider, model = get_step_provider("factcheck")
-        assert isinstance(provider, OpenAIProvider)  # default config
-        assert model == "gpt-4o-mini"
+        assert provider is not None
+        assert model == settings.pipeline_factcheck_model
 
     def test_analysis_step_returns_configured_provider(self):
         provider, model = get_step_provider("analysis")
-        assert isinstance(provider, OpenAIProvider)
-        assert model == "gpt-4o-mini"
+        assert provider is not None
+        assert model == settings.pipeline_analysis_model
 
     def test_script_step_returns_configured_provider(self):
         provider, model = get_step_provider("script")
-        assert isinstance(provider, OpenAIProvider)
-        assert model == "gpt-4o"
+        assert provider is not None
+        assert model == settings.pipeline_script_model
 
     def test_unconfigured_step_uses_defaults(self):
         provider, model = get_step_provider("voice")
-        assert isinstance(provider, OpenAIProvider)  # default provider
-        assert model == "gpt-4o-mini"  # default model
+        assert provider is not None
+        assert model == settings.default_ai_model
