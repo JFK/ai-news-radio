@@ -3,15 +3,18 @@ import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useEpisode } from "../hooks/useEpisode";
+import { useNewsItems } from "../hooks/useNewsItems";
 import type { StepName, PipelineStep } from "../types";
 import PipelineView from "./PipelineView";
 import ApprovalGate from "./ApprovalGate";
+import StepDataRenderer from "./step-renderers/StepDataRenderer";
 
 export default function EpisodeDetail() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const episodeId = Number(id);
   const { episode, loading, error, refetch } = useEpisode(episodeId);
+  const { newsItems } = useNewsItems(episodeId);
   const [selectedStep, setSelectedStep] = useState<StepName | null>(null);
   const [runningStep, setRunningStep] = useState(false);
 
@@ -103,9 +106,27 @@ export default function EpisodeDetail() {
             )}
           </dl>
 
+          {activeStep.output_data && activeStep.status !== "needs_approval" && (
+            <div className="mb-3">
+              <StepDataRenderer
+                stepName={activeStep.step_name}
+                outputData={activeStep.output_data}
+                newsItems={newsItems}
+              />
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600">
+                  {t("pipeline.rawJson")}
+                </summary>
+                <pre className="mt-1 p-3 bg-gray-50 rounded border text-xs overflow-auto max-h-48">
+                  {JSON.stringify(activeStep.output_data, null, 2)}
+                </pre>
+              </details>
+            </div>
+          )}
+
           {activeStep.input_data && (
             <details className="mb-2">
-              <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
+              <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600">
                 {t("pipeline.inputData")}
               </summary>
               <pre className="mt-1 p-3 bg-gray-50 rounded border text-xs overflow-auto max-h-48">
@@ -114,18 +135,7 @@ export default function EpisodeDetail() {
             </details>
           )}
 
-          {activeStep.output_data && activeStep.status !== "needs_approval" && (
-            <details>
-              <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
-                {t("pipeline.outputData")}
-              </summary>
-              <pre className="mt-1 p-3 bg-gray-50 rounded border text-xs overflow-auto max-h-48">
-                {JSON.stringify(activeStep.output_data, null, 2)}
-              </pre>
-            </details>
-          )}
-
-          <ApprovalGate step={activeStep} onUpdated={refetch} />
+          <ApprovalGate step={activeStep} newsItems={newsItems} onUpdated={refetch} />
         </div>
       )}
 

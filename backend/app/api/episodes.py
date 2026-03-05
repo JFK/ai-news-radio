@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_session
-from app.models import Episode
+from app.models import Episode, NewsItem
 from app.pipeline import engine
 
 router = APIRouter(tags=["episodes"])
@@ -30,11 +30,14 @@ class StepResponse(BaseModel):
     id: int
     step_name: str
     status: str
+    input_data: dict | None = None
+    output_data: dict | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
     approved_at: datetime | None = None
     rejected_at: datetime | None = None
     rejection_reason: str | None = None
+    created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
@@ -57,6 +60,26 @@ class EpisodeListResponse(BaseModel):
 
     episodes: list[EpisodeResponse]
     total: int
+
+
+class NewsItemResponse(BaseModel):
+    """Response for a single news item."""
+
+    id: int
+    episode_id: int
+    title: str
+    summary: str | None = None
+    source_url: str
+    source_name: str
+    fact_check_status: str | None = None
+    fact_check_score: int | None = None
+    fact_check_details: str | None = None
+    reference_urls: list[str] | None = None
+    analysis_data: dict | None = None
+    script_text: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 # --- Endpoints ---
@@ -94,3 +117,20 @@ async def get_episode(
         return await engine.get_episode_with_steps(episode_id, session)
     except Exception as e:
         raise HTTPException(status_code=404, detail="Episode not found") from e
+
+
+@router.get(
+    "/episodes/{episode_id}/news-items",
+    response_model=list[NewsItemResponse],
+)
+async def get_news_items(
+    episode_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> list[NewsItem]:
+    """Get all news items for an episode."""
+    result = await session.execute(
+        select(NewsItem)
+        .where(NewsItem.episode_id == episode_id)
+        .order_by(NewsItem.id)
+    )
+    return list(result.scalars().all())

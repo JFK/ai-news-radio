@@ -51,7 +51,8 @@
   },
   "pipeline": {
     "inputData": "入力データ",
-    "outputData": "出力データ"
+    "outputData": "出力データ",
+    "rawJson": "Raw JSON"
   },
   "steps": {
     "collection": "収集",
@@ -90,6 +91,38 @@
     "noData": "まだAPIの使用記録がありません。",
     "loading": "読み込み中...",
     "fetchFailed": "コスト統計の取得に失敗しました"
+  },
+  "stepData": {
+    "collection": {
+      "fetched": "取得記事数",
+      "saved": "保存記事数",
+      "title": "タイトル",
+      "source": "ソース"
+    },
+    "factcheck": {
+      "checked": "チェック数",
+      "avgScore": "平均スコア",
+      "references": "参考URL",
+      "status_verified": "検証済",
+      "status_unverified": "未検証",
+      "status_partially_verified": "一部検証"
+    },
+    "analysis": {
+      "analyzed": "分析数",
+      "severity_high": "高",
+      "severity_medium": "中",
+      "severity_low": "低",
+      "background": "背景",
+      "perspectives": "複数視点",
+      "viewpoint": "立場",
+      "description": "説明",
+      "dataVerification": "データ検証",
+      "impact": "影響評価"
+    },
+    "script": {
+      "fullScript": "エピソード全体台本",
+      "perArticle": "記事別台本"
+    }
   },
   "errors": {
     "fetchEpisodes": "エピソード一覧の取得に失敗しました",
