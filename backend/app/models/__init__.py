@@ -1,6 +1,7 @@
 from app.models.api_usage import ApiUsage
 from app.models.base import Base
 from app.models.episode import Episode, EpisodeStatus
+from app.models.model_pricing import ModelPricing
 from app.models.news_item import NewsItem
 from app.models.pipeline_step import PipelineStep, StepName, StepStatus
 
@@ -9,6 +10,7 @@ __all__ = [
     "Base",
     "Episode",
     "EpisodeStatus",
+    "ModelPricing",
     "NewsItem",
     "PipelineStep",
     "StepName",

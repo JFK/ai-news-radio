@@ -12,15 +12,15 @@ class Settings(BaseSettings):
 
     # AI Provider defaults
     default_ai_provider: str = "openai"
-    default_ai_model: str = "gpt-4o-mini"
+    default_ai_model: str = "gpt-5"
 
     # Per-step AI configuration
     pipeline_factcheck_provider: str = "openai"
-    pipeline_factcheck_model: str = "gpt-4o-mini"
+    pipeline_factcheck_model: str = "gpt-5"
     pipeline_analysis_provider: str = "openai"
-    pipeline_analysis_model: str = "gpt-4o-mini"
+    pipeline_analysis_model: str = "gpt-5"
     pipeline_script_provider: str = "openai"
-    pipeline_script_model: str = "gpt-4o"
+    pipeline_script_model: str = "gpt-5"
 
     # API Keys
     anthropic_api_key: str = ""
