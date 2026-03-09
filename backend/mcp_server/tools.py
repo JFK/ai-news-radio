@@ -2,7 +2,7 @@
 
 from mcp.types import Tool, ToolAnnotations
 
-STEP_NAMES = ["collection", "factcheck", "analysis", "script", "voice", "video", "publish"]
+STEP_NAMES = ["collection", "factcheck", "analysis", "script", "voice", "video"]
 
 
 def get_tool_definitions() -> list[Tool]:

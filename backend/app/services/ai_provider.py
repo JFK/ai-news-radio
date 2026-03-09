@@ -51,7 +51,7 @@ class AIProvider(ABC):
 
 
 # Step order for pipeline navigation
-STEP_ORDER = ["collection", "factcheck", "analysis", "script", "voice", "video", "publish"]
+STEP_ORDER = ["collection", "factcheck", "analysis", "script", "voice", "video"]
 
 # Mapping from step_name to config attribute prefix
 _STEP_CONFIG_MAP = {

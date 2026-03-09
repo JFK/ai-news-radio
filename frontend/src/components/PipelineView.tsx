@@ -8,7 +8,6 @@ const STEP_ORDER: StepName[] = [
   "script",
   "voice",
   "video",
-  "publish",
 ];
 
 const STATUS_STYLES: Record<StepStatus, string> = {

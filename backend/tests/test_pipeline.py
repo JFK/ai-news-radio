@@ -25,7 +25,7 @@ class TestCreateEpisode:
         episode = await engine.create_episode("Test Episode", session)
         result = await session.execute(select(PipelineStep).where(PipelineStep.episode_id == episode.id))
         steps = result.scalars().all()
-        assert len(steps) == 7
+        assert len(steps) == 6
 
     async def test_create_episode_steps_are_pending(self, engine: PipelineEngine, session: AsyncSession):
         episode = await engine.create_episode("Test Episode", session)
@@ -39,7 +39,8 @@ class TestCreateEpisode:
         result = await session.execute(select(PipelineStep).where(PipelineStep.episode_id == episode.id))
         steps = result.scalars().all()
         step_names = {step.step_name for step in steps}
-        expected = {s for s in StepName}
+        from app.services.ai_provider import STEP_ORDER
+        expected = {StepName(s) for s in STEP_ORDER}
         assert step_names == expected
 
 

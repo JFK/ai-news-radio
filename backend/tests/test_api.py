@@ -16,7 +16,7 @@ class TestEpisodesAPI:
         data = response.json()
         assert data["title"] == "Test Episode"
         assert data["status"] == "draft"
-        assert len(data["pipeline_steps"]) == 7
+        assert len(data["pipeline_steps"]) == 6
 
     async def test_list_episodes(self, client: AsyncClient):
         # Create two episodes
@@ -43,7 +43,7 @@ class TestEpisodesAPI:
         assert response.status_code == 200
         data = response.json()
         assert data["title"] == "Detail Test"
-        assert len(data["pipeline_steps"]) == 7
+        assert len(data["pipeline_steps"]) == 6
 
     async def test_get_episode_not_found(self, client: AsyncClient):
         response = await client.get("/api/episodes/999")
@@ -60,7 +60,7 @@ class TestPipelineAPI:
         response = await client.get(f"/api/episodes/{episode_id}/steps")
         assert response.status_code == 200
         steps = response.json()
-        assert len(steps) == 7
+        assert len(steps) == 6
 
     async def test_approve_step(self, client: AsyncClient, session: AsyncSession):
         create_response = await client.post("/api/episodes", json={"title": "Approve Test"})
