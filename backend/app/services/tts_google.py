@@ -12,8 +12,9 @@ logger = logging.getLogger(__name__)
 
 GOOGLE_TTS_API_URL = "https://texttospeech.googleapis.com/v1/text:synthesize"
 
-# Google TTS has a 5000 byte limit per request (~2500 Japanese chars)
-MAX_CHARS_PER_CHUNK = 2500
+# Google TTS has a 5000 byte limit per request
+# Japanese chars are 3 bytes in UTF-8, so ~1600 chars max
+MAX_BYTES_PER_CHUNK = 4800
 
 
 class GoogleTTSProvider(TTSProvider):
@@ -39,15 +40,16 @@ class GoogleTTSProvider(TTSProvider):
         if not sentences:
             raise ValueError("Empty text provided for synthesis")
 
-        # Group sentences into chunks within limit
+        # Group sentences into chunks within byte limit
         chunks: list[str] = []
         current = ""
         for sentence in sentences:
-            if len(current) + len(sentence) > MAX_CHARS_PER_CHUNK and current:
+            candidate = current + sentence
+            if len(candidate.encode("utf-8")) > MAX_BYTES_PER_CHUNK and current:
                 chunks.append(current)
                 current = sentence
             else:
-                current += sentence
+                current = candidate
         if current:
             chunks.append(current)
 
@@ -76,7 +78,9 @@ class GoogleTTSProvider(TTSProvider):
                 },
             },
         )
-        response.raise_for_status()
+        if response.status_code != 200:
+            logger.error("Google TTS error %d: %s", response.status_code, response.text[:500])
+            response.raise_for_status()
 
         import base64
 
