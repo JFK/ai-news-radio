@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "ai-news-radio": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["-m", "mcp_server"],
+      "cwd": "/path/to/ai-news-radio/backend",
+      "env": {
+        "AINEWSRADIO_BACKEND_URL": "http://localhost:8000",
+        "PYTHONPATH": "/path/to/ai-news-radio/backend"
+      }
+    }
+  }
+}
