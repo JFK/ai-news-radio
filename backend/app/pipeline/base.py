@@ -25,12 +25,13 @@ class BaseStep(ABC):
         ...
 
     @abstractmethod
-    async def execute(self, episode_id: int, input_data: dict, **kwargs) -> dict:
+    async def execute(self, episode_id: int, input_data: dict, session: AsyncSession, **kwargs) -> dict:
         """Execute the step logic.
 
         Args:
             episode_id: The episode being processed.
             input_data: Output from the previous step (or empty dict for first step).
+            session: Database session from run().
             **kwargs: Step-specific parameters (e.g., queries for collection).
 
         Returns:
@@ -66,7 +67,7 @@ class BaseStep(ABC):
             input_data = await self._get_input_data(episode_id, session)
 
             # Execute the step logic
-            output_data = await self.execute(episode_id, input_data, **kwargs)
+            output_data = await self.execute(episode_id, input_data, session, **kwargs)
 
             # Save results
             step.input_data = input_data

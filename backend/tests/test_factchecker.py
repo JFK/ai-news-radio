@@ -72,10 +72,8 @@ class TestFactcheckerStep:
         assert factchecker.step_name == StepName.FACTCHECK
 
     @patch("app.pipeline.factchecker.get_step_provider")
-    @patch("app.pipeline.factchecker.async_session")
     async def test_execute_updates_all_items(
         self,
-        mock_session_factory,
         mock_get_provider,
         factchecker: FactcheckerStep,
         session: AsyncSession,
@@ -87,12 +85,7 @@ class TestFactcheckerStep:
         mock_provider.generate.return_value = _make_ai_response()
         mock_get_provider.return_value = (mock_provider, "test-model")
 
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
-
-        result = await factchecker.execute(episode_id, {})
+        result = await factchecker.execute(episode_id, {}, session)
 
         assert result["items_checked"] == 2
         assert len(result["results"]) == 2
@@ -110,10 +103,8 @@ class TestFactcheckerStep:
             assert item.reference_urls == ["https://example.com/ref1"]
 
     @patch("app.pipeline.factchecker.get_step_provider")
-    @patch("app.pipeline.factchecker.async_session")
     async def test_execute_idempotent(
         self,
-        mock_session_factory,
         mock_get_provider,
         factchecker: FactcheckerStep,
         session: AsyncSession,
@@ -125,13 +116,8 @@ class TestFactcheckerStep:
         mock_provider.generate.return_value = _make_ai_response()
         mock_get_provider.return_value = (mock_provider, "test-model")
 
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
-
         # Run twice
-        await factchecker.execute(episode_id, {})
+        await factchecker.execute(episode_id, {}, session)
 
         # Change the response for second run
         mock_provider.generate.return_value = AIResponse(
@@ -150,7 +136,7 @@ class TestFactcheckerStep:
             provider="test-provider",
         )
 
-        result = await factchecker.execute(episode_id, {})
+        result = await factchecker.execute(episode_id, {}, session)
 
         # Should have overwritten
         db_result = await session.execute(select(NewsItem).where(NewsItem.id == item_ids[0]))
@@ -160,10 +146,8 @@ class TestFactcheckerStep:
         assert result["items_checked"] == 1
 
     @patch("app.pipeline.factchecker.get_step_provider")
-    @patch("app.pipeline.factchecker.async_session")
     async def test_execute_records_api_usage(
         self,
-        mock_session_factory,
         mock_get_provider,
         factchecker: FactcheckerStep,
         session: AsyncSession,
@@ -175,12 +159,7 @@ class TestFactcheckerStep:
         mock_provider.generate.return_value = _make_ai_response()
         mock_get_provider.return_value = (mock_provider, "test-model")
 
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
-
-        await factchecker.execute(episode_id, {})
+        await factchecker.execute(episode_id, {}, session)
 
         db_result = await session.execute(
             select(ApiUsage).where(
@@ -194,10 +173,8 @@ class TestFactcheckerStep:
         assert usages[0].output_tokens == 200
 
     @patch("app.pipeline.factchecker.get_step_provider")
-    @patch("app.pipeline.factchecker.async_session")
     async def test_execute_empty_episode(
         self,
-        mock_session_factory,
         mock_get_provider,
         factchecker: FactcheckerStep,
         session: AsyncSession,
@@ -208,12 +185,7 @@ class TestFactcheckerStep:
         mock_provider = AsyncMock()
         mock_get_provider.return_value = (mock_provider, "test-model")
 
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
-
-        result = await factchecker.execute(episode_id, {})
+        result = await factchecker.execute(episode_id, {}, session)
 
         assert result["items_checked"] == 0
         assert result["results"] == []
@@ -221,10 +193,8 @@ class TestFactcheckerStep:
         mock_provider.generate.assert_not_called()
 
     @patch("app.pipeline.factchecker.get_step_provider")
-    @patch("app.pipeline.factchecker.async_session")
     async def test_output_data_structure(
         self,
-        mock_session_factory,
         mock_get_provider,
         factchecker: FactcheckerStep,
         session: AsyncSession,
@@ -236,12 +206,7 @@ class TestFactcheckerStep:
         mock_provider.generate.return_value = _make_ai_response()
         mock_get_provider.return_value = (mock_provider, "test-model")
 
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
-
-        result = await factchecker.execute(episode_id, {})
+        result = await factchecker.execute(episode_id, {}, session)
 
         assert "items_checked" in result
         assert "results" in result

@@ -4,9 +4,9 @@ import logging
 import os
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.database import async_session
 from app.models import Episode, StepName
 from app.pipeline.base import BaseStep
 from app.services.tts_provider import get_tts_provider
@@ -21,7 +21,7 @@ class VoiceStep(BaseStep):
     def step_name(self) -> StepName:
         return StepName.VOICE
 
-    async def execute(self, episode_id: int, input_data: dict, **kwargs) -> dict:
+    async def execute(self, episode_id: int, input_data: dict, session: AsyncSession, **kwargs) -> dict:
         """Synthesize audio from the episode script.
 
         Reads episode_script from scriptwriter output, synthesizes via TTS,
@@ -52,11 +52,10 @@ class VoiceStep(BaseStep):
 
         # Update episode record
         relative_path = f"{episode_id}/{audio_filename}"
-        async with async_session() as session:
-            result = await session.execute(select(Episode).where(Episode.id == episode_id))
-            episode = result.scalar_one()
-            episode.audio_path = relative_path
-            await session.commit()
+        result = await session.execute(select(Episode).where(Episode.id == episode_id))
+        episode = result.scalar_one()
+        episode.audio_path = relative_path
+        await session.commit()
 
         # Record usage for TTS (input_tokens = character count for TTS pricing)
         provider_name = settings.pipeline_voice_provider
@@ -67,15 +66,14 @@ class VoiceStep(BaseStep):
                 "google": f"google-tts-{settings.google_tts_voice.split('-')[-1].lower()}",
             }
             model_name = model_map.get(provider_name, provider_name)
-            async with async_session() as session:
-                await self.record_usage(
-                    session=session,
-                    episode_id=episode_id,
-                    provider=provider_name,
-                    model=model_name,
-                    input_tokens=len(episode_script),
-                    output_tokens=0,
-                )
+            await self.record_usage(
+                session=session,
+                episode_id=episode_id,
+                provider=provider_name,
+                model=model_name,
+                input_tokens=len(episode_script),
+                output_tokens=0,
+            )
 
         logger.info(
             "Episode %d: audio saved to %s (%.1fs, %d bytes)",

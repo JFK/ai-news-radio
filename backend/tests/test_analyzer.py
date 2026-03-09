@@ -81,10 +81,8 @@ class TestAnalyzerStep:
         assert analyzer.step_name == StepName.ANALYSIS
 
     @patch("app.pipeline.analyzer.get_step_provider")
-    @patch("app.pipeline.analyzer.async_session")
     async def test_execute_stores_analysis_data(
         self,
-        mock_session_factory,
         mock_get_provider,
         analyzer: AnalyzerStep,
         session: AsyncSession,
@@ -96,12 +94,7 @@ class TestAnalyzerStep:
         mock_provider.generate.return_value = _make_analysis_response()
         mock_get_provider.return_value = (mock_provider, "test-model")
 
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
-
-        result = await analyzer.execute(episode_id, {})
+        result = await analyzer.execute(episode_id, {}, session)
 
         assert result["items_analyzed"] == 2
         assert len(result["results"]) == 2
@@ -114,10 +107,8 @@ class TestAnalyzerStep:
             assert len(item.analysis_data["perspectives"]) == 3
 
     @patch("app.pipeline.analyzer.get_step_provider")
-    @patch("app.pipeline.analyzer.async_session")
     async def test_factcheck_results_in_prompt(
         self,
-        mock_session_factory,
         mock_get_provider,
         analyzer: AnalyzerStep,
         session: AsyncSession,
@@ -129,12 +120,7 @@ class TestAnalyzerStep:
         mock_provider.generate.return_value = _make_analysis_response()
         mock_get_provider.return_value = (mock_provider, "test-model")
 
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
-
-        await analyzer.execute(episode_id, {})
+        await analyzer.execute(episode_id, {}, session)
 
         # Check that the prompt sent to the AI contains fact-check info
         call_args = mock_provider.generate.call_args
@@ -143,10 +129,8 @@ class TestAnalyzerStep:
         assert "verified" in prompt
 
     @patch("app.pipeline.analyzer.get_step_provider")
-    @patch("app.pipeline.analyzer.async_session")
     async def test_severity_summary(
         self,
-        mock_session_factory,
         mock_get_provider,
         analyzer: AnalyzerStep,
         session: AsyncSession,
@@ -163,20 +147,13 @@ class TestAnalyzerStep:
         mock_provider.generate.side_effect = responses
         mock_get_provider.return_value = (mock_provider, "test-model")
 
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
-
-        result = await analyzer.execute(episode_id, {})
+        result = await analyzer.execute(episode_id, {}, session)
 
         assert result["severity_summary"] == {"high": 1, "medium": 1, "low": 1}
 
     @patch("app.pipeline.analyzer.get_step_provider")
-    @patch("app.pipeline.analyzer.async_session")
     async def test_execute_records_api_usage(
         self,
-        mock_session_factory,
         mock_get_provider,
         analyzer: AnalyzerStep,
         session: AsyncSession,
@@ -188,12 +165,7 @@ class TestAnalyzerStep:
         mock_provider.generate.return_value = _make_analysis_response()
         mock_get_provider.return_value = (mock_provider, "test-model")
 
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
-
-        await analyzer.execute(episode_id, {})
+        await analyzer.execute(episode_id, {}, session)
 
         db_result = await session.execute(
             select(ApiUsage).where(
@@ -205,10 +177,8 @@ class TestAnalyzerStep:
         assert len(usages) == 2
 
     @patch("app.pipeline.analyzer.get_step_provider")
-    @patch("app.pipeline.analyzer.async_session")
     async def test_output_data_structure(
         self,
-        mock_session_factory,
         mock_get_provider,
         analyzer: AnalyzerStep,
         session: AsyncSession,
@@ -220,12 +190,7 @@ class TestAnalyzerStep:
         mock_provider.generate.return_value = _make_analysis_response()
         mock_get_provider.return_value = (mock_provider, "test-model")
 
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
-
-        result = await analyzer.execute(episode_id, {})
+        result = await analyzer.execute(episode_id, {}, session)
 
         assert "items_analyzed" in result
         assert "results" in result

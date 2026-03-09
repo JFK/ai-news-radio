@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import PipelineStep, StepName, StepStatus
@@ -19,22 +20,20 @@ class TestVideoStep:
     def test_step_name(self, video_step: VideoStep):
         assert video_step.step_name == StepName.VIDEO
 
-    async def test_execute_raises_on_missing_audio(self, video_step: VideoStep):
+    async def test_execute_raises_on_missing_audio(self, video_step: VideoStep, session: AsyncSession):
         """execute() should raise ValueError when audio_path is missing."""
         with pytest.raises(ValueError, match="No audio_path"):
-            await video_step.execute(1, {})
+            await video_step.execute(1, {}, session)
 
         with pytest.raises(ValueError, match="No audio_path"):
-            await video_step.execute(1, {"audio_path": ""})
+            await video_step.execute(1, {"audio_path": ""}, session)
 
-    @patch("app.pipeline.video.async_session")
     @patch("app.pipeline.video.settings")
     @patch("app.pipeline.video.asyncio.create_subprocess_exec")
     async def test_execute_calls_ffmpeg(
         self,
         mock_subprocess,
         mock_settings,
-        mock_session_factory,
         video_step: VideoStep,
         session: AsyncSession,
         tmp_path,
@@ -46,8 +45,6 @@ class TestVideoStep:
         episode_id = episode.id
 
         # Create a script step with output_data
-        from sqlalchemy import select
-
         result = await session.execute(
             select(PipelineStep).where(
                 PipelineStep.episode_id == episode_id,
@@ -67,11 +64,6 @@ class TestVideoStep:
 
         mock_settings.media_dir = str(tmp_path)
 
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
-
         # Mock ffprobe (first call) and ffmpeg (second call)
         ffprobe_proc = AsyncMock()
         ffprobe_proc.returncode = 0
@@ -89,7 +81,7 @@ class TestVideoStep:
         input_data = {"audio_path": f"{episode_id}/audio.wav"}
 
         # Execute
-        result = await video_step.execute(episode_id, input_data)
+        result = await video_step.execute(episode_id, input_data, session)
 
         # Verify
         assert result["video_path"] == f"{episode_id}/video.mp4"

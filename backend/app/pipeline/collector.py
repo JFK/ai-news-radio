@@ -3,9 +3,9 @@
 import logging
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.database import async_session
 from app.models import NewsItem, StepName
 from app.pipeline.base import BaseStep
 
@@ -19,7 +19,7 @@ class CollectorStep(BaseStep):
     def step_name(self) -> StepName:
         return StepName.COLLECTION
 
-    async def execute(self, episode_id: int, input_data: dict, **kwargs) -> dict:
+    async def execute(self, episode_id: int, input_data: dict, session: AsyncSession, **kwargs) -> dict:
         """Collect news articles using Brave Search API.
 
         kwargs:
@@ -38,27 +38,26 @@ class CollectorStep(BaseStep):
         articles_saved = 0
         articles_list: list[dict] = []
 
-        async with async_session() as session:
-            result = await session.execute(select(NewsItem.source_url).where(NewsItem.episode_id == episode_id))
-            existing_urls = {row[0] for row in result.all()}
+        result = await session.execute(select(NewsItem.source_url).where(NewsItem.episode_id == episode_id))
+        existing_urls = {row[0] for row in result.all()}
 
-            for article in articles:
-                if article["url"] in existing_urls:
-                    continue
+        for article in articles:
+            if article["url"] in existing_urls:
+                continue
 
-                news_item = NewsItem(
-                    episode_id=episode_id,
-                    title=article["title"],
-                    summary=article.get("summary"),
-                    source_url=article["url"],
-                    source_name=article["source_name"],
-                )
-                session.add(news_item)
-                existing_urls.add(article["url"])
-                articles_saved += 1
-                articles_list.append(article)
+            news_item = NewsItem(
+                episode_id=episode_id,
+                title=article["title"],
+                summary=article.get("summary"),
+                source_url=article["url"],
+                source_name=article["source_name"],
+            )
+            session.add(news_item)
+            existing_urls.add(article["url"])
+            articles_saved += 1
+            articles_list.append(article)
 
-            await session.commit()
+        await session.commit()
 
         logger.info(
             "Episode %d [%s]: found %d articles, saved %d new",
@@ -102,4 +101,3 @@ class CollectorStep(BaseStep):
                 )
 
         return all_articles
-

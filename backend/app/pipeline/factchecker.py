@@ -4,7 +4,6 @@ import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import async_session
 from app.models import NewsItem, StepName
 from app.pipeline.base import BaseStep
 from app.pipeline.utils import parse_json_response
@@ -45,7 +44,7 @@ class FactcheckerStep(BaseStep):
     def step_name(self) -> StepName:
         return StepName.FACTCHECK
 
-    async def execute(self, episode_id: int, input_data: dict, **kwargs) -> dict:
+    async def execute(self, episode_id: int, input_data: dict, session: AsyncSession, **kwargs) -> dict:
         """Fact-check each NewsItem for the episode.
 
         One AI call per article for quality, cost management, and error isolation.
@@ -56,16 +55,15 @@ class FactcheckerStep(BaseStep):
         total_input_tokens = 0
         total_output_tokens = 0
 
-        async with async_session() as session:
-            items = await self._get_news_items(episode_id, session)
+        items = await self._get_news_items(episode_id, session)
 
-            for item in items:
-                result = await self._check_item(item, provider, model, session, episode_id)
-                results.append(result)
-                total_input_tokens += result["input_tokens"]
-                total_output_tokens += result["output_tokens"]
+        for item in items:
+            result = await self._check_item(item, provider, model, session, episode_id)
+            results.append(result)
+            total_input_tokens += result["input_tokens"]
+            total_output_tokens += result["output_tokens"]
 
-            await session.commit()
+        await session.commit()
 
         avg_score = sum(r["score"] for r in results) / len(results) if results else 0
 
