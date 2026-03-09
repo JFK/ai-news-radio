@@ -71,11 +71,20 @@ SCRIPT_EPISODE_SYSTEM_PROMPT = """\
   - 例: 「健軍（けんぐん）」「菊陽町（きくようまち）」
 - 一般的な漢字は補記不要。2回目以降も補記しない
 
+## 画像プロンプト生成
+番組の内容に合ったビジュアルを生成するため、以下の2つの英語プロンプトも生成してください:
+- thumbnail_prompt: YouTube サムネイル向け。番組の主要テーマを象徴するシンプルで目を引く構図
+- background_prompt: 動画の背景画像向け。暗めでテキストオーバーレイに適した落ち着いたトーン
+
+どちらも「写真的・イラスト的なビジュアルのみ」で、テキスト・文字・ロゴは絶対に含めないでください。
+
 以下のJSON形式で回答してください。JSON以外のテキストは含めないでください:
 {
   "opening": "オープニングの台本テキスト",
   "transitions": ["ニュース1→2のつなぎ", "ニュース2→3のつなぎ"],
-  "ending": "エンディングの台本テキスト"
+  "ending": "エンディングの台本テキスト",
+  "thumbnail_prompt": "English prompt for thumbnail image, no text/letters/words",
+  "background_prompt": "English prompt for dark background image, no text/letters/words"
 }"""
 
 

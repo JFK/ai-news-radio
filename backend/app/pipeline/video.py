@@ -41,8 +41,9 @@ class VideoStep(BaseStep):
         if not os.path.exists(audio_full_path):
             raise ValueError(f"Audio file not found: {audio_full_path}")
 
-        # Get script text from the script pipeline step
-        script_text = await self._get_script_text(episode_id, session)
+        # Get script step output (text + image prompts)
+        script_output = await self._get_script_step_output(episode_id, session)
+        script_text = script_output.get("episode_script", "")
 
         # Get audio duration
         duration_seconds = await self._get_duration(audio_full_path)
@@ -54,23 +55,24 @@ class VideoStep(BaseStep):
         bg_image_path = os.path.join(episode_dir, "background.png")
         thumbnail_path = os.path.join(episode_dir, "thumbnail.png")
 
-        # Get episode title for image prompts
+        # Get episode title as fallback prompt
         ep_result = await session.execute(select(Episode).where(Episode.id == episode_id))
         episode = ep_result.scalar_one()
 
-        # Generate visual assets
+        # Use AI-generated prompts from scriptwriter, fallback to episode title
         visual_provider = get_visual_provider()
-        prompt = episode.title
+        bg_prompt = script_output.get("background_prompt") or episode.title
+        thumb_prompt = script_output.get("thumbnail_prompt") or episode.title
 
         try:
-            await visual_provider.generate_background_image(prompt, bg_image_path)
+            await visual_provider.generate_background_image(bg_prompt, bg_image_path)
         except Exception as e:
             logger.warning("Background image generation failed, using static fallback: %s", e)
             from app.services.visual_static import StaticVisualProvider
-            await StaticVisualProvider().generate_background_image(prompt, bg_image_path)
+            await StaticVisualProvider().generate_background_image(bg_prompt, bg_image_path)
 
         try:
-            await visual_provider.generate_thumbnail(prompt, thumbnail_path)
+            await visual_provider.generate_thumbnail(thumb_prompt, thumbnail_path)
             thumbnail_relative = f"{episode_id}/thumbnail.png"
         except Exception as e:
             logger.warning("Thumbnail generation failed: %s", e)
@@ -102,8 +104,8 @@ class VideoStep(BaseStep):
 
         return result
 
-    async def _get_script_text(self, episode_id: int, session: AsyncSession) -> str:
-        """Get the episode script text from the script pipeline step."""
+    async def _get_script_step_output(self, episode_id: int, session: AsyncSession) -> dict:
+        """Get the script pipeline step's output_data."""
         result = await session.execute(
             select(PipelineStep).where(
                 PipelineStep.episode_id == episode_id,
@@ -111,9 +113,7 @@ class VideoStep(BaseStep):
             )
         )
         step = result.scalar_one()
-        if step.output_data and "episode_script" in step.output_data:
-            return step.output_data["episode_script"]
-        return ""
+        return step.output_data or {}
 
     async def _get_duration(self, audio_path: str) -> float:
         """Get audio duration using ffprobe."""

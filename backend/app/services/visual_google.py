@@ -20,7 +20,7 @@ class GoogleVisualProvider(VisualProvider):
     async def generate_thumbnail(self, prompt: str, output_path: str) -> str:
         """Generate a thumbnail image (16:9) using Imagen 4."""
         return await self._generate_image(
-            prompt=f"News thumbnail image about: {prompt}. Clean, professional, photorealistic style. No text, no letters, no words, no watermarks. Visual imagery only.",
+            prompt=f"{prompt}. No text, no letters, no words, no watermarks.",
             output_path=output_path,
             aspect_ratio="16:9",
         )
@@ -28,7 +28,7 @@ class GoogleVisualProvider(VisualProvider):
     async def generate_background_image(self, prompt: str, output_path: str) -> str:
         """Generate a background image (16:9) using Imagen 4."""
         return await self._generate_image(
-            prompt=f"Dark, subtle background image for news video about: {prompt}. Muted colors, low contrast, suitable for text overlay. No text, no letters, no words. Visual imagery only.",
+            prompt=f"{prompt}. No text, no letters, no words, no watermarks.",
             output_path=output_path,
             aspect_ratio="16:9",
         )
