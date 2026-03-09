@@ -2,7 +2,7 @@
 
 ## プロジェクト概要
 
-ニュースを自動収集し、AIでファクトチェック・クリティカル分析・台本生成・音声生成・動画化・YouTube投稿まで一気通貫で行うWebアプリケーション。
+ニュースを自動収集し、AIでファクトチェック・クリティカル分析・台本生成・音声生成・動画化まで一気通貫で行うWebアプリケーション。生成したメディアはWebUIから再生・ダウンロード可能。
 初期対象は熊本のローカルニュースだが、ニュースソースを差し替えることで他地域にも展開可能な汎用設計。
 
 各フェーズにヒューマンチェックポイント（承認ゲート）を設け、ダッシュボードから確認・承認・差し戻しを行う。
@@ -54,10 +54,10 @@ git@github.com:JFK/ai-news-radio.git
 
 ## アーキテクチャ
 
-### パイプライン（7ステップ）
+### パイプライン（6ステップ）
 
 ```
-[1.収集] → ✅ → [2.ファクトチェック] → ✅ → [3.分析] → ✅ → [4.台本生成] → ✅ → [5.音声生成] → ✅ → [6.動画化] → ✅ → [7.YouTube投稿]
+[1.収集] → ✅ → [2.ファクトチェック] → ✅ → [3.分析] → ✅ → [4.台本生成] → ✅ → [5.音声生成] → ✅ → [6.動画化]
 ```
 
 各ステップの状態: `pending` → `running` → `needs_approval` → `approved` / `rejected` → (次ステップへ or 差し戻し)
@@ -72,7 +72,6 @@ git@github.com:JFK/ai-news-radio.git
 | 4 | 台本生成 (script) | ✅ | クリティカルシンキング＋わかりやすさを統合した台本 |
 | 5 | 音声生成 (voice) | - | VOICEVOX で台本→音声合成 |
 | 6 | 動画化 (video) | - | FFmpeg で音声＋背景→MP4 |
-| 7 | YouTube投稿 (publish) | - | YouTube Data API で限定公開→承認後に公開 |
 
 ### 技術スタック
 
@@ -85,7 +84,6 @@ git@github.com:JFK/ai-news-radio.git
   - ステップごとにモデル変更可能
 - **音声**: VOICEVOX (ローカルDockerコンテナ、CPU版)
 - **動画**: FFmpeg
-- **投稿**: YouTube Data API v3
 - **インフラ**: Docker Compose (Ubuntu 22.04+ 推奨)
 
 ### AI プロバイダー抽象化
@@ -156,8 +154,7 @@ ai-news-radio/
 │   │   │   ├── analyzer.py      # Step 3: クリティカル分析
 │   │   │   ├── scriptwriter.py  # Step 4: 台本生成
 │   │   │   ├── voice.py         # Step 5: 音声生成
-│   │   │   ├── video.py         # Step 6: 動画化
-│   │   │   └── publisher.py     # Step 7: YouTube投稿
+│   │   │   └── video.py         # Step 6: 動画化
 │   │   ├── services/
 │   │   │   ├── ai_provider.py   # プロバイダー抽象基底クラス
 │   │   │   ├── providers/
@@ -165,7 +162,6 @@ ai-news-radio/
 │   │   │   │   ├── openai.py    # OpenAI API
 │   │   │   │   └── google.py    # Gemini API
 │   │   │   ├── voicevox.py      # VOICEVOX API wrapper
-│   │   │   ├── youtube.py       # YouTube API wrapper
 │   │   │   └── brave_search.py  # Brave Search API
 │   │   └── tasks.py             # Celery tasks
 │   └── tests/
@@ -176,7 +172,7 @@ ai-news-radio/
 │   │   ├── App.tsx
 │   │   ├── components/
 │   │   │   ├── Dashboard.tsx     # メインダッシュボード
-│   │   │   ├── PipelineView.tsx  # パイプライン可視化（7ステップ）
+│   │   │   ├── PipelineView.tsx  # パイプライン可視化（6ステップ）
 │   │   │   ├── ApprovalGate.tsx  # 承認/却下UI
 │   │   │   ├── NewsItemList.tsx  # ニュース一覧
 │   │   │   ├── EpisodeDetail.tsx # エピソード詳細
@@ -204,7 +200,7 @@ ai-news-radio/
 
 ### PipelineStep（パイプラインステップ）
 - id, episode_id, step_name, status
-- step_name の値: `collection`, `factcheck`, `analysis`, `script`, `voice`, `video`, `publish`
+- step_name の値: `collection`, `factcheck`, `analysis`, `script`, `voice`, `video`
 - input_data (JSON), output_data (JSON)
 - approved_at, rejected_at, rejection_reason
 - created_at, started_at, completed_at
