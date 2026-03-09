@@ -191,12 +191,15 @@ export default function EpisodeDetail() {
             )}
           </dl>
 
-          {activeStep.output_data && activeStep.status !== "needs_approval" && (
+          {activeStep.output_data && (activeStep.status !== "needs_approval" || activeStep.step_name === "script") && (
             <div className="mb-3">
               <StepDataRenderer
                 stepName={activeStep.step_name}
                 outputData={activeStep.output_data}
                 newsItems={newsItems}
+                episodeId={episodeId}
+                editable={activeStep.step_name === "script" && (activeStep.status === "needs_approval" || activeStep.status === "approved")}
+                onUpdated={refetch}
               />
               <details className="mt-2">
                 <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600">

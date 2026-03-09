@@ -41,6 +41,18 @@ class RejectRequest(BaseModel):
     reason: str
 
 
+class ScriptEditRequest(BaseModel):
+    """Request body for editing a script."""
+
+    script_text: str
+
+
+class EpisodeScriptEditRequest(BaseModel):
+    """Request body for editing the full episode script."""
+
+    episode_script: str
+
+
 class PronunciationCreate(BaseModel):
     """Request body for creating a pronunciation entry."""
 

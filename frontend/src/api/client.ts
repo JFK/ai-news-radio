@@ -33,6 +33,10 @@ export const api = {
     client.post<PipelineStep>(`/steps/${stepId}/approve`),
   rejectStep: (stepId: number, reason: string) =>
     client.post<PipelineStep>(`/steps/${stepId}/reject`, { reason }),
+  editItemScript: (episodeId: number, newsItemId: number, scriptText: string) =>
+    client.patch(`/episodes/${episodeId}/news-items/${newsItemId}/script`, { script_text: scriptText }),
+  editEpisodeScript: (episodeId: number, episodeScript: string) =>
+    client.patch(`/episodes/${episodeId}/steps/script/output`, { episode_script: episodeScript }),
   getCostStats: (from?: string, to?: string) => {
     const params = new URLSearchParams();
     if (from) params.set("from", from);

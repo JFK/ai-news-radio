@@ -140,7 +140,11 @@
     },
     "script": {
       "fullScript": "エピソード全体台本",
-      "perArticle": "記事別台本"
+      "perArticle": "記事別台本",
+      "edit": "編集",
+      "save": "保存",
+      "saving": "保存中...",
+      "cancel": "キャンセル"
     }
   },
   "settings": {

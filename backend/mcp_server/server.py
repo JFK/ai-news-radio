@@ -57,6 +57,10 @@ async def _dispatch(name: str, args: dict) -> str:
             return await _reject_step(args)
         case "get_step_detail":
             return await _get_step_detail(args)
+        case "edit_item_script":
+            return await _edit_item_script(args)
+        case "edit_episode_script":
+            return await _edit_episode_script(args)
         case "add_reading":
             return await _add_reading(args)
         case "list_readings":
@@ -224,6 +228,19 @@ async def _get_step_detail(args: dict) -> str:
         lines.extend(["", f"Rejection Reason: {step['rejection_reason']}"])
 
     return "\n".join(lines)
+
+
+async def _edit_item_script(args: dict) -> str:
+    result = await client.edit_item_script(args["episode_id"], args["news_item_id"], args["script_text"])
+    return (
+        f"Script updated for news item #{result['news_item_id']}.\n"
+        f"Length: {result['old_length']} → {result['new_length']} chars"
+    )
+
+
+async def _edit_episode_script(args: dict) -> str:
+    result = await client.edit_episode_script(args["episode_id"], args["episode_script"])
+    return f"Episode script updated.\nLength: {result['old_length']} → {result['new_length']} chars"
 
 
 async def _add_reading(args: dict) -> str:

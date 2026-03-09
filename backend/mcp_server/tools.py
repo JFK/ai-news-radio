@@ -164,6 +164,34 @@ def get_tool_definitions() -> list[Tool]:
             },
             annotations=ToolAnnotations(readOnlyHint=True),
         ),
+        # ---- Script Editing ----
+        Tool(
+            name="edit_item_script",
+            description="Edit the script text for a single news item. Script step must be needs_approval or approved. If voice step was approved, it will be reset to pending.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "episode_id": {"type": "integer", "description": "Episode ID"},
+                    "news_item_id": {"type": "integer", "description": "News item ID"},
+                    "script_text": {"type": "string", "description": "New script text"},
+                },
+                "required": ["episode_id", "news_item_id", "script_text"],
+            },
+            annotations=ToolAnnotations(destructiveHint=False, readOnlyHint=False),
+        ),
+        Tool(
+            name="edit_episode_script",
+            description="Edit the full episode script (opening + all news + transitions + ending). Script step must be needs_approval or approved. If voice step was approved, it will be reset to pending.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "episode_id": {"type": "integer", "description": "Episode ID"},
+                    "episode_script": {"type": "string", "description": "New full episode script text"},
+                },
+                "required": ["episode_id", "episode_script"],
+            },
+            annotations=ToolAnnotations(destructiveHint=False, readOnlyHint=False),
+        ),
         # ---- Pronunciation Dictionary ----
         Tool(
             name="add_reading",
