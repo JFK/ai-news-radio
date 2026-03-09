@@ -78,6 +78,7 @@ class BaseStep(ABC):
 
         except Exception:
             # Reset to PENDING on error
+            await session.rollback()
             step.status = StepStatus.PENDING
             step.started_at = None
             await session.commit()
