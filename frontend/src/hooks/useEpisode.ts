@@ -10,7 +10,9 @@ export function useEpisode(id: number) {
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetch = useCallback(async () => {
+  const hasRunningStep = episode?.pipeline_steps.some((s) => s.status === "running") ?? false;
+
+  const fetchData = useCallback(async () => {
     try {
       setError(null);
       const res = await api.getEpisode(id);
@@ -24,13 +26,15 @@ export function useEpisode(id: number) {
 
   useEffect(() => {
     setLoading(true);
-    fetch();
+    fetchData();
 
-    intervalRef.current = setInterval(fetch, 5000);
+    // Faster polling when a step is running (2s), slower otherwise (5s)
+    const interval = hasRunningStep ? 2000 : 5000;
+    intervalRef.current = setInterval(fetchData, interval);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [fetch]);
+  }, [fetchData, hasRunningStep]);
 
-  return { episode, loading, error, refetch: fetch };
+  return { episode, loading, error, refetch: fetchData };
 }
