@@ -25,6 +25,8 @@ class Episode(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    audio_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    video_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     news_items: Mapped[list["NewsItem"]] = relationship(back_populates="episode", cascade="all, delete-orphan")
     pipeline_steps: Mapped[list["PipelineStep"]] = relationship(back_populates="episode", cascade="all, delete-orphan")

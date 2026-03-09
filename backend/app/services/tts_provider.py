@@ -1,0 +1,44 @@
+"""TTS Provider abstraction layer.
+
+Provides a unified interface for multiple TTS providers (VOICEVOX, OpenAI).
+"""
+
+from abc import ABC, abstractmethod
+
+from app.config import settings
+
+
+class TTSProvider(ABC):
+    """Abstract base class for TTS providers."""
+
+    @abstractmethod
+    async def synthesize(self, text: str) -> bytes:
+        """Synthesize text to audio bytes (WAV or MP3)."""
+        ...
+
+    @abstractmethod
+    async def health_check(self) -> bool:
+        """Check if the TTS service is available."""
+        ...
+
+    @property
+    @abstractmethod
+    def audio_format(self) -> str:
+        """Return the audio format produced by this provider ("wav" or "mp3")."""
+        ...
+
+
+def get_tts_provider() -> TTSProvider:
+    """Factory function to get a TTS provider based on settings."""
+    provider_name = settings.pipeline_voice_provider
+
+    if provider_name == "voicevox":
+        from app.services.tts_voicevox import VoicevoxTTSProvider
+
+        return VoicevoxTTSProvider()
+    elif provider_name == "openai":
+        from app.services.tts_openai import OpenAITTSProvider
+
+        return OpenAITTSProvider()
+    else:
+        raise ValueError(f"Unknown TTS provider: {provider_name}")

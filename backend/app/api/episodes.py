@@ -50,6 +50,8 @@ class EpisodeResponse(BaseModel):
     status: str
     created_at: datetime
     published_at: datetime | None = None
+    audio_path: str | None = None
+    video_path: str | None = None
     pipeline_steps: list[StepResponse] = []
 
     model_config = {"from_attributes": True}
