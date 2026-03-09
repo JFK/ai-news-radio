@@ -43,6 +43,65 @@ class PipelineEngine:
         await session.refresh(episode)
         return episode
 
+    async def create_episode_from_articles(
+        self,
+        title: str,
+        articles: list[dict],
+        session: AsyncSession,
+    ) -> Episode:
+        """Create an episode from pre-supplied articles, skipping the collection step.
+
+        The collection step is auto-approved with the articles as output_data.
+        """
+        from app.models import NewsItem
+
+        episode = Episode(title=title, status=EpisodeStatus.IN_PROGRESS)
+        session.add(episode)
+        await session.flush()
+
+        # Create all 7 pipeline steps
+        steps = {}
+        for step_value in STEP_ORDER:
+            step = PipelineStep(
+                episode_id=episode.id,
+                step_name=StepName(step_value),
+                status=StepStatus.PENDING,
+            )
+            session.add(step)
+            steps[step_value] = step
+
+        await session.flush()
+
+        # Create NewsItems from articles
+        for article in articles:
+            item = NewsItem(
+                episode_id=episode.id,
+                title=article["title"],
+                summary=article.get("summary"),
+                source_url=article["source_url"],
+                source_name=article["source_name"],
+            )
+            session.add(item)
+
+        # Auto-approve collection step
+        collection_step = steps["collection"]
+        collection_step.status = StepStatus.APPROVED
+        collection_step.started_at = datetime.now(UTC)
+        collection_step.completed_at = datetime.now(UTC)
+        collection_step.approved_at = datetime.now(UTC)
+        collection_step.output_data = {
+            "source": "api",
+            "articles_count": len(articles),
+            "articles": [
+                {"title": a["title"], "source_name": a["source_name"], "source_url": a["source_url"]}
+                for a in articles
+            ],
+        }
+
+        await session.commit()
+        await session.refresh(episode)
+        return episode
+
     async def run_step(self, episode_id: int, step_name: StepName, session: AsyncSession) -> None:
         """Execute a specific pipeline step."""
         # Verify step is registered
