@@ -10,7 +10,7 @@ class ApiUsage(Base):
     __tablename__ = "api_usages"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"))
+    episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"), index=True)
     step_name: Mapped[str] = mapped_column(String(50))
     provider: Mapped[str] = mapped_column(String(50))
     model: Mapped[str] = mapped_column(String(100))

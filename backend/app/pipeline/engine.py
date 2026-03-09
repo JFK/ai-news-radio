@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Episode, EpisodeStatus, PipelineStep, StepName, StepStatus
+from app.models import Episode, EpisodeStatus, NewsItem, PipelineStep, StepName, StepStatus
 from app.pipeline.base import BaseStep
 from app.services.ai_provider import STEP_ORDER
 
@@ -25,12 +25,18 @@ class PipelineEngine:
         instance = step_class()
         self._step_registry[instance.step_name] = step_class
 
-    async def create_episode(self, title: str, session: AsyncSession) -> Episode:
-        """Create a new episode with all 7 pipeline steps in PENDING status."""
-        episode = Episode(title=title, status=EpisodeStatus.DRAFT)
+    async def _create_episode_with_steps(
+        self, title: str, status: EpisodeStatus, session: AsyncSession
+    ) -> tuple[Episode, dict[str, PipelineStep]]:
+        """Create an episode and all 7 pipeline steps.
+
+        Returns the episode and a dict mapping step_value -> PipelineStep.
+        """
+        episode = Episode(title=title, status=status)
         session.add(episode)
         await session.flush()
 
+        steps = {}
         for step_value in STEP_ORDER:
             step = PipelineStep(
                 episode_id=episode.id,
@@ -38,7 +44,14 @@ class PipelineEngine:
                 status=StepStatus.PENDING,
             )
             session.add(step)
+            steps[step_value] = step
 
+        await session.flush()
+        return episode, steps
+
+    async def create_episode(self, title: str, session: AsyncSession) -> Episode:
+        """Create a new episode with all 7 pipeline steps in PENDING status."""
+        episode, _ = await self._create_episode_with_steps(title, EpisodeStatus.DRAFT, session)
         await session.commit()
         await session.refresh(episode)
         return episode
@@ -53,24 +66,7 @@ class PipelineEngine:
 
         The collection step is auto-approved with the articles as output_data.
         """
-        from app.models import NewsItem
-
-        episode = Episode(title=title, status=EpisodeStatus.IN_PROGRESS)
-        session.add(episode)
-        await session.flush()
-
-        # Create all 7 pipeline steps
-        steps = {}
-        for step_value in STEP_ORDER:
-            step = PipelineStep(
-                episode_id=episode.id,
-                step_name=StepName(step_value),
-                status=StepStatus.PENDING,
-            )
-            session.add(step)
-            steps[step_value] = step
-
-        await session.flush()
+        episode, steps = await self._create_episode_with_steps(title, EpisodeStatus.IN_PROGRESS, session)
 
         # Create NewsItems from articles
         for article in articles:
