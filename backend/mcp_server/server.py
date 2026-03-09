@@ -43,6 +43,8 @@ async def _dispatch(name: str, args: dict) -> str:
             return await _create_episode(args)
         case "create_episode_from_articles":
             return await _create_episode_from_articles(args)
+        case "delete_episode":
+            return await _delete_episode(args)
         case "list_episodes":
             return await _list_episodes()
         case "get_episode_status":
@@ -79,6 +81,12 @@ async def _create_episode(args: dict) -> str:
 async def _create_episode_from_articles(args: dict) -> str:
     ep = await client.create_episode_from_articles(args["title"], args["articles"])
     return _format_episode(ep)
+
+
+async def _delete_episode(args: dict) -> str:
+    episode_id = args["episode_id"]
+    await client.delete_episode(episode_id)
+    return f"Episode #{episode_id} deleted successfully."
 
 
 async def _list_episodes() -> str:

@@ -64,6 +64,10 @@ class AINewsRadioClient:
         """GET /api/episodes/{episode_id}"""
         return await self._request("GET", f"/api/episodes/{episode_id}")
 
+    async def delete_episode(self, episode_id: int) -> None:
+        """DELETE /api/episodes/{episode_id}"""
+        await self._request("DELETE", f"/api/episodes/{episode_id}")
+
     async def get_news_items(self, episode_id: int) -> list[dict]:
         """GET /api/episodes/{episode_id}/news-items"""
         return await self._request("GET", f"/api/episodes/{episode_id}/news-items")

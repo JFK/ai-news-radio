@@ -44,7 +44,14 @@
     "started": "開始",
     "completed": "完了",
     "rejectionReason": "却下理由",
-    "elapsed": "経過"
+    "elapsed": "経過",
+    "media": "メディア",
+    "audio": "音声",
+    "video": "動画",
+    "download": "ダウンロード",
+    "delete": "削除",
+    "deleting": "削除中...",
+    "deleteConfirm": "このエピソードを削除しますか？関連するすべてのデータ（ニュース、ステップ、メディアファイル）が削除されます。"
   },
   "approval": {
     "title": "承認ゲート",

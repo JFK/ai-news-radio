@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useEpisode } from "../hooks/useEpisode";
@@ -8,6 +8,8 @@ import type { StepName, PipelineStep } from "../types";
 import PipelineView from "./PipelineView";
 import ApprovalGate from "./ApprovalGate";
 import StepDataRenderer from "./step-renderers/StepDataRenderer";
+
+const MEDIA_BASE_URL = "/media";
 
 function ElapsedTime({ startedAt }: { startedAt: string }) {
   const [elapsed, setElapsed] = useState("");
@@ -31,11 +33,13 @@ function ElapsedTime({ startedAt }: { startedAt: string }) {
 export default function EpisodeDetail() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const episodeId = Number(id);
   const { episode, loading, error, refetch } = useEpisode(episodeId);
   const { newsItems } = useNewsItems(episodeId);
   const [selectedStep, setSelectedStep] = useState<StepName | null>(null);
   const [runningStep, setRunningStep] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   if (loading) return <p className="text-gray-500">{t("episode.loading")}</p>;
   if (error) return <p className="text-red-600">{error}</p>;
@@ -56,12 +60,24 @@ export default function EpisodeDetail() {
     try {
       setRunningStep(true);
       await api.runStep(episodeId, selectedStep);
-      // Don't wait for completion — polling will pick up the status change
       refetch();
     } catch {
       refetch();
     } finally {
       setRunningStep(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(t("episode.deleteConfirm"))) return;
+    try {
+      setDeleting(true);
+      await api.deleteEpisode(episodeId);
+      navigate("/");
+    } catch {
+      refetch();
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -71,13 +87,54 @@ export default function EpisodeDetail() {
         &larr; {t("episode.backToDashboard")}
       </Link>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold text-gray-800">{episode.title}</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          {t("episode.id")}: #{episode.id} / {t("episode.status")}: {t(`episodeStatus.${episode.status}`)} / {t("episode.createdAt")}:{" "}
-          {new Date(episode.created_at).toLocaleDateString("ja-JP")}
-        </p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-800">{episode.title}</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {t("episode.id")}: #{episode.id} / {t("episode.status")}: {t(`episodeStatus.${episode.status}`)} / {t("episode.createdAt")}:{" "}
+            {new Date(episode.created_at).toLocaleDateString("ja-JP")}
+          </p>
+        </div>
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50 cursor-pointer"
+        >
+          {deleting ? t("episode.deleting") : t("episode.delete")}
+        </button>
       </div>
+
+      {(episode.audio_path || episode.video_path) && (
+        <div className="mb-6 bg-white rounded-lg shadow p-4 space-y-3">
+          <h3 className="text-sm font-medium text-gray-600">{t("episode.media")}</h3>
+          {episode.audio_path && (
+            <div>
+              <p className="text-xs text-gray-500 mb-1">{t("episode.audio")}</p>
+              <audio controls className="w-full" src={`${MEDIA_BASE_URL}/${episode.audio_path}`} />
+              <a
+                href={`${MEDIA_BASE_URL}/${episode.audio_path}`}
+                download
+                className="text-xs text-blue-600 hover:underline mt-1 inline-block"
+              >
+                {t("episode.download")}
+              </a>
+            </div>
+          )}
+          {episode.video_path && (
+            <div>
+              <p className="text-xs text-gray-500 mb-1">{t("episode.video")}</p>
+              <video controls className="w-full rounded" src={`${MEDIA_BASE_URL}/${episode.video_path}`} />
+              <a
+                href={`${MEDIA_BASE_URL}/${episode.video_path}`}
+                download
+                className="text-xs text-blue-600 hover:underline mt-1 inline-block"
+              >
+                {t("episode.download")}
+              </a>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mb-6">
         <h3 className="text-sm font-medium text-gray-600 mb-2">{t("episode.pipeline")}</h3>

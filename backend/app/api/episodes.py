@@ -1,5 +1,8 @@
 """Episode CRUD API endpoints."""
 
+import os
+import shutil
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,8 +15,9 @@ from app.api.schemas import (
     EpisodeResponse,
     NewsItemResponse,
 )
+from app.config import settings
 from app.database import get_session
-from app.models import Episode, NewsItem
+from app.models import Episode, NewsItem, StepStatus
 from app.pipeline import engine
 
 router = APIRouter(tags=["episodes"])
@@ -68,6 +72,34 @@ async def get_episode(
         return await engine.get_episode_with_steps(episode_id, session)
     except Exception as e:
         raise HTTPException(status_code=404, detail="Episode not found") from e
+
+
+@router.delete("/episodes/{episode_id}", status_code=204)
+async def delete_episode(
+    episode_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Delete an episode and all related data (news items, steps, API usage, media files)."""
+    result = await session.execute(
+        select(Episode).where(Episode.id == episode_id).options(selectinload(Episode.pipeline_steps))
+    )
+    episode = result.scalar_one_or_none()
+    if not episode:
+        raise HTTPException(status_code=404, detail="Episode not found")
+
+    # Block deletion if any step is running
+    for step in episode.pipeline_steps:
+        if step.status == StepStatus.RUNNING:
+            raise HTTPException(status_code=409, detail=f"Cannot delete: step '{step.step_name.value}' is running")
+
+    # Delete media files
+    media_dir = os.path.join(settings.media_dir, str(episode_id))
+    if os.path.isdir(media_dir):
+        shutil.rmtree(media_dir)
+
+    # Cascade delete handles news_items, pipeline_steps, api_usages
+    await session.delete(episode)
+    await session.commit()
 
 
 @router.get(
