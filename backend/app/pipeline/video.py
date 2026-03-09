@@ -9,8 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models import Episode, PipelineStep, StepName
+from app.models import Episode, NewsItem, PipelineStep, StepName
 from app.pipeline.base import BaseStep
+from app.pipeline.utils import parse_json_response
+from app.services.ai_provider import get_step_provider
 from app.services.visual_provider import get_visual_provider
 
 logger = logging.getLogger(__name__)
@@ -93,14 +95,25 @@ class VideoStep(BaseStep):
                 cost_usd=0.04 * images_generated,  # Imagen 4 Fast: ~$0.04/image
             )
 
-        # Compose video
-        await self._generate_video(
+        # Run FFmpeg encoding and YouTube metadata generation in parallel
+        news_items = await self._get_news_items(episode_id, session)
+
+        video_task = self._generate_video(
             audio_path=audio_full_path,
             video_path=video_path,
             bg_image_path=bg_image_path,
             script_text=script_text,
             duration_seconds=duration_seconds,
         )
+        metadata_task = self._generate_youtube_metadata(
+            episode=episode,
+            news_items=news_items,
+            script_text=script_text,
+            duration_seconds=duration_seconds,
+            session=session,
+        )
+
+        _, youtube_metadata = await asyncio.gather(video_task, metadata_task)
 
         # Update episode record
         relative_path = f"{episode_id}/video.mp4"
@@ -116,8 +129,87 @@ class VideoStep(BaseStep):
         }
         if thumbnail_relative:
             result["thumbnail_path"] = thumbnail_relative
+        if youtube_metadata:
+            result["youtube_metadata"] = youtube_metadata
 
         return result
+
+    async def _generate_youtube_metadata(
+        self,
+        episode: Episode,
+        news_items: list[NewsItem],
+        script_text: str,
+        duration_seconds: float,
+        session: AsyncSession,
+    ) -> dict | None:
+        """Generate YouTube metadata (title, description, tags) using AI."""
+        try:
+            provider, model = get_step_provider("script")  # Reuse script step's AI config
+
+            news_summary = "\n".join(f"- {item.title}" for item in news_items)
+            duration_min = int(duration_seconds // 60)
+            duration_sec = int(duration_seconds % 60)
+
+            prompt = (
+                f"番組タイトル: {episode.title}\n"
+                f"ニュース一覧:\n{news_summary}\n"
+                f"動画の長さ: {duration_min}分{duration_sec}秒\n\n"
+                f"台本の冒頭300文字:\n{script_text[:300]}"
+            )
+
+            system = """\
+あなたはYouTubeのSEO・アルゴリズム最適化の専門家です。
+ニュースラジオ番組の動画に最適なメタデータを生成してください。
+
+## ルール
+
+### title（60文字以内）
+- 検索されやすいキーワードを自然に含める
+- クリックベイトにならない範囲で興味を引く
+- 【】で主要トピックを冒頭に
+
+### description（日本語、2000文字以内）
+- 冒頭3行で要点（折りたたみ前に表示される部分が重要）
+- ⏱ タイムスタンプ（0:00 オープニング、おおよそのセクション位置）
+- 📌 ニュース一覧
+- 関連キーワードを自然に含める
+- 末尾にクレジット: 🎙 音声: VOICEVOX / 📻 AI News Radio Japan
+
+### tags（配列、合計500文字以内）
+- ニュース関連キーワード
+- 地域名・トピック固有のタグ
+- 日本語と英語を混ぜる
+- 15-25個程度
+
+以下のJSON形式で回答してください。JSON以外のテキストは含めないでください:
+{
+  "title": "動画タイトル",
+  "description": "概要文",
+  "tags": ["タグ1", "タグ2", ...]
+}"""
+
+            response = await provider.generate(prompt=prompt, model=model, system=system)
+            data = parse_json_response(response.content)
+
+            await self.record_usage(
+                session=session,
+                episode_id=episode.id,
+                provider=response.provider,
+                model=response.model,
+                input_tokens=response.input_tokens,
+                output_tokens=response.output_tokens,
+            )
+
+            logger.info("Episode %d: YouTube metadata generated", episode.id)
+            return {
+                "title": data.get("title", ""),
+                "description": data.get("description", ""),
+                "tags": data.get("tags", []),
+            }
+
+        except Exception as e:
+            logger.warning("YouTube metadata generation failed: %s", e)
+            return None
 
     async def _get_script_step_output(self, episode_id: int, session: AsyncSession) -> dict:
         """Get the script pipeline step's output_data."""
