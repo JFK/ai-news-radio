@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     brave_search_api_key: str = ""
 
     # Collection
-    collection_method: str = "brave"  # "brave" or "scraper"
+    collection_method: str = "brave"
     collection_queries: str = "熊本 ニュース,熊本県 政治,熊本 経済"
 
     # Media

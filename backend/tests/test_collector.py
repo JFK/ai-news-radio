@@ -132,11 +132,11 @@ class TestCollectorStep:
 
     @patch("app.pipeline.collector.settings")
     @patch("app.pipeline.collector.async_session")
-    async def test_execute_scraper_method(
+    async def test_execute_unknown_method_raises(
         self, mock_session_factory, mock_settings, collector: CollectorStep, session: AsyncSession
     ):
-        """execute() with scraper method should use ScraperService."""
-        mock_settings.collection_method = "scraper"
+        """execute() with unknown method should raise ValueError."""
+        mock_settings.collection_method = "unknown"
 
         mock_ctx = AsyncMock()
         mock_ctx.__aenter__ = AsyncMock(return_value=session)
@@ -146,12 +146,5 @@ class TestCollectorStep:
         engine = PipelineEngine()
         episode = await engine.create_episode("Test", session)
 
-        with patch("app.services.scraper.ScraperService") as mock_service_cls:
-            mock_service = AsyncMock()
-            mock_service.collect_all.return_value = []
-            mock_service_cls.return_value = mock_service
-
-            result = await collector.execute(episode.id, {})
-
-        assert result["collection_method"] == "scraper"
-        mock_service.collect_all.assert_called_once()
+        with pytest.raises(ValueError, match="Unknown collection method"):
+            await collector.execute(episode.id, {})
