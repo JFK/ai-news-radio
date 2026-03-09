@@ -124,13 +124,18 @@ class ScriptwriterStep(BaseStep):
 
         logger.info("Episode %d: scripted %d items + episode composition", episode_id, len(items))
 
-        return {
+        result = {
             "items_scripted": len(item_scripts),
             "item_scripts": [{"news_item_id": s["news_item_id"], "title": s["title"]} for s in item_scripts],
             "episode_script": episode_script["full_script"],
             "total_input_tokens": total_input_tokens,
             "total_output_tokens": total_output_tokens,
         }
+        if episode_script.get("thumbnail_prompt"):
+            result["thumbnail_prompt"] = episode_script["thumbnail_prompt"]
+        if episode_script.get("background_prompt"):
+            result["background_prompt"] = episode_script["background_prompt"]
+        return result
 
     async def _script_item(
         self,
@@ -258,6 +263,8 @@ class ScriptwriterStep(BaseStep):
             "transitions": transitions,
             "ending": ending,
             "full_script": full_script,
+            "thumbnail_prompt": data.get("thumbnail_prompt", ""),
+            "background_prompt": data.get("background_prompt", ""),
             "input_tokens": response.input_tokens,
             "output_tokens": response.output_tokens,
         }
