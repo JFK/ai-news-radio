@@ -66,7 +66,7 @@ git@github.com:JFK/ai-news-radio.git
 
 | # | ステップ | AIモデル使用 | 主な処理 |
 |---|---------|-------------|---------|
-| 1 | 収集 (collection) | - | Webスクレイピング、重複排除、直近ニュース絞り込み |
+| 1 | 収集 (collection) | - | Brave Search API、重複排除、直近ニュース絞り込み |
 | 2 | ファクトチェック (factcheck) | ✅ (+ web検索) | 事実確認、ソース信頼性スコア、裏取りURL取得 |
 | 3 | 分析 (analysis) | ✅ | 背景・文脈分析、複数視点抽出、データ検証、影響評価 |
 | 4 | 台本生成 (script) | ✅ | クリティカルシンキング＋わかりやすさを統合した台本 |
@@ -166,7 +166,7 @@ ai-news-radio/
 │   │   │   │   └── google.py    # Gemini API
 │   │   │   ├── voicevox.py      # VOICEVOX API wrapper
 │   │   │   ├── youtube.py       # YouTube API wrapper
-│   │   │   └── scraper.py       # Webスクレイピング
+│   │   │   └── brave_search.py  # Brave Search API
 │   │   └── tasks.py             # Celery tasks
 │   └── tests/
 ├── frontend/
@@ -224,15 +224,9 @@ ai-news-radio/
 6. **プロバイダー非依存**: AIプロバイダーを差し替え可能な抽象化レイヤー
 7. **コンテンツ方針の遵守**: クリティカルシンキングとわかりやすさを台本に構造的に組み込む
 
-## ニュースソース（初期対応）
+## ニュース収集
 
-- 熊本日日新聞 (kumanichi.com)
-- NHK熊本 (nhk.or.jp/kumamoto)
-- 熊本県公式サイト (pref.kumamoto.jp)
-- RKK熊本放送 (rkk.jp)
-- KAB熊本朝日放送 (kab.co.jp)
-
-※ robots.txtを尊重し、スクレイピング頻度を適切に制限すること
+Brave Search API を使用。検索クエリは環境変数 `COLLECTION_QUERIES` で設定可能。
 
 ## VOICEVOX 設定
 
