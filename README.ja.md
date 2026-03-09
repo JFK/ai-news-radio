@@ -1,0 +1,97 @@
+[English version is here](README.md)
+
+# AI News Radio
+
+ニュースを自動収集し、AIでファクトチェック・クリティカル分析・台本生成・音声生成・動画化・YouTube投稿まで一気通貫で行うWebアプリケーション。
+
+**「ニュースを読むだけじゃない。一緒に考えるラジオ。」**
+
+ニュースを鵜呑みにせず、背景・文脈・複数の視点を届ける。専門知識がなくても「なるほど、そういうことか」と腑に落ちる解説を目指します。
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12+-3776AB.svg)](https://python.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6.svg)](https://typescriptlang.org)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://docs.docker.com/compose/)
+
+## 特徴
+
+- **7ステップパイプライン** — 収集 → ファクトチェック → 分析 → 台本 → 音声 → 動画 → 投稿
+- **承認ゲート** — 各ステップにヒューマンチェックポイント。自動で進まない安心設計
+- **マルチAIプロバイダー** — Anthropic Claude / OpenAI GPT / Google Gemini を切り替え可能
+- **マルチTTSプロバイダー** — VOICEVOX / OpenAI TTS / ElevenLabs / Google Cloud TTS
+- **Brave Search 連携** — ニュース収集・ファクトチェック用のWeb検索
+- **コスト追跡** — AIプロバイダーのトークン使用量とコストをダッシュボードで可視化
+- **MCP 連携** — Claude Code 等のAIアシスタントから全操作を実行可能
+- **i18n** — 日英対応のフロントエンド
+
+## アーキテクチャ
+
+```
+[1.収集] → ✅ → [2.ファクトチェック] → ✅ → [3.分析] → ✅ → [4.台本] → ✅ → [5.音声] → ✅ → [6.動画] → ✅ → [7.投稿]
+```
+
+各 `✅` はヒューマン承認ゲート。人間が確認・承認するまで次のステップに進みません。
+
+## クイックスタート
+
+```bash
+# 1. クローン
+git clone https://github.com/JFK/ai-news-radio.git
+cd ai-news-radio
+
+# 2. セットアップスクリプトを実行（対話式）
+chmod +x setup.sh
+./setup.sh
+```
+
+セットアップスクリプトが以下を行います：
+- 前提条件のチェック（Docker, docker compose, Git）
+- AIプロバイダー選択・APIキー入力
+- `.env` ファイル生成
+- Docker サービス起動
+- DBマイグレーション実行
+- ヘルスチェック
+
+手動セットアップは [docs/setup.md](docs/setup.md) を参照してください。
+
+## 技術スタック
+
+| レイヤー | 技術 |
+|---------|------|
+| Backend | Python 3.12 + FastAPI |
+| Frontend | React 19 (Vite) + TypeScript + Tailwind CSS |
+| Database | PostgreSQL 16 + SQLAlchemy (async) + Alembic |
+| Queue | Celery + Redis |
+| AI | Anthropic Claude / OpenAI / Google Gemini |
+| TTS | VOICEVOX / OpenAI / ElevenLabs / Google Cloud |
+| Video | FFmpeg |
+| Search | Brave Search API |
+| Infra | Docker Compose |
+
+## MCP 連携
+
+AI News Radio は MCP (Model Context Protocol) サーバーを内蔵しており、Claude Code 等のAIアシスタントから直接操作できます。
+
+詳しくは [docs/mcp.md](docs/mcp.md) を参照してください。
+
+## ドキュメント
+
+| ドキュメント | 内容 |
+|-------------|------|
+| [docs/setup.md](docs/setup.md) | セットアップ詳細ガイド |
+| [docs/architecture.md](docs/architecture.md) | アーキテクチャ解説 |
+| [docs/mcp.md](docs/mcp.md) | MCP 連携ガイド |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | コントリビューションガイド |
+
+## コントリビューション
+
+コントリビューションを歓迎します！[CONTRIBUTING.md](CONTRIBUTING.md) をご確認ください。
+
+## ライセンス
+
+[Apache License 2.0](LICENSE)
+
+## クレジット
+
+- 音声合成: [VOICEVOX](https://voicevox.hiroshiba.jp/)
+- ニュース検索: [Brave Search API](https://brave.com/search/api/)
