@@ -60,10 +60,16 @@ class TestVoiceStep:
         mock_provider.synthesize = AsyncMock(return_value=wav_bytes)
         mock_get_provider.return_value = mock_provider
 
-        input_data = {"episode_script": "テストの台本です。音声を生成します。"}
+        input_data = {"episode_script": "健軍（けんぐん）駐屯地でテストの台本です。音声を生成します。"}
 
         # Execute
         result = await voice_step.execute(episode_id, input_data, session)
+
+        # Verify reading hints were expanded for TTS
+        synth_call = mock_provider.synthesize
+        tts_text = synth_call.call_args[0][0]
+        assert "けんぐん駐屯地" in tts_text
+        assert "健軍（けんぐん）" not in tts_text
 
         # Verify output
         assert "audio_path" in result

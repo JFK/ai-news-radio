@@ -1,7 +1,20 @@
 """Common TTS utility functions shared across providers."""
 
 import io
+import re
 import wave
+
+
+def expand_reading_hints(text: str) -> str:
+    """Expand reading hints for TTS: 「漢字（かな）」→「かな」.
+
+    The script includes reading hints like 健軍（けんぐん） for the web UI.
+    For TTS, we replace the kanji with the kana reading so it's pronounced correctly.
+    Only matches when the content inside parentheses is all hiragana/katakana.
+    """
+    # Match a non-hiragana word immediately before full-width parens with kana reading.
+    # [^ぁ-ゖー\s（）]+ matches kanji, katakana, Latin, digits — but not hiragana or spaces.
+    return re.sub(r"[^ぁ-ゖー\s（）]+（([ぁ-ゖァ-ヶー]+)）", r"\1", text)
 
 
 def split_sentences(text: str) -> list[str]:
