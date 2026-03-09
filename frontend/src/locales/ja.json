@@ -43,7 +43,8 @@
     "running": "実行中...",
     "started": "開始",
     "completed": "完了",
-    "rejectionReason": "却下理由"
+    "rejectionReason": "却下理由",
+    "elapsed": "経過"
   },
   "approval": {
     "title": "承認ゲート",

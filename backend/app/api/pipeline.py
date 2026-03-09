@@ -1,5 +1,7 @@
 """Pipeline step management API endpoints."""
 
+import asyncio
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,9 +9,12 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import async_session as get_background_session
 from app.database import get_session
-from app.models import PipelineStep, StepName
+from app.models import PipelineStep, StepName, StepStatus
 from app.pipeline import engine
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["pipeline"])
 
@@ -63,6 +68,16 @@ async def list_steps(
     return list(result.scalars().all())
 
 
+async def _run_step_background(episode_id: int, step_name: StepName, **kwargs) -> None:
+    """Execute a pipeline step in the background."""
+    try:
+        async with get_background_session() as session:
+            await engine.run_step(episode_id, step_name, session, **kwargs)
+        logger.info("Step %s for episode %d completed", step_name.value, episode_id)
+    except Exception:
+        logger.exception("Step %s for episode %d failed", step_name.value, episode_id)
+
+
 @router.post("/episodes/{episode_id}/steps/{step_name}/run", response_model=StepResponse)
 async def run_step(
     episode_id: int,
@@ -70,31 +85,42 @@ async def run_step(
     body: RunStepRequest | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> PipelineStep:
-    """Execute a pipeline step.
+    """Execute a pipeline step in the background.
 
-    For the collection step, optional `queries` can override the default search queries.
+    Returns immediately with status 'running'. Poll the step to check completion.
     """
     try:
         step_enum = StepName(step_name)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid step name: {step_name}") from e
 
+    # Validate before starting background task
     try:
-        kwargs = {}
-        if body and body.queries and step_enum == StepName.COLLECTION:
-            kwargs["queries"] = body.queries
-        await engine.run_step(episode_id, step_enum, session, **kwargs)
+        await engine.validate_step_runnable(episode_id, step_enum, session)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    # Return the updated step
+    # Mark as running immediately
     result = await session.execute(
         select(PipelineStep).where(
             PipelineStep.episode_id == episode_id,
             PipelineStep.step_name == step_enum,
         )
     )
-    return result.scalar_one()
+    step = result.scalar_one()
+
+    if step.status == StepStatus.RUNNING:
+        raise HTTPException(status_code=409, detail="Step is already running")
+
+    # Launch background execution
+    kwargs = {}
+    if body and body.queries and step_enum == StepName.COLLECTION:
+        kwargs["queries"] = body.queries
+    asyncio.create_task(_run_step_background(episode_id, step_enum, **kwargs))
+
+    # Return current step (will show RUNNING after base.run() sets it)
+    await session.refresh(step)
+    return step
 
 
 @router.post("/steps/{step_id}/approve", response_model=StepResponse)

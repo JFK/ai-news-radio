@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
@@ -8,6 +8,25 @@ import type { StepName, PipelineStep } from "../types";
 import PipelineView from "./PipelineView";
 import ApprovalGate from "./ApprovalGate";
 import StepDataRenderer from "./step-renderers/StepDataRenderer";
+
+function ElapsedTime({ startedAt }: { startedAt: string }) {
+  const [elapsed, setElapsed] = useState("");
+
+  useEffect(() => {
+    const update = () => {
+      const start = new Date(startedAt).getTime();
+      const diff = Math.floor((Date.now() - start) / 1000);
+      const min = Math.floor(diff / 60);
+      const sec = diff % 60;
+      setElapsed(min > 0 ? `${min}m ${sec}s` : `${sec}s`);
+    };
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [startedAt]);
+
+  return <span className="font-mono">{elapsed}</span>;
+}
 
 export default function EpisodeDetail() {
   const { t } = useTranslation();
@@ -37,6 +56,7 @@ export default function EpisodeDetail() {
     try {
       setRunningStep(true);
       await api.runStep(episodeId, selectedStep);
+      // Don't wait for completion — polling will pick up the status change
       refetch();
     } catch {
       refetch();
@@ -74,15 +94,23 @@ export default function EpisodeDetail() {
             <h3 className="text-base font-semibold text-gray-800">
               {t(`steps.${activeStep.step_name}`)}
             </h3>
-            {canRunStep(activeStep) && (
-              <button
-                onClick={handleRunStep}
-                disabled={runningStep}
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
-              >
-                {runningStep ? t("episode.running") : t("episode.runStep")}
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {activeStep.status === "running" && activeStep.started_at && (
+                <span className="text-sm text-blue-600 flex items-center gap-1.5">
+                  <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                  {t("episode.elapsed")}: <ElapsedTime startedAt={activeStep.started_at} />
+                </span>
+              )}
+              {canRunStep(activeStep) && (
+                <button
+                  onClick={handleRunStep}
+                  disabled={runningStep}
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
+                >
+                  {runningStep ? t("episode.running") : t("episode.runStep")}
+                </button>
+              )}
+            </div>
           </div>
 
           <dl className="grid grid-cols-2 gap-2 text-sm mb-3">

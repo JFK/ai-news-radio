@@ -43,7 +43,8 @@
     "running": "Running...",
     "started": "Started",
     "completed": "Completed",
-    "rejectionReason": "Rejection Reason"
+    "rejectionReason": "Rejection Reason",
+    "elapsed": "Elapsed"
   },
   "approval": {
     "title": "Approval Gate",

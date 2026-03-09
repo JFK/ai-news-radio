@@ -102,17 +102,11 @@ class PipelineEngine:
         await session.refresh(episode)
         return episode
 
-    async def run_step(self, episode_id: int, step_name: StepName, session: AsyncSession, **kwargs) -> None:
-        """Execute a specific pipeline step.
-
-        kwargs are passed through to the step's run() method (e.g., queries for collection).
-        """
-        # Verify step is registered
-        step_class = self._step_registry.get(step_name)
-        if step_class is None:
+    async def validate_step_runnable(self, episode_id: int, step_name: StepName, session: AsyncSession) -> None:
+        """Validate that a step can be run. Raises ValueError if not."""
+        if step_name not in self._step_registry:
             raise ValueError(f"No implementation registered for step: {step_name.value}")
 
-        # Verify previous step is approved (except for first step)
         step_index = STEP_ORDER.index(step_name.value)
         if step_index > 0:
             prev_step_name = StepName(STEP_ORDER[step_index - 1])
@@ -128,6 +122,13 @@ class PipelineEngine:
                     f"Previous step '{prev_step_name.value}' must be approved before running '{step_name.value}'"
                 )
 
+    async def run_step(self, episode_id: int, step_name: StepName, session: AsyncSession, **kwargs) -> None:
+        """Execute a specific pipeline step.
+
+        kwargs are passed through to the step's run() method (e.g., queries for collection).
+        """
+        await self.validate_step_runnable(episode_id, step_name, session)
+
         # Update episode status
         result = await session.execute(select(Episode).where(Episode.id == episode_id))
         episode = result.scalar_one()
@@ -136,6 +137,7 @@ class PipelineEngine:
             await session.commit()
 
         # Run the step
+        step_class = self._step_registry[step_name]
         step_instance = step_class()
         await step_instance.run(episode_id, session, **kwargs)
 
