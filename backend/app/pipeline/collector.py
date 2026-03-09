@@ -20,11 +20,7 @@ class CollectorStep(BaseStep):
         return StepName.COLLECTION
 
     async def execute(self, episode_id: int, input_data: dict, **kwargs) -> dict:
-        """Collect news articles using the configured method.
-
-        Supports:
-        - "brave": Brave Search API (default)
-        - "scraper": Legacy site-specific scrapers
+        """Collect news articles using Brave Search API.
 
         kwargs:
             queries: Optional list of search queries (overrides settings)
@@ -36,8 +32,6 @@ class CollectorStep(BaseStep):
 
         if method == "brave":
             articles = await self._collect_brave(queries=queries)
-        elif method == "scraper":
-            articles = await self._collect_scraper()
         else:
             raise ValueError(f"Unknown collection method: {method}")
 
@@ -109,19 +103,3 @@ class CollectorStep(BaseStep):
 
         return all_articles
 
-    async def _collect_scraper(self) -> list[dict]:
-        """Collect news using legacy site-specific scrapers."""
-        from app.services.scraper import ScraperService
-
-        service = ScraperService()
-        scraped = await service.collect_all()
-
-        return [
-            {
-                "title": article.title,
-                "url": article.url,
-                "summary": article.summary,
-                "source_name": article.source_name,
-            }
-            for article in scraped
-        ]
