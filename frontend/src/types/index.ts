@@ -37,6 +37,8 @@ export interface Episode {
   status: EpisodeStatus;
   created_at: string;
   published_at: string | null;
+  audio_path: string | null;
+  video_path: string | null;
   pipeline_steps: PipelineStep[];
 }
 

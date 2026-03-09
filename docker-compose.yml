@@ -5,6 +5,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - media-data:/app/media
     env_file:
       - .env
     depends_on:
@@ -57,6 +58,7 @@ services:
     command: celery -A app.tasks worker --loglevel=info
     volumes:
       - ./backend:/app
+      - media-data:/app/media
     env_file:
       - .env
     depends_on:
@@ -76,6 +78,7 @@ services:
 
 volumes:
   pgdata:
+  media-data:
 
 networks:
   app-network:

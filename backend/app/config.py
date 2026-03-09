@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     google_api_key: str = ""
 
+    # Media
+    media_dir: str = "/app/media"
+
+    # Voice/TTS
+    pipeline_voice_provider: str = "voicevox"  # "voicevox" or "openai"
+    openai_tts_model: str = "tts-1"
+    openai_tts_voice: str = "alloy"
+
     # VOICEVOX
     voicevox_host: str = "http://voicevox:50021"
     voicevox_speaker_id: int = 3  # ずんだもん
