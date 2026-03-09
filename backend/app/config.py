@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     openai_api_key: str = ""
     google_api_key: str = ""
+    brave_search_api_key: str = ""
+
+    # Collection
+    collection_method: str = "brave"  # "brave" or "scraper"
+    collection_queries: str = "熊本 ニュース,熊本県 政治,熊本 経済"
 
     # Media
     media_dir: str = "/app/media"

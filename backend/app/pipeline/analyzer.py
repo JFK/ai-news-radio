@@ -51,7 +51,7 @@ class AnalyzerStep(BaseStep):
     def step_name(self) -> StepName:
         return StepName.ANALYSIS
 
-    async def execute(self, episode_id: int, input_data: dict) -> dict:
+    async def execute(self, episode_id: int, input_data: dict, **kwargs) -> dict:
         """Analyze each NewsItem for the episode.
 
         Uses fact-check results in the prompt for context.

@@ -75,7 +75,7 @@ class ScriptwriterStep(BaseStep):
     def step_name(self) -> StepName:
         return StepName.SCRIPT
 
-    async def execute(self, episode_id: int, input_data: dict) -> dict:
+    async def execute(self, episode_id: int, input_data: dict, **kwargs) -> dict:
         """Generate scripts in two phases.
 
         Phase 1: Per-article script generation (N AI calls)

@@ -25,7 +25,7 @@ class VideoStep(BaseStep):
     def step_name(self) -> StepName:
         return StepName.VIDEO
 
-    async def execute(self, episode_id: int, input_data: dict) -> dict:
+    async def execute(self, episode_id: int, input_data: dict, **kwargs) -> dict:
         """Generate an MP4 video with scrolling script text over dark background.
 
         Reads audio_path from VoiceStep output, script text from DB,
