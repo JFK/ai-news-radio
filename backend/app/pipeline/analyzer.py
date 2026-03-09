@@ -2,10 +2,8 @@
 
 import logging
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import async_session
 from app.models import NewsItem, StepName
 from app.pipeline.base import BaseStep
 from app.pipeline.utils import parse_json_response
@@ -51,7 +49,7 @@ class AnalyzerStep(BaseStep):
     def step_name(self) -> StepName:
         return StepName.ANALYSIS
 
-    async def execute(self, episode_id: int, input_data: dict, **kwargs) -> dict:
+    async def execute(self, episode_id: int, input_data: dict, session: AsyncSession, **kwargs) -> dict:
         """Analyze each NewsItem for the episode.
 
         Uses fact-check results in the prompt for context.
@@ -62,16 +60,15 @@ class AnalyzerStep(BaseStep):
         total_input_tokens = 0
         total_output_tokens = 0
 
-        async with async_session() as session:
-            items = await self._get_news_items(episode_id, session)
+        items = await self._get_news_items(episode_id, session)
 
-            for item in items:
-                result = await self._analyze_item(item, provider, model, session, episode_id)
-                results.append(result)
-                total_input_tokens += result["input_tokens"]
-                total_output_tokens += result["output_tokens"]
+        for item in items:
+            result = await self._analyze_item(item, provider, model, session, episode_id)
+            results.append(result)
+            total_input_tokens += result["input_tokens"]
+            total_output_tokens += result["output_tokens"]
 
-            await session.commit()
+        await session.commit()
 
         severity_summary = {"high": 0, "medium": 0, "low": 0}
         for r in results:
@@ -93,11 +90,6 @@ class AnalyzerStep(BaseStep):
             "total_input_tokens": total_input_tokens,
             "total_output_tokens": total_output_tokens,
         }
-
-    async def _get_news_items(self, episode_id: int, session: AsyncSession) -> list[NewsItem]:
-        """Load all NewsItems for the episode."""
-        result = await session.execute(select(NewsItem).where(NewsItem.episode_id == episode_id).order_by(NewsItem.id))
-        return list(result.scalars().all())
 
     async def _analyze_item(
         self,

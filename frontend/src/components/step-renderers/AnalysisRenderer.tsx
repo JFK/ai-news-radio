@@ -1,32 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { NewsItem } from "../../types";
+import type { AnalysisData, NewsItem } from "../../types";
+import { SeverityBadge } from "../ui/Badge";
 
 interface Props {
   newsItems: NewsItem[];
-}
-
-interface AnalysisData {
-  background?: string;
-  perspectives?: Array<{ viewpoint?: string; description?: string }>;
-  data_verification?: string;
-  impact_assessment?: string;
-  severity?: string;
-  topics?: string[];
-}
-
-function SeverityBadge({ severity }: { severity: string }) {
-  const color =
-    severity === "high"
-      ? "bg-red-100 text-red-800"
-      : severity === "medium"
-        ? "bg-yellow-100 text-yellow-800"
-        : "bg-green-100 text-green-800";
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>
-      {severity}
-    </span>
-  );
 }
 
 export default function AnalysisRenderer({ newsItems }: Props) {

@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import ApiUsage, PipelineStep, StepName, StepStatus
+from app.models import ApiUsage, NewsItem, PipelineStep, StepName, StepStatus
 from app.services.ai_provider import STEP_ORDER
 from app.services.cost_estimator import estimate_cost
 
@@ -25,12 +25,13 @@ class BaseStep(ABC):
         ...
 
     @abstractmethod
-    async def execute(self, episode_id: int, input_data: dict, **kwargs) -> dict:
+    async def execute(self, episode_id: int, input_data: dict, session: AsyncSession, **kwargs) -> dict:
         """Execute the step logic.
 
         Args:
             episode_id: The episode being processed.
             input_data: Output from the previous step (or empty dict for first step).
+            session: Database session from run().
             **kwargs: Step-specific parameters (e.g., queries for collection).
 
         Returns:
@@ -66,7 +67,7 @@ class BaseStep(ABC):
             input_data = await self._get_input_data(episode_id, session)
 
             # Execute the step logic
-            output_data = await self.execute(episode_id, input_data, **kwargs)
+            output_data = await self.execute(episode_id, input_data, session, **kwargs)
 
             # Save results
             step.input_data = input_data
@@ -81,6 +82,13 @@ class BaseStep(ABC):
             step.started_at = None
             await session.commit()
             raise
+
+    async def _get_news_items(self, episode_id: int, session: AsyncSession) -> list[NewsItem]:
+        """Load all NewsItems for the episode."""
+        result = await session.execute(
+            select(NewsItem).where(NewsItem.episode_id == episode_id).order_by(NewsItem.id)
+        )
+        return list(result.scalars().all())
 
     async def _get_input_data(self, episode_id: int, session: AsyncSession) -> dict:
         """Get the output_data from the previous step as input for this step."""

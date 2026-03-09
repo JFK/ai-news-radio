@@ -36,9 +36,8 @@ class TestCollectorStep:
         assert collector.step_name == StepName.COLLECTION
 
     @patch("app.pipeline.collector.settings")
-    @patch("app.pipeline.collector.async_session")
     async def test_execute_creates_news_items_brave(
-        self, mock_session_factory, mock_settings, collector: CollectorStep, session: AsyncSession
+        self, mock_settings, collector: CollectorStep, session: AsyncSession
     ):
         """execute() should create NewsItem records from Brave Search results."""
         mock_settings.collection_method = "brave"
@@ -46,11 +45,6 @@ class TestCollectorStep:
         mock_settings.brave_search_api_key = "test-key"
 
         results = _make_brave_results(3)
-
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
 
         engine = PipelineEngine()
         episode = await engine.create_episode("Test", session)
@@ -60,7 +54,7 @@ class TestCollectorStep:
             mock_service.web_search = AsyncMock(return_value=results)
             mock_service_cls.return_value = mock_service
 
-            result = await collector.execute(episode.id, {})
+            result = await collector.execute(episode.id, {}, session)
 
         assert result["collection_method"] == "brave"
         assert result["articles_found"] == 3
@@ -71,9 +65,8 @@ class TestCollectorStep:
         assert len(items) == 3
 
     @patch("app.pipeline.collector.settings")
-    @patch("app.pipeline.collector.async_session")
     async def test_execute_idempotent(
-        self, mock_session_factory, mock_settings, collector: CollectorStep, session: AsyncSession
+        self, mock_settings, collector: CollectorStep, session: AsyncSession
     ):
         """Running execute twice should not duplicate articles."""
         mock_settings.collection_method = "brave"
@@ -81,11 +74,6 @@ class TestCollectorStep:
         mock_settings.brave_search_api_key = "test-key"
 
         results = _make_brave_results(2)
-
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
 
         engine = PipelineEngine()
         episode = await engine.create_episode("Test", session)
@@ -95,26 +83,20 @@ class TestCollectorStep:
             mock_service.web_search = AsyncMock(return_value=results)
             mock_service_cls.return_value = mock_service
 
-            result1 = await collector.execute(episode.id, {})
-            result2 = await collector.execute(episode.id, {})
+            result1 = await collector.execute(episode.id, {}, session)
+            result2 = await collector.execute(episode.id, {}, session)
 
         assert result1["articles_saved"] == 2
         assert result2["articles_saved"] == 0
 
     @patch("app.pipeline.collector.settings")
-    @patch("app.pipeline.collector.async_session")
     async def test_execute_with_no_articles(
-        self, mock_session_factory, mock_settings, collector: CollectorStep, session: AsyncSession
+        self, mock_settings, collector: CollectorStep, session: AsyncSession
     ):
         """execute() with no results returns zero counts."""
         mock_settings.collection_method = "brave"
         mock_settings.collection_queries = "熊本 ニュース"
         mock_settings.brave_search_api_key = "test-key"
-
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
 
         engine = PipelineEngine()
         episode = await engine.create_episode("Test", session)
@@ -124,27 +106,21 @@ class TestCollectorStep:
             mock_service.web_search = AsyncMock(return_value=[])
             mock_service_cls.return_value = mock_service
 
-            result = await collector.execute(episode.id, {})
+            result = await collector.execute(episode.id, {}, session)
 
         assert result["articles_found"] == 0
         assert result["articles_saved"] == 0
         assert result["articles"] == []
 
     @patch("app.pipeline.collector.settings")
-    @patch("app.pipeline.collector.async_session")
     async def test_execute_unknown_method_raises(
-        self, mock_session_factory, mock_settings, collector: CollectorStep, session: AsyncSession
+        self, mock_settings, collector: CollectorStep, session: AsyncSession
     ):
         """execute() with unknown method should raise ValueError."""
         mock_settings.collection_method = "unknown"
-
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
 
         engine = PipelineEngine()
         episode = await engine.create_episode("Test", session)
 
         with pytest.raises(ValueError, match="Unknown collection method"):
-            await collector.execute(episode.id, {})
+            await collector.execute(episode.id, {}, session)

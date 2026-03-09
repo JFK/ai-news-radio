@@ -34,14 +34,12 @@ class TestVoiceStep:
     def test_step_name(self, voice_step: VoiceStep):
         assert voice_step.step_name == StepName.VOICE
 
-    @patch("app.pipeline.voice.async_session")
     @patch("app.pipeline.voice.get_tts_provider")
     @patch("app.pipeline.voice.settings")
     async def test_execute_generates_audio(
         self,
         mock_settings,
         mock_get_provider,
-        mock_session_factory,
         voice_step: VoiceStep,
         session: AsyncSession,
         tmp_path,
@@ -62,15 +60,10 @@ class TestVoiceStep:
         mock_provider.synthesize = AsyncMock(return_value=wav_bytes)
         mock_get_provider.return_value = mock_provider
 
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=False)
-        mock_session_factory.return_value = mock_ctx
-
         input_data = {"episode_script": "テストの台本です。音声を生成します。"}
 
         # Execute
-        result = await voice_step.execute(episode_id, input_data)
+        result = await voice_step.execute(episode_id, input_data, session)
 
         # Verify output
         assert "audio_path" in result
@@ -87,10 +80,10 @@ class TestVoiceStep:
         episode = db_result.scalar_one()
         assert episode.audio_path == f"{episode_id}/audio.wav"
 
-    async def test_execute_raises_on_empty_script(self, voice_step: VoiceStep):
+    async def test_execute_raises_on_empty_script(self, voice_step: VoiceStep, session: AsyncSession):
         """execute() should raise ValueError when episode_script is empty."""
         with pytest.raises(ValueError, match="No episode_script"):
-            await voice_step.execute(1, {})
+            await voice_step.execute(1, {}, session)
 
         with pytest.raises(ValueError, match="No episode_script"):
-            await voice_step.execute(1, {"episode_script": ""})
+            await voice_step.execute(1, {"episode_script": ""}, session)

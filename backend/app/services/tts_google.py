@@ -6,7 +6,7 @@ import httpx
 
 from app.config import settings
 from app.services.tts_provider import TTSProvider
-from app.services.tts_voicevox import concatenate_wav, split_sentences
+from app.services.tts_utils import concatenate_wav, split_sentences
 
 logger = logging.getLogger(__name__)
 

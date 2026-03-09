@@ -5,8 +5,8 @@ import logging
 import httpx
 
 from app.config import settings
-from app.services.tts_openai import concatenate_mp3, split_text_chunks
 from app.services.tts_provider import TTSProvider
+from app.services.tts_utils import concatenate_mp3, split_text_chunks
 
 logger = logging.getLogger(__name__)
 

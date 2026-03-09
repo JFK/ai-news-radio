@@ -6,9 +6,9 @@ import logging
 import os
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.database import async_session
 from app.models import Episode, PipelineStep, StepName
 from app.pipeline.base import BaseStep
 
@@ -25,7 +25,7 @@ class VideoStep(BaseStep):
     def step_name(self) -> StepName:
         return StepName.VIDEO
 
-    async def execute(self, episode_id: int, input_data: dict, **kwargs) -> dict:
+    async def execute(self, episode_id: int, input_data: dict, session: AsyncSession, **kwargs) -> dict:
         """Generate an MP4 video with scrolling script text over dark background.
 
         Reads audio_path from VoiceStep output, script text from DB,
@@ -40,7 +40,7 @@ class VideoStep(BaseStep):
             raise ValueError(f"Audio file not found: {audio_full_path}")
 
         # Get script text from the script pipeline step
-        script_text = await self._get_script_text(episode_id)
+        script_text = await self._get_script_text(episode_id, session)
 
         # Get audio duration
         duration_seconds = await self._get_duration(audio_full_path)
@@ -59,11 +59,10 @@ class VideoStep(BaseStep):
 
         # Update episode record
         relative_path = f"{episode_id}/video.mp4"
-        async with async_session() as session:
-            result = await session.execute(select(Episode).where(Episode.id == episode_id))
-            episode = result.scalar_one()
-            episode.video_path = relative_path
-            await session.commit()
+        result = await session.execute(select(Episode).where(Episode.id == episode_id))
+        episode = result.scalar_one()
+        episode.video_path = relative_path
+        await session.commit()
 
         logger.info("Episode %d: video saved to %s (%.1fs)", episode_id, relative_path, duration_seconds)
 
@@ -72,19 +71,18 @@ class VideoStep(BaseStep):
             "duration_seconds": duration_seconds,
         }
 
-    async def _get_script_text(self, episode_id: int) -> str:
+    async def _get_script_text(self, episode_id: int, session: AsyncSession) -> str:
         """Get the episode script text from the script pipeline step."""
-        async with async_session() as session:
-            result = await session.execute(
-                select(PipelineStep).where(
-                    PipelineStep.episode_id == episode_id,
-                    PipelineStep.step_name == StepName.SCRIPT,
-                )
+        result = await session.execute(
+            select(PipelineStep).where(
+                PipelineStep.episode_id == episode_id,
+                PipelineStep.step_name == StepName.SCRIPT,
             )
-            step = result.scalar_one()
-            if step.output_data and "episode_script" in step.output_data:
-                return step.output_data["episode_script"]
-            return ""
+        )
+        step = result.scalar_one()
+        if step.output_data and "episode_script" in step.output_data:
+            return step.output_data["episode_script"]
+        return ""
 
     async def _get_duration(self, audio_path: str) -> float:
         """Get audio duration using ffprobe."""

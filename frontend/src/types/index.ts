@@ -58,6 +58,16 @@ export interface NewsItem {
   created_at: string;
 }
 
+export interface AnalysisData {
+  background?: string;
+  why_now?: string;
+  perspectives?: Array<{ viewpoint?: string; description?: string }>;
+  data_verification?: string;
+  impact_assessment?: string;
+  severity?: string;
+  topics?: string[];
+}
+
 export interface EpisodeListResponse {
   episodes: Episode[];
   total: number;

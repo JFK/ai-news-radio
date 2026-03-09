@@ -30,7 +30,7 @@ class PipelineStep(Base):
     __tablename__ = "pipeline_steps"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"))
+    episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"), index=True)
     step_name: Mapped[StepName] = mapped_column(
         Enum(StepName, values_callable=lambda e: [x.value for x in e]),
     )
