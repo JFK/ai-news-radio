@@ -4,6 +4,7 @@ from app.models.episode import Episode, EpisodeStatus
 from app.models.model_pricing import ModelPricing
 from app.models.news_item import NewsItem
 from app.models.pipeline_step import PipelineStep, StepName, StepStatus
+from app.models.pronunciation import Pronunciation
 
 __all__ = [
     "ApiUsage",
@@ -13,6 +14,7 @@ __all__ = [
     "ModelPricing",
     "NewsItem",
     "PipelineStep",
+    "Pronunciation",
     "StepName",
     "StepStatus",
 ]
