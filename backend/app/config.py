@@ -36,9 +36,14 @@ class Settings(BaseSettings):
     media_dir: str = "/app/media"
 
     # Voice/TTS
-    pipeline_voice_provider: str = "voicevox"  # "voicevox" or "openai"
+    pipeline_voice_provider: str = "voicevox"  # "voicevox", "openai", "elevenlabs", "google"
     openai_tts_model: str = "tts-1"
     openai_tts_voice: str = "alloy"
+    elevenlabs_api_key: str = ""
+    elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"  # Rachel (default)
+    elevenlabs_model_id: str = "eleven_multilingual_v2"
+    google_tts_voice: str = "ja-JP-Neural2-B"  # Japanese male
+    google_tts_language_code: str = "ja-JP"
 
     # VOICEVOX
     voicevox_host: str = "http://voicevox:50021"

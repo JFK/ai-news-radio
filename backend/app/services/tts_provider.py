@@ -40,5 +40,13 @@ def get_tts_provider() -> TTSProvider:
         from app.services.tts_openai import OpenAITTSProvider
 
         return OpenAITTSProvider()
+    elif provider_name == "elevenlabs":
+        from app.services.tts_elevenlabs import ElevenLabsTTSProvider
+
+        return ElevenLabsTTSProvider()
+    elif provider_name == "google":
+        from app.services.tts_google import GoogleTTSProvider
+
+        return GoogleTTSProvider()
     else:
         raise ValueError(f"Unknown TTS provider: {provider_name}")
