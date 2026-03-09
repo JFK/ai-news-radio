@@ -2,7 +2,6 @@
 
 import logging
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session
@@ -84,11 +83,6 @@ class FactcheckerStep(BaseStep):
             "total_input_tokens": total_input_tokens,
             "total_output_tokens": total_output_tokens,
         }
-
-    async def _get_news_items(self, episode_id: int, session: AsyncSession) -> list[NewsItem]:
-        """Load all NewsItems for the episode."""
-        result = await session.execute(select(NewsItem).where(NewsItem.episode_id == episode_id).order_by(NewsItem.id))
-        return list(result.scalars().all())
 
     async def _search_references(self, item: NewsItem) -> str:
         """Search for reference material using Brave Search (if available)."""

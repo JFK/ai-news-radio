@@ -2,13 +2,12 @@
 
 import asyncio
 import logging
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.schemas import RejectRequest, RunStepRequest, StepResponse
 from app.database import async_session as get_background_session
 from app.database import get_session
 from app.models import PipelineStep, StepName, StepStatus
@@ -17,40 +16,6 @@ from app.pipeline import engine
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["pipeline"])
-
-
-# --- Schemas ---
-
-
-class StepResponse(BaseModel):
-    """Response for a single pipeline step."""
-
-    id: int
-    episode_id: int
-    step_name: str
-    status: str
-    input_data: dict | None = None
-    output_data: dict | None = None
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
-    approved_at: datetime | None = None
-    rejected_at: datetime | None = None
-    rejection_reason: str | None = None
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-class RunStepRequest(BaseModel):
-    """Optional request body for running a step."""
-
-    queries: list[str] | None = None  # Override collection queries
-
-
-class RejectRequest(BaseModel):
-    """Request body for rejecting a step."""
-
-    reason: str
 
 
 # --- Endpoints ---

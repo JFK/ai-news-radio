@@ -113,11 +113,6 @@ class ScriptwriterStep(BaseStep):
             "total_output_tokens": total_output_tokens,
         }
 
-    async def _get_news_items(self, episode_id: int, session: AsyncSession) -> list[NewsItem]:
-        """Load all NewsItems for the episode."""
-        result = await session.execute(select(NewsItem).where(NewsItem.episode_id == episode_id).order_by(NewsItem.id))
-        return list(result.scalars().all())
-
     async def _script_item(
         self,
         item: NewsItem,

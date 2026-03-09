@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import ApiUsage, PipelineStep, StepName, StepStatus
+from app.models import ApiUsage, NewsItem, PipelineStep, StepName, StepStatus
 from app.services.ai_provider import STEP_ORDER
 from app.services.cost_estimator import estimate_cost
 
@@ -81,6 +81,13 @@ class BaseStep(ABC):
             step.started_at = None
             await session.commit()
             raise
+
+    async def _get_news_items(self, episode_id: int, session: AsyncSession) -> list[NewsItem]:
+        """Load all NewsItems for the episode."""
+        result = await session.execute(
+            select(NewsItem).where(NewsItem.episode_id == episode_id).order_by(NewsItem.id)
+        )
+        return list(result.scalars().all())
 
     async def _get_input_data(self, episode_id: int, session: AsyncSession) -> dict:
         """Get the output_data from the previous step as input for this step."""
