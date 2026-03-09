@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models import Episode, StepName
+from app.models import Episode, Pronunciation, StepName
 from app.pipeline.base import BaseStep
 from app.services.tts_provider import get_tts_provider
 from app.services.tts_utils import expand_reading_hints
@@ -36,6 +36,13 @@ class VoiceStep(BaseStep):
 
         # Expand reading hints for TTS: 「漢字（かな）」→「かな」
         tts_text = expand_reading_hints(episode_script)
+
+        # Apply pronunciation dictionary replacements (longer surfaces first)
+        result = await session.execute(
+            select(Pronunciation).order_by(Pronunciation.priority.desc(), Pronunciation.id)
+        )
+        for entry in result.scalars().all():
+            tts_text = tts_text.replace(entry.surface, entry.reading)
 
         # Synthesize audio
         logger.info("Episode %d: synthesizing audio with %s", episode_id, settings.pipeline_voice_provider)

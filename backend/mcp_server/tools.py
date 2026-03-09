@@ -164,6 +164,43 @@ def get_tool_definitions() -> list[Tool]:
             },
             annotations=ToolAnnotations(readOnlyHint=True),
         ),
+        # ---- Pronunciation Dictionary ----
+        Tool(
+            name="add_reading",
+            description="Add a pronunciation entry to the reading dictionary. Used for proper nouns that TTS mispronounces.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "surface": {"type": "string", "description": "Written form (e.g. 健軍)"},
+                    "reading": {"type": "string", "description": "Reading in hiragana/katakana (e.g. けんぐん)"},
+                    "priority": {
+                        "type": "integer",
+                        "description": "Priority (higher = matched first, default: 0). Use higher values for longer compound words.",
+                        "default": 0,
+                    },
+                },
+                "required": ["surface", "reading"],
+            },
+            annotations=ToolAnnotations(destructiveHint=False, readOnlyHint=False),
+        ),
+        Tool(
+            name="list_readings",
+            description="List all pronunciation dictionary entries.",
+            inputSchema={"type": "object", "properties": {}},
+            annotations=ToolAnnotations(readOnlyHint=True),
+        ),
+        Tool(
+            name="delete_reading",
+            description="Delete a pronunciation dictionary entry by ID.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "id": {"type": "integer", "description": "Dictionary entry ID"},
+                },
+                "required": ["id"],
+            },
+            annotations=ToolAnnotations(destructiveHint=True, readOnlyHint=False),
+        ),
         # ---- Research ----
         Tool(
             name="search_news",

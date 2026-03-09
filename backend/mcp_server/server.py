@@ -57,6 +57,12 @@ async def _dispatch(name: str, args: dict) -> str:
             return await _reject_step(args)
         case "get_step_detail":
             return await _get_step_detail(args)
+        case "add_reading":
+            return await _add_reading(args)
+        case "list_readings":
+            return await _list_readings()
+        case "delete_reading":
+            return await _delete_reading(args)
         case "search_news":
             return await _search_news(args)
         case "get_cost_stats":
@@ -218,6 +224,28 @@ async def _get_step_detail(args: dict) -> str:
         lines.extend(["", f"Rejection Reason: {step['rejection_reason']}"])
 
     return "\n".join(lines)
+
+
+async def _add_reading(args: dict) -> str:
+    entry = await client.add_reading(args["surface"], args["reading"], args.get("priority", 0))
+    return f"Added: {entry['surface']} → {entry['reading']} (id: {entry['id']}, priority: {entry['priority']})"
+
+
+async def _list_readings() -> str:
+    entries = await client.list_readings()
+    if not entries:
+        return "No pronunciation dictionary entries."
+
+    lines = [f"Pronunciation Dictionary ({len(entries)} entries):", ""]
+    for e in entries:
+        lines.append(f"  [{e['id']}] {e['surface']} → {e['reading']} (priority: {e['priority']})")
+    return "\n".join(lines)
+
+
+async def _delete_reading(args: dict) -> str:
+    entry_id = args["id"]
+    await client.delete_reading(entry_id)
+    return f"Deleted dictionary entry #{entry_id}."
 
 
 async def _search_news(args: dict) -> str:

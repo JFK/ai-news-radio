@@ -41,6 +41,14 @@ class RejectRequest(BaseModel):
     reason: str
 
 
+class PronunciationCreate(BaseModel):
+    """Request body for creating a pronunciation entry."""
+
+    surface: str
+    reading: str
+    priority: int = 0
+
+
 # --- Response schemas ---
 
 
@@ -100,6 +108,18 @@ class NewsItemResponse(BaseModel):
     reference_urls: list[str] | None = None
     analysis_data: dict | None = None
     script_text: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PronunciationResponse(BaseModel):
+    """Response for a pronunciation entry."""
+
+    id: int
+    surface: str
+    reading: str
+    priority: int
     created_at: datetime
 
     model_config = {"from_attributes": True}

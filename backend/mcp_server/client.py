@@ -103,6 +103,20 @@ class AINewsRadioClient:
                 return step["id"]
         raise APIError(404, f"Step '{step_name}' not found for episode {episode_id}")
 
+    # ---- Dictionary ----
+
+    async def list_readings(self) -> list[dict]:
+        """GET /api/dictionary"""
+        return await self._request("GET", "/api/dictionary")
+
+    async def add_reading(self, surface: str, reading: str, priority: int = 0) -> dict:
+        """POST /api/dictionary"""
+        return await self._request("POST", "/api/dictionary", json={"surface": surface, "reading": reading, "priority": priority})
+
+    async def delete_reading(self, entry_id: int) -> None:
+        """DELETE /api/dictionary/{id}"""
+        await self._request("DELETE", f"/api/dictionary/{entry_id}")
+
     # ---- Stats ----
 
     async def get_cost_stats(
