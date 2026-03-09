@@ -104,7 +104,10 @@ export default function EpisodeDetail() {
         </button>
       </div>
 
-      {(episode.audio_path || episode.video_path) && (
+      {(episode.audio_path || episode.video_path) && (() => {
+        const videoStep = steps.find((s) => s.step_name === "video");
+        const thumbnailPath = (videoStep?.output_data as Record<string, unknown> | null)?.thumbnail_path as string | undefined;
+        return (
         <div className="mb-6 bg-white rounded-lg shadow p-4 space-y-3">
           <h3 className="text-sm font-medium text-gray-600">{t("episode.media")}</h3>
           {episode.audio_path && (
@@ -133,8 +136,22 @@ export default function EpisodeDetail() {
               </a>
             </div>
           )}
+          {thumbnailPath && (
+            <div>
+              <p className="text-xs text-gray-500 mb-1">{t("episode.thumbnail")}</p>
+              <img src={`${MEDIA_BASE_URL}/${thumbnailPath}`} alt="Thumbnail" className="w-64 rounded border" />
+              <a
+                href={`${MEDIA_BASE_URL}/${thumbnailPath}`}
+                download
+                className="text-xs text-blue-600 hover:underline mt-1 inline-block"
+              >
+                {t("episode.download")}
+              </a>
+            </div>
+          )}
         </div>
-      )}
+        );
+      })()}
 
       <div className="mb-6">
         <h3 className="text-sm font-medium text-gray-600 mb-2">{t("episode.pipeline")}</h3>

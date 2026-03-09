@@ -48,6 +48,7 @@
     "media": "Media",
     "audio": "Audio",
     "video": "Video",
+    "thumbnail": "Thumbnail",
     "download": "Download",
     "delete": "Delete",
     "deleting": "Deleting...",
