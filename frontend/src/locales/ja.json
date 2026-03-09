@@ -146,6 +146,13 @@
       "save": "保存",
       "saving": "保存中...",
       "cancel": "キャンセル"
+    },
+    "video": {
+      "youtubeMetadata": "YouTube メタデータ",
+      "title": "タイトル",
+      "description": "概要文",
+      "tags": "タグ",
+      "copy": "コピー"
     }
   },
   "settings": {

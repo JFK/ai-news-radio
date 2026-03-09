@@ -146,6 +146,13 @@
       "save": "Save",
       "saving": "Saving...",
       "cancel": "Cancel"
+    },
+    "video": {
+      "youtubeMetadata": "YouTube Metadata",
+      "title": "Title",
+      "description": "Description",
+      "tags": "Tags",
+      "copy": "Copy"
     }
   },
   "settings": {

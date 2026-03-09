@@ -3,6 +3,7 @@ import CollectionRenderer from "./CollectionRenderer";
 import FactcheckRenderer from "./FactcheckRenderer";
 import AnalysisRenderer from "./AnalysisRenderer";
 import ScriptRenderer from "./ScriptRenderer";
+import VideoRenderer from "./VideoRenderer";
 
 interface Props {
   stepName: StepName;
@@ -40,6 +41,8 @@ export default function StepDataRenderer({
           onUpdated={onUpdated}
         />
       );
+    case "video":
+      return <VideoRenderer outputData={outputData} />;
     default:
       return (
         <pre className="p-3 bg-gray-50 rounded border text-xs overflow-auto max-h-64">
