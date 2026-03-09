@@ -25,6 +25,8 @@ export const api = {
     client.get<PipelineStep[]>(`/episodes/${episodeId}/steps`),
   getNewsItems: (episodeId: number) =>
     client.get<NewsItem[]>(`/episodes/${episodeId}/news-items`),
+  deleteEpisode: (episodeId: number) =>
+    client.delete(`/episodes/${episodeId}`),
   runStep: (episodeId: number, stepName: string, body?: { queries?: string[] }) =>
     client.post<PipelineStep>(`/episodes/${episodeId}/steps/${stepName}/run`, body),
   approveStep: (stepId: number) =>

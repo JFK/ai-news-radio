@@ -52,6 +52,18 @@ def get_tool_definitions() -> list[Tool]:
             annotations=ToolAnnotations(destructiveHint=False, readOnlyHint=False),
         ),
         Tool(
+            name="delete_episode",
+            description="Delete an episode and all related data (news items, pipeline steps, API usage, media files). Cannot delete if a step is running.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "episode_id": {"type": "integer", "description": "Episode ID to delete"},
+                },
+                "required": ["episode_id"],
+            },
+            annotations=ToolAnnotations(destructiveHint=True, readOnlyHint=False),
+        ),
+        Tool(
             name="list_episodes",
             description="List all episodes with their current status and pipeline step summary.",
             inputSchema={"type": "object", "properties": {}},

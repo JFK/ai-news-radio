@@ -44,7 +44,14 @@
     "started": "Started",
     "completed": "Completed",
     "rejectionReason": "Rejection Reason",
-    "elapsed": "Elapsed"
+    "elapsed": "Elapsed",
+    "media": "Media",
+    "audio": "Audio",
+    "video": "Video",
+    "download": "Download",
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "deleteConfirm": "Delete this episode? All related data (news items, steps, media files) will be permanently removed."
   },
   "approval": {
     "title": "Approval Gate",
