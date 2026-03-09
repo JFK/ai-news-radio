@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import ApiUsage, PipelineStep, StepName, StepStatus
 from app.services.ai_provider import STEP_ORDER
+from app.services.cost_estimator import estimate_cost
 
 
 class BaseStep(ABC):
@@ -111,9 +112,15 @@ class BaseStep(ABC):
         model: str,
         input_tokens: int,
         output_tokens: int,
-        cost_usd: float = 0.0,
+        cost_usd: float | None = None,
     ) -> ApiUsage:
-        """Record API usage for cost tracking."""
+        """Record API usage for cost tracking.
+
+        If cost_usd is not provided, it will be estimated from the model_pricing table.
+        """
+        if cost_usd is None:
+            cost_usd = await estimate_cost(session, model, input_tokens, output_tokens)
+
         usage = ApiUsage(
             episode_id=episode_id,
             step_name=self.step_name.value,
