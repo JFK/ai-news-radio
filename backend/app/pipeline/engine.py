@@ -102,8 +102,11 @@ class PipelineEngine:
         await session.refresh(episode)
         return episode
 
-    async def run_step(self, episode_id: int, step_name: StepName, session: AsyncSession) -> None:
-        """Execute a specific pipeline step."""
+    async def run_step(self, episode_id: int, step_name: StepName, session: AsyncSession, **kwargs) -> None:
+        """Execute a specific pipeline step.
+
+        kwargs are passed through to the step's run() method (e.g., queries for collection).
+        """
         # Verify step is registered
         step_class = self._step_registry.get(step_name)
         if step_class is None:
@@ -134,7 +137,7 @@ class PipelineEngine:
 
         # Run the step
         step_instance = step_class()
-        await step_instance.run(episode_id, session)
+        await step_instance.run(episode_id, session, **kwargs)
 
     async def approve_step(self, step_id: int, session: AsyncSession) -> PipelineStep:
         """Approve a pipeline step that is awaiting approval."""

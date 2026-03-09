@@ -21,7 +21,7 @@ class VoiceStep(BaseStep):
     def step_name(self) -> StepName:
         return StepName.VOICE
 
-    async def execute(self, episode_id: int, input_data: dict) -> dict:
+    async def execute(self, episode_id: int, input_data: dict, **kwargs) -> dict:
         """Synthesize audio from the episode script.
 
         Reads episode_script from scriptwriter output, synthesizes via TTS,

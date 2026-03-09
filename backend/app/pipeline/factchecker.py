@@ -46,7 +46,7 @@ class FactcheckerStep(BaseStep):
     def step_name(self) -> StepName:
         return StepName.FACTCHECK
 
-    async def execute(self, episode_id: int, input_data: dict) -> dict:
+    async def execute(self, episode_id: int, input_data: dict, **kwargs) -> dict:
         """Fact-check each NewsItem for the episode.
 
         One AI call per article for quality, cost management, and error isolation.
@@ -90,6 +90,31 @@ class FactcheckerStep(BaseStep):
         result = await session.execute(select(NewsItem).where(NewsItem.episode_id == episode_id).order_by(NewsItem.id))
         return list(result.scalars().all())
 
+    async def _search_references(self, item: NewsItem) -> str:
+        """Search for reference material using Brave Search (if available)."""
+        try:
+            from app.config import settings
+
+            if not settings.brave_search_api_key:
+                return ""
+
+            from app.services.brave_search import BraveSearchService
+
+            service = BraveSearchService()
+            results = await service.web_search(item.title, count=5)
+            if not results:
+                return ""
+
+            lines = ["\n\n参考検索結果（裏取り用）:"]
+            for r in results:
+                lines.append(f"- {r.title}: {r.url}")
+                if r.description:
+                    lines.append(f"  {r.description}")
+            return "\n".join(lines)
+        except Exception as e:
+            logger.warning("Brave Search for fact-check failed: %s", e)
+            return ""
+
     async def _check_item(
         self,
         item: NewsItem,
@@ -99,11 +124,15 @@ class FactcheckerStep(BaseStep):
         episode_id: int,
     ) -> dict:
         """Fact-check a single news item."""
+        # Search for reference material
+        search_context = await self._search_references(item)
+
         prompt = (
             f"タイトル: {item.title}\n"
             f"ソース: {item.source_name}\n"
             f"URL: {item.source_url}\n"
             f"要約: {item.summary or '(なし)'}"
+            f"{search_context}"
         )
 
         response = await provider.generate(

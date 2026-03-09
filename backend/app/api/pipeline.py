@@ -36,6 +36,12 @@ class StepResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class RunStepRequest(BaseModel):
+    """Optional request body for running a step."""
+
+    queries: list[str] | None = None  # Override collection queries
+
+
 class RejectRequest(BaseModel):
     """Request body for rejecting a step."""
 
@@ -61,16 +67,23 @@ async def list_steps(
 async def run_step(
     episode_id: int,
     step_name: str,
+    body: RunStepRequest | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> PipelineStep:
-    """Execute a pipeline step."""
+    """Execute a pipeline step.
+
+    For the collection step, optional `queries` can override the default search queries.
+    """
     try:
         step_enum = StepName(step_name)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid step name: {step_name}") from e
 
     try:
-        await engine.run_step(episode_id, step_enum, session)
+        kwargs = {}
+        if body and body.queries and step_enum == StepName.COLLECTION:
+            kwargs["queries"] = body.queries
+        await engine.run_step(episode_id, step_enum, session, **kwargs)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 

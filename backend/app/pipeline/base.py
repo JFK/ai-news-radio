@@ -25,19 +25,20 @@ class BaseStep(ABC):
         ...
 
     @abstractmethod
-    async def execute(self, episode_id: int, input_data: dict) -> dict:
+    async def execute(self, episode_id: int, input_data: dict, **kwargs) -> dict:
         """Execute the step logic.
 
         Args:
             episode_id: The episode being processed.
             input_data: Output from the previous step (or empty dict for first step).
+            **kwargs: Step-specific parameters (e.g., queries for collection).
 
         Returns:
             Output data to be stored and passed to the next step.
         """
         ...
 
-    async def run(self, episode_id: int, session: AsyncSession) -> None:
+    async def run(self, episode_id: int, session: AsyncSession, **kwargs) -> None:
         """Run this pipeline step with full lifecycle management.
 
         1. Set status to RUNNING
@@ -65,7 +66,7 @@ class BaseStep(ABC):
             input_data = await self._get_input_data(episode_id, session)
 
             # Execute the step logic
-            output_data = await self.execute(episode_id, input_data)
+            output_data = await self.execute(episode_id, input_data, **kwargs)
 
             # Save results
             step.input_data = input_data
