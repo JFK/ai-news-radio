@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models import Episode, PipelineStep, StepName
 from app.pipeline.base import BaseStep
+from app.services.visual_provider import get_visual_provider
 
 logger = logging.getLogger(__name__)
 
@@ -19,17 +20,18 @@ FONT_PATH = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 
 
 class VideoStep(BaseStep):
-    """Generate video from audio and script text using FFmpeg."""
+    """Generate video from audio, background image, and script text."""
 
     @property
     def step_name(self) -> StepName:
         return StepName.VIDEO
 
     async def execute(self, episode_id: int, input_data: dict, session: AsyncSession, **kwargs) -> dict:
-        """Generate an MP4 video with scrolling script text over dark background.
+        """Generate an MP4 video with scrolling script text over background image.
 
-        Reads audio_path from VoiceStep output, script text from DB,
-        generates video with FFmpeg drawtext, saves to media/{episode_id}/video.mp4.
+        1. Generate background image (AI or static)
+        2. Generate thumbnail image
+        3. Compose video with FFmpeg: background + audio + scrolling text
         """
         audio_path = input_data.get("audio_path", "")
         if not audio_path:
@@ -45,31 +47,60 @@ class VideoStep(BaseStep):
         # Get audio duration
         duration_seconds = await self._get_duration(audio_full_path)
 
-        # Generate video
+        # Setup output paths
         episode_dir = os.path.join(settings.media_dir, str(episode_id))
         os.makedirs(episode_dir, exist_ok=True)
         video_path = os.path.join(episode_dir, "video.mp4")
+        bg_image_path = os.path.join(episode_dir, "background.png")
+        thumbnail_path = os.path.join(episode_dir, "thumbnail.png")
 
+        # Get episode title for image prompts
+        ep_result = await session.execute(select(Episode).where(Episode.id == episode_id))
+        episode = ep_result.scalar_one()
+
+        # Generate visual assets
+        visual_provider = get_visual_provider()
+        prompt = episode.title
+
+        try:
+            await visual_provider.generate_background_image(prompt, bg_image_path)
+        except Exception as e:
+            logger.warning("Background image generation failed, using static fallback: %s", e)
+            from app.services.visual_static import StaticVisualProvider
+            await StaticVisualProvider().generate_background_image(prompt, bg_image_path)
+
+        try:
+            await visual_provider.generate_thumbnail(prompt, thumbnail_path)
+            thumbnail_relative = f"{episode_id}/thumbnail.png"
+        except Exception as e:
+            logger.warning("Thumbnail generation failed: %s", e)
+            thumbnail_relative = None
+
+        # Compose video
         await self._generate_video(
             audio_path=audio_full_path,
             video_path=video_path,
+            bg_image_path=bg_image_path,
             script_text=script_text,
             duration_seconds=duration_seconds,
         )
 
         # Update episode record
         relative_path = f"{episode_id}/video.mp4"
-        result = await session.execute(select(Episode).where(Episode.id == episode_id))
-        episode = result.scalar_one()
         episode.video_path = relative_path
         await session.commit()
 
         logger.info("Episode %d: video saved to %s (%.1fs)", episode_id, relative_path, duration_seconds)
 
-        return {
+        result = {
             "video_path": relative_path,
             "duration_seconds": duration_seconds,
+            "visual_provider": settings.visual_provider,
         }
+        if thumbnail_relative:
+            result["thumbnail_path"] = thumbnail_relative
+
+        return result
 
     async def _get_script_text(self, episode_id: int, session: AsyncSession) -> str:
         """Get the episode script text from the script pipeline step."""
@@ -106,25 +137,23 @@ class VideoStep(BaseStep):
         self,
         audio_path: str,
         video_path: str,
+        bg_image_path: str,
         script_text: str,
         duration_seconds: float,
     ) -> None:
         """Generate MP4 video with scrolling text overlay using FFmpeg."""
-        # Escape special characters for FFmpeg drawtext
         escaped_text = self._escape_drawtext(script_text)
 
-        # Calculate scroll speed: text should scroll through during the audio duration
-        # Text starts below the screen and scrolls up
         fontsize = 36
         line_height = fontsize + 10
         lines = escaped_text.count("\\n") + 1
         text_height = lines * line_height
-        total_scroll = 1080 + text_height  # screen height + text height
+        total_scroll = 1080 + text_height
         scroll_speed = total_scroll / duration_seconds if duration_seconds > 0 else 1
 
-        # FFmpeg command: dark background + audio + scrolling text
+        # FFmpeg: background image (looped) + audio + scrolling text
         filter_complex = (
-            f"color=c=#1a1a2e:s=1920x1080:d={duration_seconds}[bg];"
+            f"[0:v]loop=loop=-1:size=1:start=0,setpts=N/FRAME_RATE/TB,scale=1920:1080,setsar=1[bg];"
             f"[bg]drawtext="
             f"fontfile={FONT_PATH}:"
             f"text='{escaped_text}':"
@@ -139,10 +168,11 @@ class VideoStep(BaseStep):
         cmd = [
             "ffmpeg",
             "-y",
+            "-i", bg_image_path,
             "-i", audio_path,
             "-filter_complex", filter_complex,
             "-map", "[v]",
-            "-map", "0:a",
+            "-map", "1:a",
             "-c:v", "libx264",
             "-preset", "medium",
             "-crf", "23",
@@ -168,7 +198,6 @@ class VideoStep(BaseStep):
 
     def _escape_drawtext(self, text: str) -> str:
         """Escape text for FFmpeg drawtext filter."""
-        # FFmpeg drawtext requires escaping: ' : \ and newlines
         text = text.replace("\\", "\\\\")
         text = text.replace("'", "'\\''")
         text = text.replace(":", "\\:")

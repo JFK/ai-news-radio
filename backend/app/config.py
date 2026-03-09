@@ -49,9 +49,10 @@ class Settings(BaseSettings):
     voicevox_host: str = "http://voicevox:50021"
     voicevox_speaker_id: int = 3  # ずんだもん
 
-    # YouTube
-    youtube_client_id: str = ""
-    youtube_client_secret: str = ""
+    # Visual (thumbnail/background for video)
+    visual_provider: str = "static"  # "static" or "google"
+    visual_imagen_model: str = "imagen-4.0-fast-generate-001"
+    visual_veo_model: str = "veo-2.0-generate-001"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

@@ -28,17 +28,19 @@ class TestVideoStep:
         with pytest.raises(ValueError, match="No audio_path"):
             await video_step.execute(1, {"audio_path": ""}, session)
 
+    @patch("app.pipeline.video.get_visual_provider")
     @patch("app.pipeline.video.settings")
     @patch("app.pipeline.video.asyncio.create_subprocess_exec")
     async def test_execute_calls_ffmpeg(
         self,
         mock_subprocess,
         mock_settings,
+        mock_get_visual,
         video_step: VideoStep,
         session: AsyncSession,
         tmp_path,
     ):
-        """execute() should call FFmpeg and ffprobe."""
+        """execute() should generate background image, then call FFmpeg and ffprobe."""
         # Setup
         engine = PipelineEngine()
         episode = await engine.create_episode("Test Episode", session)
@@ -63,8 +65,16 @@ class TestVideoStep:
         audio_file.write_bytes(b"fake-audio-data")
 
         mock_settings.media_dir = str(tmp_path)
+        mock_settings.visual_provider = "static"
 
-        # Mock ffprobe (first call) and ffmpeg (second call)
+        # Mock visual provider
+        mock_provider = AsyncMock()
+        mock_provider.generate_background_image = AsyncMock(return_value=str(audio_dir / "background.png"))
+        mock_provider.generate_thumbnail = AsyncMock(return_value=str(audio_dir / "thumbnail.png"))
+        mock_get_visual.return_value = mock_provider
+
+        # Mock ffprobe (first call), background image ffmpeg (from static provider is mocked),
+        # and final ffmpeg (video composition)
         ffprobe_proc = AsyncMock()
         ffprobe_proc.returncode = 0
         ffprobe_proc.communicate.return_value = (
@@ -86,13 +96,16 @@ class TestVideoStep:
         # Verify
         assert result["video_path"] == f"{episode_id}/video.mp4"
         assert result["duration_seconds"] == 10.5
-        assert mock_subprocess.call_count == 2
+        assert "visual_provider" in result
 
-        # First call should be ffprobe
+        # Visual provider should have been called
+        mock_provider.generate_background_image.assert_called_once()
+        mock_provider.generate_thumbnail.assert_called_once()
+
+        # ffprobe + ffmpeg
+        assert mock_subprocess.call_count == 2
         first_call_args = mock_subprocess.call_args_list[0][0]
         assert first_call_args[0] == "ffprobe"
-
-        # Second call should be ffmpeg
         second_call_args = mock_subprocess.call_args_list[1][0]
         assert second_call_args[0] == "ffmpeg"
 
