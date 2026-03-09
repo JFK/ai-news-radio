@@ -92,3 +92,20 @@ export interface EpisodeCostResponse {
   total_cost_usd: number;
   total_requests: number;
 }
+
+export interface ArticleInput {
+  title: string;
+  summary?: string;
+  source_url: string;
+  source_name: string;
+}
+
+export interface ModelPricing {
+  id: number;
+  model_prefix: string;
+  provider: string;
+  input_price_per_1m: number;
+  output_price_per_1m: number;
+  created_at: string;
+  updated_at: string;
+}

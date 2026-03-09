@@ -4,7 +4,8 @@
   },
   "nav": {
     "dashboard": "ダッシュボード",
-    "costs": "コスト統計"
+    "costs": "コスト統計",
+    "settings": "設定"
   },
   "dashboard": {
     "title": "ダッシュボード",
@@ -13,6 +14,12 @@
     "create": "作成",
     "creating": "作成中...",
     "cancel": "キャンセル",
+    "modeSearch": "検索で収集",
+    "modeArticles": "記事を直接入力",
+    "queriesPlaceholder": "検索クエリ（カンマ区切り）",
+    "queriesHint": "例: 熊本 ニュース, 熊本県 政治（空欄でデフォルトクエリを使用）",
+    "articlesPlaceholder": "JSON形式:\n[\n  {\"title\": \"記事タイトル\", \"source_url\": \"https://...\", \"source_name\": \"ソース名\", \"summary\": \"要約\"}\n]\n\nまたは1行1記事:\nタイトル | URL | ソース名 | 要約",
+    "articlesHint": "JSON配列または「タイトル | URL | ソース名 | 要約」形式（1行1記事）",
     "loading": "読み込み中...",
     "noEpisodes": "エピソードがありません。「新規エピソード」で作成してください。",
     "table": {
@@ -90,7 +97,11 @@
     "requests": "リクエスト数",
     "noData": "まだAPIの使用記録がありません。",
     "loading": "読み込み中...",
-    "fetchFailed": "コスト統計の取得に失敗しました"
+    "fetchFailed": "コスト統計の取得に失敗しました",
+    "presetToday": "今日",
+    "preset7d": "過去7日",
+    "preset30d": "過去30日",
+    "presetAll": "全期間"
   },
   "stepData": {
     "collection": {
@@ -122,6 +133,21 @@
     "script": {
       "fullScript": "エピソード全体台本",
       "perArticle": "記事別台本"
+    }
+  },
+  "settings": {
+    "title": "設定",
+    "loading": "読み込み中...",
+    "pricing": {
+      "title": "モデル料金テーブル（per 1M tokens/chars）",
+      "modelPrefix": "モデル",
+      "provider": "プロバイダー",
+      "inputPrice": "入力料金",
+      "outputPrice": "出力料金",
+      "add": "追加",
+      "edit": "編集",
+      "save": "保存",
+      "delete": "削除"
     }
   },
   "errors": {

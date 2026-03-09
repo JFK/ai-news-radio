@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import Dashboard from "./components/Dashboard";
 import EpisodeDetail from "./components/EpisodeDetail";
 import CostDashboard from "./components/CostDashboard";
+import Settings from "./components/Settings";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 
 function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
@@ -37,6 +38,7 @@ function App() {
               <nav className="flex gap-2">
                 <NavLink to="/">{t("nav.dashboard")}</NavLink>
                 <NavLink to="/costs">{t("nav.costs")}</NavLink>
+                <NavLink to="/settings">{t("nav.settings")}</NavLink>
               </nav>
               <LanguageSwitcher />
             </div>
@@ -47,6 +49,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/episodes/:id" element={<EpisodeDetail />} />
             <Route path="/costs" element={<CostDashboard />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>
       </div>
