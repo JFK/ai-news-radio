@@ -71,7 +71,7 @@ git@github.com:JFK/ai-news-radio.git
 | 3 | 分析 (analysis) | ✅ | 背景・文脈分析、複数視点抽出、データ検証、影響評価 |
 | 4 | 台本生成 (script) | ✅ | クリティカルシンキング＋わかりやすさを統合した台本 |
 | 5 | 音声生成 (voice) | - | VOICEVOX で台本→音声合成 |
-| 6 | 動画化 (video) | - | FFmpeg で音声＋背景→MP4 |
+| 6 | 動画化 (video) | ✅ (画像生成) | Imagen 4 で背景・サムネイル生成 + FFmpeg で合成→MP4 |
 
 ### 技術スタック
 
@@ -83,7 +83,7 @@ git@github.com:JFK/ai-news-radio.git
   - デフォルト: Anthropic Claude (claude-sonnet-4-20250514)
   - ステップごとにモデル変更可能
 - **音声**: VOICEVOX (ローカルDockerコンテナ、CPU版)
-- **動画**: FFmpeg
+- **動画**: FFmpeg + Google Imagen 4（背景・サムネイル生成、staticフォールバック可）
 - **インフラ**: Docker Compose (Ubuntu 22.04+ 推奨)
 
 ### AI プロバイダー抽象化
