@@ -74,7 +74,7 @@ class VoiceStep(BaseStep):
             model_map = {
                 "openai": settings.openai_tts_model,
                 "elevenlabs": f"elevenlabs-{settings.elevenlabs_model_id.split('_')[-1]}",
-                "google": f"google-tts-{settings.google_tts_voice.split('-')[-1].lower()}",
+                "google": f"google-tts-{settings.google_tts_voice.split('-')[2].lower()}" if len(settings.google_tts_voice.split('-')) > 2 else "google-tts-standard",
             }
             model_name = model_map.get(provider_name, provider_name)
             await self.record_usage(

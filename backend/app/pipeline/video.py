@@ -64,8 +64,10 @@ class VideoStep(BaseStep):
         bg_prompt = script_output.get("background_prompt") or episode.title
         thumb_prompt = script_output.get("thumbnail_prompt") or episode.title
 
+        images_generated = 0
         try:
             await visual_provider.generate_background_image(bg_prompt, bg_image_path)
+            images_generated += 1
         except Exception as e:
             logger.warning("Background image generation failed, using static fallback: %s", e)
             from app.services.visual_static import StaticVisualProvider
@@ -74,9 +76,22 @@ class VideoStep(BaseStep):
         try:
             await visual_provider.generate_thumbnail(thumb_prompt, thumbnail_path)
             thumbnail_relative = f"{episode_id}/thumbnail.png"
+            images_generated += 1
         except Exception as e:
             logger.warning("Thumbnail generation failed: %s", e)
             thumbnail_relative = None
+
+        # Record Imagen cost if images were generated via Google
+        if images_generated > 0 and settings.visual_provider == "google":
+            await self.record_usage(
+                session=session,
+                episode_id=episode_id,
+                provider="google",
+                model=settings.visual_imagen_model,
+                input_tokens=0,
+                output_tokens=0,
+                cost_usd=0.04 * images_generated,  # Imagen 4 Fast: ~$0.04/image
+            )
 
         # Compose video
         await self._generate_video(
