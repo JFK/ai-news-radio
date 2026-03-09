@@ -8,9 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import ApiUsage, NewsItem, StepName
-from app.pipeline.engine import PipelineEngine
 from app.pipeline.factchecker import FactcheckerStep
 from app.services.ai_provider import AIResponse
+from tests.helpers import create_episode_with_items
 
 
 @pytest.fixture
@@ -43,28 +43,6 @@ def _make_ai_response(item_title: str = "Test") -> AIResponse:
     )
 
 
-async def _create_episode_with_items(session: AsyncSession, n_items: int = 2) -> tuple[int, list[int]]:
-    """Create an episode with N news items, return (episode_id, item_ids)."""
-    engine = PipelineEngine()
-    episode = await engine.create_episode("Test Episode", session)
-
-    item_ids = []
-    for i in range(n_items):
-        item = NewsItem(
-            episode_id=episode.id,
-            title=f"テストニュース {i}",
-            summary=f"テスト要約 {i}",
-            source_url=f"https://example.com/news/{i}",
-            source_name="TestSource",
-        )
-        session.add(item)
-        await session.flush()
-        item_ids.append(item.id)
-
-    await session.commit()
-    return episode.id, item_ids
-
-
 class TestFactcheckerStep:
     """Tests for the fact-checking pipeline step."""
 
@@ -79,7 +57,7 @@ class TestFactcheckerStep:
         session: AsyncSession,
     ):
         """execute() should fact-check and update all NewsItems."""
-        episode_id, item_ids = await _create_episode_with_items(session, 2)
+        episode_id, item_ids = await create_episode_with_items(session, 2)
 
         mock_provider = AsyncMock()
         mock_provider.generate.return_value = _make_ai_response()
@@ -110,7 +88,7 @@ class TestFactcheckerStep:
         session: AsyncSession,
     ):
         """Running execute twice should overwrite previous results."""
-        episode_id, item_ids = await _create_episode_with_items(session, 1)
+        episode_id, item_ids = await create_episode_with_items(session, 1)
 
         mock_provider = AsyncMock()
         mock_provider.generate.return_value = _make_ai_response()
@@ -153,7 +131,7 @@ class TestFactcheckerStep:
         session: AsyncSession,
     ):
         """execute() should record ApiUsage for each AI call."""
-        episode_id, _ = await _create_episode_with_items(session, 2)
+        episode_id, _ = await create_episode_with_items(session, 2)
 
         mock_provider = AsyncMock()
         mock_provider.generate.return_value = _make_ai_response()
@@ -180,7 +158,7 @@ class TestFactcheckerStep:
         session: AsyncSession,
     ):
         """execute() with no news items returns empty results."""
-        episode_id, _ = await _create_episode_with_items(session, 0)
+        episode_id, _ = await create_episode_with_items(session, 0)
 
         mock_provider = AsyncMock()
         mock_get_provider.return_value = (mock_provider, "test-model")
@@ -200,7 +178,7 @@ class TestFactcheckerStep:
         session: AsyncSession,
     ):
         """output_data should contain expected keys."""
-        episode_id, _ = await _create_episode_with_items(session, 1)
+        episode_id, _ = await create_episode_with_items(session, 1)
 
         mock_provider = AsyncMock()
         mock_provider.generate.return_value = _make_ai_response()

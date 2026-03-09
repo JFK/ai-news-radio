@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import ApiUsage, NewsItem, StepName
 from app.pipeline.analyzer import AnalyzerStep
-from app.pipeline.engine import PipelineEngine
 from app.services.ai_provider import AIResponse
+from tests.helpers import create_episode_with_items
 
 
 @pytest.fixture
@@ -44,36 +44,6 @@ def _make_analysis_response(severity: str = "medium") -> AIResponse:
     )
 
 
-async def _create_episode_with_items(
-    session: AsyncSession,
-    n_items: int = 2,
-    with_factcheck: bool = False,
-) -> tuple[int, list[int]]:
-    """Create an episode with N news items."""
-    engine = PipelineEngine()
-    episode = await engine.create_episode("Test Episode", session)
-
-    item_ids = []
-    for i in range(n_items):
-        item = NewsItem(
-            episode_id=episode.id,
-            title=f"テストニュース {i}",
-            summary=f"テスト要約 {i}",
-            source_url=f"https://example.com/news/{i}",
-            source_name="TestSource",
-        )
-        if with_factcheck:
-            item.fact_check_status = "verified"
-            item.fact_check_score = 4
-            item.fact_check_details = "ファクトチェック済み"
-        session.add(item)
-        await session.flush()
-        item_ids.append(item.id)
-
-    await session.commit()
-    return episode.id, item_ids
-
-
 class TestAnalyzerStep:
     """Tests for the analysis pipeline step."""
 
@@ -88,7 +58,7 @@ class TestAnalyzerStep:
         session: AsyncSession,
     ):
         """execute() should store analysis_data on each NewsItem."""
-        episode_id, item_ids = await _create_episode_with_items(session, 2)
+        episode_id, item_ids = await create_episode_with_items(session, 2)
 
         mock_provider = AsyncMock()
         mock_provider.generate.return_value = _make_analysis_response()
@@ -114,7 +84,7 @@ class TestAnalyzerStep:
         session: AsyncSession,
     ):
         """Fact-check results should be included in the AI prompt."""
-        episode_id, _ = await _create_episode_with_items(session, 1, with_factcheck=True)
+        episode_id, _ = await create_episode_with_items(session, 1, with_factcheck=True)
 
         mock_provider = AsyncMock()
         mock_provider.generate.return_value = _make_analysis_response()
@@ -136,7 +106,7 @@ class TestAnalyzerStep:
         session: AsyncSession,
     ):
         """output_data should include severity_summary counts."""
-        episode_id, _ = await _create_episode_with_items(session, 3)
+        episode_id, _ = await create_episode_with_items(session, 3)
 
         mock_provider = AsyncMock()
         responses = [
@@ -159,7 +129,7 @@ class TestAnalyzerStep:
         session: AsyncSession,
     ):
         """execute() should record ApiUsage for each AI call."""
-        episode_id, _ = await _create_episode_with_items(session, 2)
+        episode_id, _ = await create_episode_with_items(session, 2)
 
         mock_provider = AsyncMock()
         mock_provider.generate.return_value = _make_analysis_response()
@@ -184,7 +154,7 @@ class TestAnalyzerStep:
         session: AsyncSession,
     ):
         """output_data should contain expected keys."""
-        episode_id, _ = await _create_episode_with_items(session, 1)
+        episode_id, _ = await create_episode_with_items(session, 1)
 
         mock_provider = AsyncMock()
         mock_provider.generate.return_value = _make_analysis_response()
