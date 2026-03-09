@@ -1,6 +1,8 @@
 """Cost statistics API endpoints."""
 
-from fastapi import APIRouter, Depends
+from datetime import date, datetime, time
+
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,21 +57,34 @@ class EpisodeCostResponse(BaseModel):
 # --- Endpoints ---
 
 
+def _apply_date_filter(query, from_date: date | None, to_date: date | None):
+    """Apply date range filter to a query."""
+    if from_date:
+        query = query.where(ApiUsage.created_at >= datetime.combine(from_date, time.min))
+    if to_date:
+        query = query.where(ApiUsage.created_at <= datetime.combine(to_date, time.max))
+    return query
+
+
 @router.get("/stats/costs", response_model=CostStatsResponse)
 async def get_cost_stats(
+    from_date: date | None = Query(None, alias="from"),
+    to_date: date | None = Query(None, alias="to"),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
-    """Get overall cost statistics grouped by provider and step."""
+    """Get overall cost statistics grouped by provider and step.
+
+    Optional date range filter: ?from=2026-03-01&to=2026-03-31
+    """
     # By provider
-    provider_result = await session.execute(
-        select(
-            ApiUsage.provider,
-            func.sum(ApiUsage.input_tokens).label("total_input_tokens"),
-            func.sum(ApiUsage.output_tokens).label("total_output_tokens"),
-            func.sum(ApiUsage.cost_usd).label("total_cost_usd"),
-            func.count().label("request_count"),
-        ).group_by(ApiUsage.provider)
-    )
+    provider_query = select(
+        ApiUsage.provider,
+        func.sum(ApiUsage.input_tokens).label("total_input_tokens"),
+        func.sum(ApiUsage.output_tokens).label("total_output_tokens"),
+        func.sum(ApiUsage.cost_usd).label("total_cost_usd"),
+        func.count().label("request_count"),
+    ).group_by(ApiUsage.provider)
+    provider_result = await session.execute(_apply_date_filter(provider_query, from_date, to_date))
     by_provider = [
         CostByProvider(
             provider=row.provider,
@@ -82,15 +97,14 @@ async def get_cost_stats(
     ]
 
     # By step
-    step_result = await session.execute(
-        select(
-            ApiUsage.step_name,
-            func.sum(ApiUsage.input_tokens).label("total_input_tokens"),
-            func.sum(ApiUsage.output_tokens).label("total_output_tokens"),
-            func.sum(ApiUsage.cost_usd).label("total_cost_usd"),
-            func.count().label("request_count"),
-        ).group_by(ApiUsage.step_name)
-    )
+    step_query = select(
+        ApiUsage.step_name,
+        func.sum(ApiUsage.input_tokens).label("total_input_tokens"),
+        func.sum(ApiUsage.output_tokens).label("total_output_tokens"),
+        func.sum(ApiUsage.cost_usd).label("total_cost_usd"),
+        func.count().label("request_count"),
+    ).group_by(ApiUsage.step_name)
+    step_result = await session.execute(_apply_date_filter(step_query, from_date, to_date))
     by_step = [
         CostByStep(
             step_name=row.step_name,
@@ -103,12 +117,11 @@ async def get_cost_stats(
     ]
 
     # Totals
-    total_result = await session.execute(
-        select(
-            func.sum(ApiUsage.cost_usd).label("total_cost"),
-            func.count().label("total_requests"),
-        )
+    total_query = select(
+        func.sum(ApiUsage.cost_usd).label("total_cost"),
+        func.count().label("total_requests"),
     )
+    total_result = await session.execute(_apply_date_filter(total_query, from_date, to_date))
     totals = total_result.one()
 
     return {

@@ -4,7 +4,8 @@
   },
   "nav": {
     "dashboard": "Dashboard",
-    "costs": "Cost Stats"
+    "costs": "Cost Stats",
+    "settings": "Settings"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -13,6 +14,12 @@
     "create": "Create",
     "creating": "Creating...",
     "cancel": "Cancel",
+    "modeSearch": "Search & Collect",
+    "modeArticles": "Direct Input",
+    "queriesPlaceholder": "Search queries (comma-separated)",
+    "queriesHint": "e.g.: Kumamoto news, Kumamoto politics (blank for defaults)",
+    "articlesPlaceholder": "JSON format:\n[\n  {\"title\": \"Article title\", \"source_url\": \"https://...\", \"source_name\": \"Source\", \"summary\": \"Summary\"}\n]\n\nOr one article per line:\nTitle | URL | Source | Summary",
+    "articlesHint": "JSON array or \"Title | URL | Source | Summary\" format (one per line)",
     "loading": "Loading...",
     "noEpisodes": "No episodes yet. Click \"New Episode\" to create one.",
     "table": {
@@ -90,7 +97,11 @@
     "requests": "Requests",
     "noData": "No API usage records yet.",
     "loading": "Loading...",
-    "fetchFailed": "Failed to fetch cost stats"
+    "fetchFailed": "Failed to fetch cost stats",
+    "presetToday": "Today",
+    "preset7d": "Last 7 days",
+    "preset30d": "Last 30 days",
+    "presetAll": "All time"
   },
   "stepData": {
     "collection": {
@@ -122,6 +133,21 @@
     "script": {
       "fullScript": "Full Episode Script",
       "perArticle": "Per-Article Scripts"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "loading": "Loading...",
+    "pricing": {
+      "title": "Model Pricing (per 1M tokens/chars)",
+      "modelPrefix": "Model",
+      "provider": "Provider",
+      "inputPrice": "Input Price",
+      "outputPrice": "Output Price",
+      "add": "Add",
+      "edit": "Edit",
+      "save": "Save",
+      "delete": "Delete"
     }
   },
   "errors": {
