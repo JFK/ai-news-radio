@@ -58,14 +58,21 @@ class VoiceStep(BaseStep):
             episode.audio_path = relative_path
             await session.commit()
 
-        # Record usage for OpenAI TTS
-        if settings.pipeline_voice_provider == "openai":
+        # Record usage for TTS (input_tokens = character count for TTS pricing)
+        provider_name = settings.pipeline_voice_provider
+        if provider_name != "voicevox":  # VOICEVOX is free/local
+            model_map = {
+                "openai": settings.openai_tts_model,
+                "elevenlabs": f"elevenlabs-{settings.elevenlabs_model_id.split('_')[-1]}",
+                "google": f"google-tts-{settings.google_tts_voice.split('-')[-1].lower()}",
+            }
+            model_name = model_map.get(provider_name, provider_name)
             async with async_session() as session:
                 await self.record_usage(
                     session=session,
                     episode_id=episode_id,
-                    provider="openai",
-                    model=settings.openai_tts_model,
+                    provider=provider_name,
+                    model=model_name,
                     input_tokens=len(episode_script),
                     output_tokens=0,
                 )
