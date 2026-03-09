@@ -8,12 +8,18 @@ interface Props {
   stepName: StepName;
   outputData: Record<string, unknown>;
   newsItems: NewsItem[];
+  episodeId?: number;
+  editable?: boolean;
+  onUpdated?: () => void;
 }
 
 export default function StepDataRenderer({
   stepName,
   outputData,
   newsItems,
+  episodeId,
+  editable,
+  onUpdated,
 }: Props) {
   switch (stepName) {
     case "collection":
@@ -25,7 +31,15 @@ export default function StepDataRenderer({
     case "analysis":
       return <AnalysisRenderer newsItems={newsItems} />;
     case "script":
-      return <ScriptRenderer outputData={outputData} newsItems={newsItems} />;
+      return (
+        <ScriptRenderer
+          outputData={outputData}
+          newsItems={newsItems}
+          episodeId={episodeId ?? 0}
+          editable={editable}
+          onUpdated={onUpdated}
+        />
+      );
     default:
       return (
         <pre className="p-3 bg-gray-50 rounded border text-xs overflow-auto max-h-64">

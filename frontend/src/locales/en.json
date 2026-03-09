@@ -140,7 +140,11 @@
     },
     "script": {
       "fullScript": "Full Episode Script",
-      "perArticle": "Per-Article Scripts"
+      "perArticle": "Per-Article Scripts",
+      "edit": "Edit",
+      "save": "Save",
+      "saving": "Saving...",
+      "cancel": "Cancel"
     }
   },
   "settings": {

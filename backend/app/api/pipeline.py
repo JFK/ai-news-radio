@@ -7,10 +7,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.schemas import RejectRequest, RunStepRequest, StepResponse
+from app.api.schemas import (
+    EpisodeScriptEditRequest,
+    RejectRequest,
+    RunStepRequest,
+    ScriptEditRequest,
+    StepResponse,
+)
 from app.database import async_session as get_background_session
 from app.database import get_session
-from app.models import PipelineStep, StepName, StepStatus
+from app.models import NewsItem, PipelineStep, StepName, StepStatus
 from app.pipeline import engine
 
 logger = logging.getLogger(__name__)
@@ -111,3 +117,86 @@ async def reject_step(
         return await engine.reject_step(step_id, body.reason, session)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+async def _get_script_step(episode_id: int, session: AsyncSession) -> PipelineStep:
+    """Get the script step, validating it's editable."""
+    result = await session.execute(
+        select(PipelineStep).where(
+            PipelineStep.episode_id == episode_id,
+            PipelineStep.step_name == StepName.SCRIPT,
+        )
+    )
+    step = result.scalar_one_or_none()
+    if not step:
+        raise HTTPException(status_code=404, detail="Script step not found")
+
+    if step.status not in (StepStatus.NEEDS_APPROVAL, StepStatus.APPROVED):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Script step must be needs_approval or approved to edit (current: {step.status.value})",
+        )
+    return step
+
+
+async def _reset_voice_step(episode_id: int, session: AsyncSession) -> None:
+    """Reset voice step to pending if it was already approved (requires re-generation)."""
+    result = await session.execute(
+        select(PipelineStep).where(
+            PipelineStep.episode_id == episode_id,
+            PipelineStep.step_name == StepName.VOICE,
+        )
+    )
+    voice_step = result.scalar_one_or_none()
+    if voice_step and voice_step.status == StepStatus.APPROVED:
+        voice_step.status = StepStatus.PENDING
+        voice_step.started_at = None
+        voice_step.completed_at = None
+        voice_step.approved_at = None
+
+
+@router.patch("/episodes/{episode_id}/news-items/{news_item_id}/script")
+async def edit_news_item_script(
+    episode_id: int,
+    news_item_id: int,
+    body: ScriptEditRequest,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Edit the script text for a single news item."""
+    await _get_script_step(episode_id, session)
+
+    result = await session.execute(
+        select(NewsItem).where(NewsItem.id == news_item_id, NewsItem.episode_id == episode_id)
+    )
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="News item not found")
+
+    old_text = item.script_text
+    item.script_text = body.script_text
+
+    await _reset_voice_step(episode_id, session)
+    await session.commit()
+
+    return {"news_item_id": news_item_id, "old_length": len(old_text or ""), "new_length": len(body.script_text)}
+
+
+@router.patch("/episodes/{episode_id}/steps/script/output")
+async def edit_episode_script(
+    episode_id: int,
+    body: EpisodeScriptEditRequest,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Edit the full episode script in the script step's output_data."""
+    step = await _get_script_step(episode_id, session)
+
+    if not step.output_data:
+        raise HTTPException(status_code=400, detail="Script step has no output data")
+
+    old_script = step.output_data.get("episode_script", "")
+    step.output_data = {**step.output_data, "episode_script": body.episode_script}
+
+    await _reset_voice_step(episode_id, session)
+    await session.commit()
+
+    return {"old_length": len(old_script), "new_length": len(body.episode_script)}

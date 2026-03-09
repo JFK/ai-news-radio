@@ -27,10 +27,19 @@ export function useEpisode(id: number) {
   useEffect(() => {
     setLoading(true);
     fetchData();
+  }, [fetchData]);
 
-    // Faster polling when a step is running (2s), slower otherwise (5s)
-    const interval = hasRunningStep ? 2000 : 5000;
-    intervalRef.current = setInterval(fetchData, interval);
+  // Only poll when a step is running
+  useEffect(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    if (hasRunningStep) {
+      intervalRef.current = setInterval(fetchData, 2000);
+    }
+
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
