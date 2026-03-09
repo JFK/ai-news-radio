@@ -24,6 +24,22 @@ class EpisodeCreate(BaseModel):
     title: str
 
 
+class ArticleInput(BaseModel):
+    """A single article for direct episode creation."""
+
+    title: str
+    summary: str | None = None
+    source_url: str
+    source_name: str
+
+
+class EpisodeFromArticles(BaseModel):
+    """Request body for creating an episode from pre-supplied articles."""
+
+    title: str
+    articles: list[ArticleInput]
+
+
 class StepResponse(BaseModel):
     """Pipeline step in episode response."""
 
@@ -94,6 +110,20 @@ async def create_episode(
 ) -> Episode:
     """Create a new episode with all 7 pipeline steps."""
     episode = await engine.create_episode(body.title, session)
+    return await engine.get_episode_with_steps(episode.id, session)
+
+
+@router.post("/episodes/from-articles", response_model=EpisodeResponse, status_code=201)
+async def create_episode_from_articles(
+    body: EpisodeFromArticles,
+    session: AsyncSession = Depends(get_session),
+) -> Episode:
+    """Create an episode from pre-supplied articles (skips collection step)."""
+    if not body.articles:
+        raise HTTPException(status_code=400, detail="At least one article is required")
+
+    articles = [a.model_dump() for a in body.articles]
+    episode = await engine.create_episode_from_articles(body.title, articles, session)
     return await engine.get_episode_with_steps(episode.id, session)
 
 
