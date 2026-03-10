@@ -1,7 +1,9 @@
 """Step 5: Voice synthesis pipeline step."""
 
+import io
 import logging
 import os
+import wave
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,9 +12,12 @@ from app.config import settings
 from app.models import Episode, Pronunciation, StepName
 from app.pipeline.base import BaseStep
 from app.services.tts_provider import get_tts_provider
-from app.services.tts_utils import expand_reading_hints
+from app.services.tts_utils import concatenate_wav, expand_reading_hints
 
 logger = logging.getLogger(__name__)
+
+# Silence duration between sections (seconds)
+SECTION_SILENCE_SECONDS = 1.5
 
 
 class VoiceStep(BaseStep):
@@ -23,58 +28,118 @@ class VoiceStep(BaseStep):
         return StepName.VOICE
 
     async def execute(self, episode_id: int, input_data: dict, session: AsyncSession, **kwargs) -> dict:
-        """Synthesize audio from the episode script.
+        """Synthesize audio per article, then concatenate with silence gaps.
 
-        Reads episode_script from scriptwriter output, synthesizes via TTS,
-        saves to media/{episode_id}/audio.{format}, updates Episode.audio_path.
+        Produces individual WAV/MP3 files per section (opening, each news item,
+        transitions, ending) and a combined audio file.
         """
-        episode_script = input_data.get("episode_script", "")
-        if not episode_script:
-            raise ValueError("No episode_script in input data")
-
         provider = get_tts_provider()
+        audio_format = provider.audio_format
 
-        # Expand reading hints for TTS: 「漢字（かな）」→「かな」
-        tts_text = expand_reading_hints(episode_script)
-
-        # Apply pronunciation dictionary replacements (longer surfaces first)
-        result = await session.execute(
+        # Load pronunciation dictionary
+        pron_result = await session.execute(
             select(Pronunciation).order_by(Pronunciation.priority.desc(), Pronunciation.id)
         )
-        for entry in result.scalars().all():
-            tts_text = tts_text.replace(entry.surface, entry.reading)
+        pronunciations = list(pron_result.scalars().all())
 
-        # Synthesize audio
-        logger.info("Episode %d: synthesizing audio with %s", episode_id, settings.pipeline_voice_provider)
-        audio_bytes = await provider.synthesize(tts_text)
+        # Load news items for per-article synthesis
+        items = await self._get_news_items(episode_id, session)
 
-        # Save to file
-        audio_format = provider.audio_format
+        # Get script parts from scriptwriter output
+        opening = input_data.get("opening", "")
+        transitions = input_data.get("transitions", [])
+        ending = input_data.get("ending", "")
+
+        # Build ordered list of sections to synthesize
+        sections: list[dict] = []
+
+        if opening:
+            sections.append({"key": "opening", "label": "オープニング", "text": opening})
+
+        for i, item in enumerate(items):
+            if item.script_text:
+                sections.append({
+                    "key": f"news_{item.id}",
+                    "label": item.title,
+                    "text": item.script_text,
+                    "news_item_id": item.id,
+                })
+            if i < len(transitions) and transitions[i]:
+                sections.append({"key": f"transition_{i}", "label": f"つなぎ{i + 1}", "text": transitions[i]})
+
+        if ending:
+            sections.append({"key": "ending", "label": "エンディング", "text": ending})
+
+        # Setup output directory
         episode_dir = os.path.join(settings.media_dir, str(episode_id))
         os.makedirs(episode_dir, exist_ok=True)
-        audio_filename = f"audio.{audio_format}"
-        audio_path = os.path.join(episode_dir, audio_filename)
 
-        with open(audio_path, "wb") as f:
-            f.write(audio_bytes)
+        # Synthesize each section
+        section_results: list[dict] = []
+        all_audio_chunks: list[bytes] = []
+        silence_chunk = self._generate_silence(SECTION_SILENCE_SECONDS, audio_format) if audio_format == "wav" else None
+        total_chars = 0
 
-        # Calculate duration
-        duration_seconds = self._get_audio_duration(audio_bytes, audio_format)
+        for i, section in enumerate(sections):
+            tts_text = self._prepare_tts_text(section["text"], pronunciations)
+            total_chars += len(section["text"])
+
+            logger.info(
+                "Episode %d: synthesizing section '%s' (%d chars)",
+                episode_id, section["key"], len(tts_text),
+            )
+
+            audio_bytes = await provider.synthesize(tts_text)
+
+            # Save individual section audio
+            section_filename = f"{section['key']}.{audio_format}"
+            section_path = os.path.join(episode_dir, section_filename)
+            with open(section_path, "wb") as f:
+                f.write(audio_bytes)
+
+            duration = self._get_audio_duration(audio_bytes, audio_format)
+            section_results.append({
+                "key": section["key"],
+                "label": section["label"],
+                "file": f"{episode_id}/{section_filename}",
+                "duration_seconds": round(duration, 2),
+                **({"news_item_id": section["news_item_id"]} if "news_item_id" in section else {}),
+            })
+
+            all_audio_chunks.append(audio_bytes)
+
+            # Add silence between sections (not after the last one)
+            if i < len(sections) - 1 and silence_chunk:
+                all_audio_chunks.append(silence_chunk)
+
+        # Concatenate all sections into combined audio
+        combined_audio = concatenate_wav(all_audio_chunks) if audio_format == "wav" else b"".join(all_audio_chunks)
+
+        combined_filename = f"audio.{audio_format}"
+        combined_path = os.path.join(episode_dir, combined_filename)
+        with open(combined_path, "wb") as f:
+            f.write(combined_audio)
+
+        total_duration = self._get_audio_duration(combined_audio, audio_format)
+        relative_path = f"{episode_id}/{combined_filename}"
 
         # Update episode record
-        relative_path = f"{episode_id}/{audio_filename}"
-        result = await session.execute(select(Episode).where(Episode.id == episode_id))
-        episode = result.scalar_one()
+        ep_result = await session.execute(select(Episode).where(Episode.id == episode_id))
+        episode = ep_result.scalar_one()
         episode.audio_path = relative_path
         await session.commit()
 
-        # Record usage for TTS (input_tokens = character count for TTS pricing)
+        # Record usage for TTS
         provider_name = settings.pipeline_voice_provider
-        if provider_name != "voicevox":  # VOICEVOX is free/local
+        if provider_name != "voicevox":
             model_map = {
                 "openai": settings.openai_tts_model,
                 "elevenlabs": f"elevenlabs-{settings.elevenlabs_model_id.split('_')[-1]}",
-                "google": f"google-tts-{settings.google_tts_voice.split('-')[2].lower()}" if len(settings.google_tts_voice.split('-')) > 2 else "google-tts-standard",
+                "google": (
+                    f"google-tts-{settings.google_tts_voice.split('-')[2].lower()}"
+                    if len(settings.google_tts_voice.split("-")) > 2
+                    else "google-tts-standard"
+                ),
             }
             model_name = model_map.get(provider_name, provider_name)
             await self.record_usage(
@@ -82,37 +147,73 @@ class VoiceStep(BaseStep):
                 episode_id=episode_id,
                 provider=provider_name,
                 model=model_name,
-                input_tokens=len(episode_script),
+                input_tokens=total_chars,
                 output_tokens=0,
             )
 
+        # Build timestamps for YouTube description
+        timestamps = self._build_timestamps(section_results)
+
         logger.info(
-            "Episode %d: audio saved to %s (%.1fs, %d bytes)",
-            episode_id,
-            relative_path,
-            duration_seconds,
-            len(audio_bytes),
+            "Episode %d: audio saved to %s (%.1fs, %d sections)",
+            episode_id, relative_path, total_duration, len(section_results),
         )
 
         return {
             "audio_path": relative_path,
-            "duration_seconds": duration_seconds,
+            "duration_seconds": total_duration,
             "provider": settings.pipeline_voice_provider,
             "audio_format": audio_format,
+            "sections": section_results,
+            "timestamps": timestamps,
         }
+
+    def _prepare_tts_text(self, text: str, pronunciations: list[Pronunciation]) -> str:
+        """Expand reading hints and apply pronunciation dictionary."""
+        tts_text = expand_reading_hints(text)
+        for entry in pronunciations:
+            tts_text = tts_text.replace(entry.surface, entry.reading)
+        return tts_text
+
+    def _generate_silence(self, duration_seconds: float, audio_format: str) -> bytes:
+        """Generate silence audio in WAV format."""
+        if audio_format != "wav":
+            return b""
+
+        sample_rate = 24000
+        num_frames = int(sample_rate * duration_seconds)
+        silence_frames = b"\x00\x00" * num_frames  # 16-bit silence
+
+        output = io.BytesIO()
+        with wave.open(output, "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)  # 16-bit
+            wav.setframerate(sample_rate)
+            wav.writeframes(silence_frames)
+        return output.getvalue()
+
+    def _build_timestamps(self, section_results: list[dict]) -> str:
+        """Build YouTube-style timestamps from section durations."""
+        lines: list[str] = []
+        elapsed = 0.0
+
+        for section in section_results:
+            minutes = int(elapsed // 60)
+            seconds = int(elapsed % 60)
+            timestamp = f"{minutes}:{seconds:02d}"
+            lines.append(f"{timestamp} {section['label']}")
+            elapsed += section["duration_seconds"]
+
+        return "\n".join(lines)
 
     def _get_audio_duration(self, audio_bytes: bytes, audio_format: str) -> float:
         """Get audio duration in seconds."""
         if audio_format == "wav":
             return self._get_wav_duration(audio_bytes)
-        # For MP3, we estimate based on typical bitrate (128kbps)
         return len(audio_bytes) / (128 * 1024 / 8)
 
     def _get_wav_duration(self, wav_bytes: bytes) -> float:
         """Get WAV audio duration from bytes."""
-        import io
-        import wave
-
         with wave.open(io.BytesIO(wav_bytes), "rb") as wav:
             frames = wav.getnframes()
             rate = wav.getframerate()

@@ -141,11 +141,15 @@ class VideoStep(BaseStep):
             script_text=script_text,
             duration_seconds=duration_seconds,
         )
+        # Pass timestamps from voice step if available
+        timestamps = input_data.get("timestamps", "")
+
         metadata_task = self._generate_youtube_metadata(
             episode=episode,
             news_items=news_items,
             script_text=script_text,
             duration_seconds=duration_seconds,
+            timestamps=timestamps,
             session=session,
         )
 
@@ -176,6 +180,7 @@ class VideoStep(BaseStep):
         news_items: list[NewsItem],
         script_text: str,
         duration_seconds: float,
+        timestamps: str,
         session: AsyncSession,
     ) -> dict | None:
         """Generate YouTube metadata (title, description, tags) using AI."""
@@ -187,11 +192,14 @@ class VideoStep(BaseStep):
             duration_min = int(duration_seconds // 60)
             duration_sec = int(duration_seconds % 60)
 
+            timestamps_info = f"\n\nタイムスタンプ（正確な値）:\n{timestamps}" if timestamps else ""
+
             prompt = (
                 f"番組タイトル: {episode.title}\n"
                 f"ニュース一覧:\n{news_summary}\n"
                 f"動画の長さ: {duration_min}分{duration_sec}秒\n\n"
                 f"台本の冒頭300文字:\n{script_text[:300]}"
+                f"{timestamps_info}"
             )
 
             response = await provider.generate(prompt=prompt, model=model, system=system_prompt)
