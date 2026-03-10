@@ -223,17 +223,10 @@ class ScriptwriterStep(BaseStep):
                 f"- 不確実性: {ad.get('uncertainties', '(なし)')}"
             )
 
-        fact_check_info = ""
-        if item.fact_check_status:
-            fact_check_info = (
-                f"\n\nファクトチェック:\n- ステータス: {item.fact_check_status}\n- スコア: {item.fact_check_score}/5"
-            )
-
         prompt = (
             f"タイトル: {item.title}\n"
             f"ソース: {item.source_name}\n"
             f"要約: {item.summary or '(なし)'}"
-            f"{fact_check_info}"
             f"{analysis_info}"
         )
 
