@@ -35,6 +35,7 @@ class VoiceStep(BaseStep):
         """
         provider = get_tts_provider()
         audio_format = provider.audio_format
+        use_ssml = settings.pipeline_voice_provider == "google"
 
         # Load pronunciation dictionary
         pron_result = await session.execute(
@@ -87,12 +88,25 @@ class VoiceStep(BaseStep):
             tts_text = self._prepare_tts_text(section["text"], pronunciations)
             total_chars += len(section["text"])
 
-            logger.info(
-                "Episode %d: synthesizing section '%s' (%d chars)",
-                episode_id, section["key"], len(tts_text),
-            )
+            # Convert to SSML for natural prosody (Google TTS only)
+            if use_ssml:
+                from app.services.ssml_converter import convert_to_ssml
 
-            audio_bytes = await provider.synthesize(tts_text)
+                tts_input = await convert_to_ssml(
+                    tts_text, session=session, episode_id=episode_id,
+                )
+                logger.info(
+                    "Episode %d: synthesizing section '%s' with SSML (%d chars)",
+                    episode_id, section["key"], len(tts_text),
+                )
+            else:
+                tts_input = tts_text
+                logger.info(
+                    "Episode %d: synthesizing section '%s' (%d chars)",
+                    episode_id, section["key"], len(tts_text),
+                )
+
+            audio_bytes = await provider.synthesize(tts_input)
 
             # Generate silence chunk matching the sample rate of the first WAV
             if silence_chunk is None and audio_format == "wav":
