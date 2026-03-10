@@ -58,43 +58,48 @@ async def convert_to_ssml(text: str, session=None, episode_id: int | None = None
     if not text.strip():
         return "<speak></speak>"
 
-    # Reuse script step's AI provider for SSML conversion
-    provider, model = get_step_provider("script")
+    try:
+        # Reuse script step's AI provider for SSML conversion
+        provider, model = get_step_provider("script")
 
-    response = await provider.generate(
-        prompt=text,
-        model=model,
-        system=SSML_SYSTEM_PROMPT,
-    )
-
-    ssml = response.content.strip()
-
-    # Ensure it's wrapped in <speak> tags
-    if not ssml.startswith("<speak>"):
-        ssml = f"<speak>{ssml}</speak>"
-    if not ssml.endswith("</speak>"):
-        ssml = ssml + "</speak>"
-
-    logger.debug(
-        "SSML conversion: %d chars -> %d chars (%d input_tokens, %d output_tokens)",
-        len(text), len(ssml), response.input_tokens, response.output_tokens,
-    )
-
-    # Record API usage if session provided
-    if session and episode_id:
-        from app.models import ApiUsage, StepName
-        from app.services.cost_estimator import estimate_cost
-
-        cost = await estimate_cost(session, model, response.input_tokens, response.output_tokens)
-        usage = ApiUsage(
-            episode_id=episode_id,
-            step_name=StepName.VOICE.value,
-            provider=response.provider,
-            model=response.model,
-            input_tokens=response.input_tokens,
-            output_tokens=response.output_tokens,
-            cost_usd=cost,
+        response = await provider.generate(
+            prompt=text,
+            model=model,
+            system=SSML_SYSTEM_PROMPT,
         )
-        session.add(usage)
 
-    return ssml
+        ssml = response.content.strip()
+
+        # Ensure it's wrapped in <speak> tags
+        if not ssml.startswith("<speak>"):
+            ssml = f"<speak>{ssml}</speak>"
+        if not ssml.endswith("</speak>"):
+            ssml = ssml + "</speak>"
+
+        logger.info(
+            "SSML conversion: %d chars -> %d chars (%d input_tokens, %d output_tokens)",
+            len(text), len(ssml), response.input_tokens, response.output_tokens,
+        )
+
+        # Record API usage if session provided
+        if session and episode_id:
+            from app.models import ApiUsage, StepName
+            from app.services.cost_estimator import estimate_cost
+
+            cost = await estimate_cost(session, model, response.input_tokens, response.output_tokens)
+            usage = ApiUsage(
+                episode_id=episode_id,
+                step_name=StepName.VOICE.value,
+                provider=response.provider,
+                model=response.model,
+                input_tokens=response.input_tokens,
+                output_tokens=response.output_tokens,
+                cost_usd=cost,
+            )
+            session.add(usage)
+
+        return ssml
+
+    except Exception as e:
+        logger.warning("SSML conversion failed, falling back to plain text: %s", e)
+        return text
