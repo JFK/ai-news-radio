@@ -61,9 +61,10 @@ export interface NewsItem {
 export interface AnalysisData {
   background?: string;
   why_now?: string;
-  perspectives?: Array<{ viewpoint?: string; description?: string }>;
-  data_verification?: string;
-  impact_assessment?: string;
+  perspectives?: Array<{ standpoint?: string; argument?: string; basis?: string }>;
+  data_validation?: string;
+  impact?: string;
+  uncertainties?: string;
   severity?: string;
   topics?: string[];
 }
