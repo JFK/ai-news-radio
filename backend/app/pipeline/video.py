@@ -265,16 +265,16 @@ class VideoStep(BaseStep):
         """Generate MP4 video with scrolling text overlay using FFmpeg."""
         escaped_text = self._escape_drawtext(script_text)
 
-        fontsize = 36
-        line_height = fontsize + 10
+        fontsize = 28
+        line_height = fontsize + 8
         lines = escaped_text.count("\\n") + 1
         text_height = lines * line_height
-        total_scroll = 1080 + text_height
+        total_scroll = 720 + text_height
         scroll_speed = total_scroll / duration_seconds if duration_seconds > 0 else 1
 
-        # FFmpeg: background image (looped) + audio + scrolling text
+        # FFmpeg: background image (looped) + audio + scrolling text (720p, ultrafast)
         filter_complex = (
-            f"[0:v]loop=loop=-1:size=1:start=0,setpts=N/FRAME_RATE/TB,scale=1920:1080,setsar=1[bg];"
+            f"[0:v]loop=loop=-1:size=1:start=0,setpts=N/FRAME_RATE/TB,scale=1280:720,setsar=1[bg];"
             f"[bg]drawtext="
             f"fontfile={FONT_PATH}:"
             f"text='{escaped_text}':"
@@ -282,7 +282,7 @@ class VideoStep(BaseStep):
             f"fontsize={fontsize}:"
             f"x=(w-text_w)/2:"
             f"y=h-{scroll_speed}*t:"
-            f"line_spacing=10"
+            f"line_spacing=8"
             f"[v]"
         )
 
@@ -295,8 +295,8 @@ class VideoStep(BaseStep):
             "-map", "[v]",
             "-map", "1:a",
             "-c:v", "libx264",
-            "-preset", "medium",
-            "-crf", "23",
+            "-preset", "ultrafast",
+            "-crf", "28",
             "-c:a", "aac",
             "-b:a", "128k",
             "-pix_fmt", "yuv420p",

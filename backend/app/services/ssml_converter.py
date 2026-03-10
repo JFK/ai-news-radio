@@ -18,13 +18,6 @@ SSML_SYSTEM_PROMPT = """\
 - `<break time="500ms"/>` 中くらいの間（話題の転換前）
 - `<break time="800ms"/>` 長い間（重要なポイントの前、段落の区切り）
 
-### <prosody> — 速度・ピッチ
-- `<prosody rate="slow">` ゆっくり（考えさせる箇所、問いかけ）
-- `<prosody rate="95%">` やや遅め（重要な説明）
-- `<prosody rate="105%">` やや速め（テンポよく進める箇所）
-- `<prosody pitch="+2st">` やや高め（明るい話題、驚き）
-- `<prosody pitch="-1st">` やや低め（落ち着いた解説）
-
 ### <emphasis> — 強調
 - `<emphasis level="moderate">` 適度な強調（金額、キーワード）
 - `<emphasis level="strong">` 強い強調（最重要ポイント）
@@ -35,10 +28,8 @@ SSML_SYSTEM_PROMPT = """\
 3. 以下の場面で効果的に使う:
    - 重要な数字（金額、割合）→ emphasis
    - 話題の転換（「さて」「ところが」「一方で」）→ break
-   - 問いかけ・考えさせる文 → prosody rate="slow"
-   - 驚きや意外性のある文 → prosody pitch="+2st"
-   - 落ち着いた解説・まとめ → prosody pitch="-1st"
    - 段落の区切り → break time="800ms"
+4. 読み上げ速度（prosody rate）は変更しないこと。不自然になるため禁止
 4. `<speak>` タグで全体を囲むこと
 5. テキスト中の特殊文字（&, <, >, ", '）はXMLエスケープすること
 6. SSML以外のテキスト（説明やコメント）は含めないこと。SSMLのみ出力すること"""
