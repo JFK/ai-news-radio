@@ -1,94 +1,116 @@
 # Setup Guide
 
-Complete guide for setting up AI News Radio.
+AI News Radio のセットアップガイド。[Claude Code](https://claude.com/claude-code) がセットアップを自動で行います。
 
 ## Prerequisites
 
 | Requirement | Minimum | Notes |
 |-------------|---------|-------|
-| Docker | 20.10+ | With Docker Compose v2 plugin |
+| [Claude Code](https://claude.com/claude-code) | Latest | **必須** — セットアップ・運用に使用 |
+| Docker | 24+ | Docker Compose v2 plugin 含む |
+| Python | 3.12+ | venv + MCP サーバー用 |
 | Git | 2.30+ | |
-| RAM | 4 GB | VOICEVOX needs ~1-2 GB |
-| Disk | 10 GB | For Docker images and media files |
+| RAM | 8 GB | |
+| Disk | 80 GB SSD | Docker images + media files |
+
+**Docker のインストール:**
+- Ubuntu: https://docs.docker.com/engine/install/ubuntu/
+- Windows (WSL2): https://docs.docker.com/desktop/install/windows-install/
+- macOS: https://docs.docker.com/desktop/install/mac-install/
 
 ## API Keys
 
-You'll need at least one AI provider key and (optionally) a Brave Search key.
+事前に取得しておくとスムーズです。
 
 | Provider | Console URL | Required |
 |----------|-------------|----------|
-| Anthropic | https://console.anthropic.com/settings/keys | If using Claude |
-| OpenAI | https://platform.openai.com/api-keys | If using GPT |
-| Google | https://aistudio.google.com/apikey | If using Gemini |
-| Brave Search | https://brave.com/search/api/ | For news collection & fact-checking |
-| ElevenLabs | https://elevenlabs.io/app/settings/api-keys | If using ElevenLabs TTS |
+| Brave Search | https://brave.com/search/api/ | Yes（ニュース収集・ファクトチェック） |
+| Anthropic | https://console.anthropic.com/settings/keys | AI プロバイダー（いずれか1つ） |
+| OpenAI | https://platform.openai.com/api-keys | AI プロバイダー（いずれか1つ） |
+| Google | https://aistudio.google.com/apikey | AI プロバイダー（いずれか1つ） |
 
-## Quick Install (Automated)
-
-The interactive setup script handles everything:
+## Setup with Claude Code
 
 ```bash
 git clone https://github.com/JFK/ai-news-radio.git
 cd ai-news-radio
-chmod +x setup.sh
-./setup.sh
+claude
+# 「セットアップして」と入力
 ```
 
-The script will:
-1. Check prerequisites (Docker, docker compose, Git)
-2. Ask you to select an AI provider and enter API keys
-3. Ask you to select a TTS provider
-4. Generate `.env` from `.env.example`
-5. Start all Docker services
-6. Run database migrations
-7. Verify the health check
+Claude Code が以下を順番に実行します:
 
-## Manual Install
+### Step 0: 動作環境チェック
 
-### 1. Clone and configure
+以下を確認し、不足があれば案内します:
+
+- Docker Engine が起動しているか（`docker info`）
+- docker compose v2 が使えるか（`docker compose version`）
+- Python 3.12+ があるか（`python3 --version`）
+- Git があるか（`git --version`）
+- ポートの空き: 3000, 8000, 5432, 6379, 50021
+
+### Step 1: Python venv + 依存インストール
 
 ```bash
-git clone https://github.com/JFK/ai-news-radio.git
-cd ai-news-radio
-cp .env.example .env
+python3 -m venv venv
+source venv/bin/activate
+pip install -e backend/
 ```
 
-### 2. Edit `.env`
+### Step 2: .env 作成
 
-Set your AI provider and API keys:
+`.env.example` をコピーし、対話形式で設定します:
 
-```bash
-# Choose: anthropic, openai, or google
-DEFAULT_AI_PROVIDER=anthropic
-DEFAULT_AI_MODEL=claude-sonnet-4-20250514
+1. **AI プロバイダー**（anthropic / openai / google）
+2. **API キー**（選択したプロバイダー + Brave Search）
+3. **TTS プロバイダー**（voicevox / openai / google）
+4. **画像生成**（static / google）
 
-# Set the API key for your chosen provider
-ANTHROPIC_API_KEY=sk-ant-...
+プロバイダー別の推奨モデル:
 
-# Optional: Brave Search for news collection
-BRAVE_SEARCH_API_KEY=BSA...
-```
+| Provider | Model |
+|----------|-------|
+| Anthropic | `claude-sonnet-4-20250514` |
+| OpenAI | `gpt-4o` |
+| Google | `gemini-2.5-pro` |
 
-### 3. Start services
+### Step 3: Docker 起動 + DB マイグレーション
 
 ```bash
 docker compose up -d --build
-```
-
-### 4. Run database migrations
-
-```bash
 docker compose exec backend alembic upgrade head
 ```
 
-### 5. Verify
+### Step 4: ヘルスチェック
 
-```bash
-curl http://localhost:8000/api/health
-# → {"status":"ok"}
+- Backend: http://localhost:8000/api/health → `{"status":"ok"}`
+- Frontend: http://localhost:3000
+
+### Step 5: MCP サーバー設定
+
+`.mcp.json` を生成し、Claude Code から MCP ツールでパイプラインを操作できるようにします。
+
+```json
+{
+  "mcpServers": {
+    "ai-news-radio": {
+      "type": "stdio",
+      "command": "<project>/venv/bin/python",
+      "args": ["-m", "mcp_server"],
+      "cwd": "<project>/backend",
+      "env": {
+        "AINEWSRADIO_BACKEND_URL": "http://localhost:8000",
+        "PYTHONPATH": "<project>/backend"
+      }
+    }
+  }
+}
 ```
 
-Open http://localhost:3000 in your browser.
+`<project>` はリポジトリの絶対パスに置き換わります。
+
+設定後、Claude Code を再起動すると MCP ツール（`search_news`, `create_episode`, `run_step` 等）が使えるようになります。
 
 ## Environment Variables Reference
 
@@ -138,57 +160,26 @@ Open http://localhost:3000 in your browser.
 | `OPENAI_TTS_MODEL` | `tts-1` | OpenAI TTS model |
 | `OPENAI_TTS_VOICE` | `alloy` | OpenAI TTS voice |
 | `ELEVENLABS_API_KEY` | | ElevenLabs API key |
-| `ELEVENLABS_VOICE_ID` | `21m00Tcm4TlvDq8ikWAM` | ElevenLabs voice ID |
-| `ELEVENLABS_MODEL_ID` | `eleven_multilingual_v2` | ElevenLabs model |
 | `GOOGLE_TTS_VOICE` | `ja-JP-Neural2-B` | Google Cloud TTS voice |
 | `GOOGLE_TTS_LANGUAGE_CODE` | `ja-JP` | Google Cloud TTS language |
 
-### Media & YouTube
+### Visual / Video
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `VISUAL_PROVIDER` | `static` | Image generation (`static` or `google`) |
+| `VISUAL_IMAGEN_MODEL` | `imagen-4.0-fast-generate-001` | Imagen model |
 | `MEDIA_DIR` | `/app/media` | Directory for generated media files |
-| `YOUTUBE_CLIENT_ID` | | YouTube OAuth client ID |
-| `YOUTUBE_CLIENT_SECRET` | | YouTube OAuth client secret |
-
-## GPU VOICEVOX
-
-To use GPU-accelerated VOICEVOX (significantly faster synthesis), edit `docker-compose.yml`:
-
-```yaml
-voicevox:
-  image: voicevox/voicevox_engine:nvidia-latest
-  ports:
-    - "50021:50021"
-  deploy:
-    resources:
-      reservations:
-        devices:
-          - driver: nvidia
-            count: 1
-            capabilities: [gpu]
-```
-
-Requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html).
 
 ## Troubleshooting
 
 ### Port conflicts
 
-If ports 8000, 3000, 5432, 6379, or 50021 are already in use:
-
 ```bash
 # Find what's using a port
 lsof -i :8000
-
-# Or change ports in docker-compose.yml
-ports:
-  - "8001:8000"  # Map to a different host port
+# Or: ss -tlnp | grep 8000
 ```
-
-### VOICEVOX slow first request
-
-VOICEVOX loads its model into memory on the first synthesis request. The first request may take 30-60 seconds on CPU. Subsequent requests are much faster (5-15 seconds per sentence).
 
 ### Database migration errors
 
@@ -210,30 +201,4 @@ docker compose logs db
 docker compose down
 docker compose build --no-cache
 docker compose up -d
-```
-
-## Development
-
-### Running tests
-
-```bash
-# Backend tests (pytest)
-docker compose exec backend pytest
-
-# With coverage
-docker compose exec backend pytest --cov=app
-
-# Frontend linting
-docker compose exec frontend npm run lint
-```
-
-### Code formatting & linting
-
-```bash
-# Python (Ruff)
-docker compose exec backend ruff check app/
-docker compose exec backend ruff format app/
-
-# TypeScript (ESLint)
-docker compose exec frontend npm run lint
 ```
