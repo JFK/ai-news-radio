@@ -157,7 +157,22 @@ class ScriptwriterStep(BaseStep):
         total_input_tokens = 0
         total_output_tokens = 0
 
-        items = await self._get_news_items(episode_id, session)
+        all_items = await self._get_news_items(episode_id, session)
+
+        # Filter out items with low fact-check reliability (unverified or disputed)
+        items = [
+            item for item in all_items
+            if item.fact_check_status not in ("unverified", "disputed")
+        ]
+        skipped = len(all_items) - len(items)
+        if skipped:
+            logger.info(
+                "Episode %d: skipped %d items with low fact-check reliability",
+                episode_id, skipped,
+            )
+
+        if not items:
+            raise ValueError("No reliable news items to generate scripts for")
 
         # Phase 1: per-article scripts
         for item in items:
