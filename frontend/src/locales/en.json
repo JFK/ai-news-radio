@@ -170,6 +170,17 @@
       "save": "Save",
       "delete": "Delete"
     },
+    "dictionary": {
+      "title": "Pronunciation Dictionary",
+      "description": "Register pronunciation rules for TTS. Higher priority entries are applied first.",
+      "surface": "Surface",
+      "reading": "Reading",
+      "priority": "Priority",
+      "add": "Add",
+      "save": "Save",
+      "delete": "Delete",
+      "empty": "No dictionary entries. Click \"Add\" to register pronunciations."
+    },
     "prompts": {
       "title": "Prompt Templates",
       "backToList": "Back to list",

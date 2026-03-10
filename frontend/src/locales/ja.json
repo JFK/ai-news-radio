@@ -170,6 +170,17 @@
       "save": "保存",
       "delete": "削除"
     },
+    "dictionary": {
+      "title": "読み辞書",
+      "description": "音声合成時の読み方を登録します。優先度が高いものから順に適用されます。",
+      "surface": "表記",
+      "reading": "読み",
+      "priority": "優先度",
+      "add": "追加",
+      "save": "保存",
+      "delete": "削除",
+      "empty": "辞書エントリがありません。「追加」ボタンで読みを登録してください。"
+    },
     "prompts": {
       "title": "プロンプトテンプレート",
       "backToList": "一覧に戻る",

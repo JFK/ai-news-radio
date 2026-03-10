@@ -8,6 +8,7 @@ import type {
   EpisodeCostResponse,
   ArticleInput,
   ModelPricing,
+  Pronunciation,
   PromptSummary,
   PromptHistory,
   PromptTemplateVersion,
@@ -64,6 +65,11 @@ export const api = {
   rollbackPrompt: (key: string, version: number) =>
     client.post<PromptTemplateVersion>(`/prompts/${key}/rollback/${version}`),
   resetPrompt: (key: string) => client.delete(`/prompts/${key}`),
+  // Pronunciation dictionary
+  getDictionary: () => client.get<Pronunciation[]>("/dictionary"),
+  createDictionary: (data: { surface: string; reading: string; priority: number }) =>
+    client.post<Pronunciation>("/dictionary", data),
+  deleteDictionary: (id: number) => client.delete(`/dictionary/${id}`),
 };
 
 export default client;

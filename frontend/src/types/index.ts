@@ -121,6 +121,14 @@ export interface ModelPricing {
   updated_at: string;
 }
 
+export interface Pronunciation {
+  id: number;
+  surface: string;
+  reading: string;
+  priority: number;
+  created_at: string;
+}
+
 export interface PromptSummary {
   key: string;
   name: string;
