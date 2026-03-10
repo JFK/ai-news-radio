@@ -168,6 +168,22 @@
       "edit": "Edit",
       "save": "Save",
       "delete": "Delete"
+    },
+    "prompts": {
+      "title": "Prompt Templates",
+      "backToList": "Back to list",
+      "version": "Version",
+      "custom": "Custom",
+      "default": "Default",
+      "usingDefault": "Using default prompt",
+      "edit": "Edit",
+      "save": "Save",
+      "saving": "Saving...",
+      "cancel": "Cancel",
+      "resetDefault": "Reset to Default",
+      "history": "Version History",
+      "active": "Active",
+      "restore": "Restore"
     }
   },
   "errors": {

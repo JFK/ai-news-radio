@@ -8,6 +8,9 @@ import type {
   EpisodeCostResponse,
   ArticleInput,
   ModelPricing,
+  PromptSummary,
+  PromptHistory,
+  PromptTemplateVersion,
 } from "../types";
 
 const client = axios.create({
@@ -53,6 +56,14 @@ export const api = {
   updatePricing: (id: number, data: { model_prefix: string; provider: string; input_price_per_1m: number; output_price_per_1m: number }) =>
     client.put<ModelPricing>(`/pricing/${id}`, data),
   deletePricing: (id: number) => client.delete(`/pricing/${id}`),
+  // Prompt templates
+  getPrompts: () => client.get<PromptSummary[]>("/prompts"),
+  getPrompt: (key: string) => client.get<PromptHistory>(`/prompts/${key}`),
+  updatePrompt: (key: string, content: string) =>
+    client.put<PromptTemplateVersion>(`/prompts/${key}`, { content }),
+  rollbackPrompt: (key: string, version: number) =>
+    client.post<PromptTemplateVersion>(`/prompts/${key}/rollback/${version}`),
+  resetPrompt: (key: string) => client.delete(`/prompts/${key}`),
 };
 
 export default client;

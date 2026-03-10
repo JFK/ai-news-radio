@@ -13,12 +13,48 @@ from app.models import Episode, NewsItem, PipelineStep, StepName
 from app.pipeline.base import BaseStep
 from app.pipeline.utils import parse_json_response
 from app.services.ai_provider import get_step_provider
+from app.services.prompt_loader import get_active_prompt, register_default
 from app.services.visual_provider import get_visual_provider
 
 logger = logging.getLogger(__name__)
 
 # Font path for Japanese text rendering (Noto Sans CJK)
 FONT_PATH = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
+
+PROMPT_KEY = "youtube_metadata"
+
+YOUTUBE_METADATA_SYSTEM_PROMPT = """\
+あなたはYouTubeのSEO・アルゴリズム最適化の専門家です。
+ニュースラジオ番組の動画に最適なメタデータを生成してください。
+
+## ルール
+
+### title（60文字以内）
+- 検索されやすいキーワードを自然に含める
+- クリックベイトにならない範囲で興味を引く
+- 【】で主要トピックを冒頭に
+
+### description（日本語、2000文字以内）
+- 冒頭3行で要点（折りたたみ前に表示される部分が重要）
+- ⏱ タイムスタンプ（0:00 オープニング、おおよそのセクション位置）
+- 📌 ニュース一覧
+- 関連キーワードを自然に含める
+- 末尾にクレジット: 🎙 音声: VOICEVOX / 📻 AI News Radio Japan
+
+### tags（配列、合計500文字以内）
+- ニュース関連キーワード
+- 地域名・トピック固有のタグ
+- 日本語と英語を混ぜる
+- 15-25個程度
+
+以下のJSON形式で回答してください。JSON以外のテキストは含めないでください:
+{
+  "title": "動画タイトル",
+  "description": "概要文",
+  "tags": ["タグ1", "タグ2", ...]
+}"""
+
+register_default(PROMPT_KEY, YOUTUBE_METADATA_SYSTEM_PROMPT)
 
 
 class VideoStep(BaseStep):
@@ -145,6 +181,7 @@ class VideoStep(BaseStep):
         """Generate YouTube metadata (title, description, tags) using AI."""
         try:
             provider, model = get_step_provider("script")  # Reuse script step's AI config
+            system_prompt, _prompt_version = await get_active_prompt(session, PROMPT_KEY)
 
             news_summary = "\n".join(f"- {item.title}" for item in news_items)
             duration_min = int(duration_seconds // 60)
@@ -157,38 +194,7 @@ class VideoStep(BaseStep):
                 f"台本の冒頭300文字:\n{script_text[:300]}"
             )
 
-            system = """\
-あなたはYouTubeのSEO・アルゴリズム最適化の専門家です。
-ニュースラジオ番組の動画に最適なメタデータを生成してください。
-
-## ルール
-
-### title（60文字以内）
-- 検索されやすいキーワードを自然に含める
-- クリックベイトにならない範囲で興味を引く
-- 【】で主要トピックを冒頭に
-
-### description（日本語、2000文字以内）
-- 冒頭3行で要点（折りたたみ前に表示される部分が重要）
-- ⏱ タイムスタンプ（0:00 オープニング、おおよそのセクション位置）
-- 📌 ニュース一覧
-- 関連キーワードを自然に含める
-- 末尾にクレジット: 🎙 音声: VOICEVOX / 📻 AI News Radio Japan
-
-### tags（配列、合計500文字以内）
-- ニュース関連キーワード
-- 地域名・トピック固有のタグ
-- 日本語と英語を混ぜる
-- 15-25個程度
-
-以下のJSON形式で回答してください。JSON以外のテキストは含めないでください:
-{
-  "title": "動画タイトル",
-  "description": "概要文",
-  "tags": ["タグ1", "タグ2", ...]
-}"""
-
-            response = await provider.generate(prompt=prompt, model=model, system=system)
+            response = await provider.generate(prompt=prompt, model=model, system=system_prompt)
             data = parse_json_response(response.content)
 
             await self.record_usage(

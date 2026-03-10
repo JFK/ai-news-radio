@@ -168,6 +168,22 @@
       "edit": "編集",
       "save": "保存",
       "delete": "削除"
+    },
+    "prompts": {
+      "title": "プロンプトテンプレート",
+      "backToList": "一覧に戻る",
+      "version": "バージョン",
+      "custom": "カスタム",
+      "default": "デフォルト",
+      "usingDefault": "デフォルトプロンプトを使用中",
+      "edit": "編集",
+      "save": "保存",
+      "saving": "保存中...",
+      "cancel": "キャンセル",
+      "resetDefault": "デフォルトに戻す",
+      "history": "バージョン履歴",
+      "active": "使用中",
+      "restore": "復元"
     }
   },
   "errors": {

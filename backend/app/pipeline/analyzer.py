@@ -8,8 +8,11 @@ from app.models import NewsItem, StepName
 from app.pipeline.base import BaseStep
 from app.pipeline.utils import parse_json_response
 from app.services.ai_provider import get_step_provider
+from app.services.prompt_loader import get_active_prompt, register_default
 
 logger = logging.getLogger(__name__)
+
+PROMPT_KEY = "analysis"
 
 ANALYSIS_SYSTEM_PROMPT = """\
 あなたはニュースのクリティカル分析を行う専門家です。
@@ -41,6 +44,8 @@ ANALYSIS_SYSTEM_PROMPT = """\
   "topics": ["関連トピックタグ1", "関連トピックタグ2"]
 }"""
 
+register_default(PROMPT_KEY, ANALYSIS_SYSTEM_PROMPT)
+
 
 class AnalyzerStep(BaseStep):
     """Critically analyze news articles using AI."""
@@ -56,6 +61,7 @@ class AnalyzerStep(BaseStep):
         One AI call per article. Idempotent: re-running overwrites previous results.
         """
         provider, model = get_step_provider(self.step_name.value)
+        system_prompt, prompt_version = await get_active_prompt(session, PROMPT_KEY)
         results: list[dict] = []
         total_input_tokens = 0
         total_output_tokens = 0
@@ -63,7 +69,7 @@ class AnalyzerStep(BaseStep):
         items = await self._get_news_items(episode_id, session)
 
         for item in items:
-            result = await self._analyze_item(item, provider, model, session, episode_id)
+            result = await self._analyze_item(item, provider, model, system_prompt, session, episode_id)
             results.append(result)
             total_input_tokens += result["input_tokens"]
             total_output_tokens += result["output_tokens"]
@@ -83,19 +89,23 @@ class AnalyzerStep(BaseStep):
             severity_summary,
         )
 
-        return {
+        result_data: dict = {
             "items_analyzed": len(results),
             "results": results,
             "severity_summary": severity_summary,
             "total_input_tokens": total_input_tokens,
             "total_output_tokens": total_output_tokens,
         }
+        if prompt_version is not None:
+            result_data["prompt_version"] = prompt_version
+        return result_data
 
     async def _analyze_item(
         self,
         item: NewsItem,
         provider,
         model: str,
+        system_prompt: str,
         session: AsyncSession,
         episode_id: int,
     ) -> dict:
@@ -121,7 +131,7 @@ class AnalyzerStep(BaseStep):
         response = await provider.generate(
             prompt=prompt,
             model=model,
-            system=ANALYSIS_SYSTEM_PROMPT,
+            system=system_prompt,
         )
 
         data = parse_json_response(response.content)
