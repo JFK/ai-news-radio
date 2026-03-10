@@ -70,6 +70,9 @@ class VoiceStep(BaseStep):
         if ending:
             sections.append({"key": "ending", "label": "エンディング", "text": ending})
 
+        if not sections:
+            raise ValueError("No script sections found for audio synthesis")
+
         # Setup output directory
         episode_dir = os.path.join(settings.media_dir, str(episode_id))
         os.makedirs(episode_dir, exist_ok=True)
@@ -193,16 +196,22 @@ class VoiceStep(BaseStep):
         return output.getvalue()
 
     def _build_timestamps(self, section_results: list[dict]) -> str:
-        """Build YouTube-style timestamps from section durations."""
+        """Build YouTube-style timestamps from section durations.
+
+        Accounts for silence gaps between sections.
+        """
         lines: list[str] = []
         elapsed = 0.0
 
-        for section in section_results:
+        for i, section in enumerate(section_results):
             minutes = int(elapsed // 60)
             seconds = int(elapsed % 60)
             timestamp = f"{minutes}:{seconds:02d}"
             lines.append(f"{timestamp} {section['label']}")
             elapsed += section["duration_seconds"]
+            # Add silence gap (except after last section)
+            if i < len(section_results) - 1:
+                elapsed += SECTION_SILENCE_SECONDS
 
         return "\n".join(lines)
 
