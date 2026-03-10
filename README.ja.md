@@ -32,6 +32,25 @@
 
 各 `✅` はヒューマン承認ゲート。人間が確認・承認するまで次のステップに進みません。
 
+## 動作推奨環境
+
+| リソース | 推奨スペック |
+|---------|------------|
+| OS | Ubuntu 22.04+ / WSL2 / macOS |
+| CPU | 4 vCPU |
+| RAM | 8 GB |
+| Disk | 80 GB SSD |
+| Docker | Docker Engine 24+ / Docker Compose v2 |
+
+**必要なAPIキー**（AIプロバイダーは最低1つ）:
+
+| サービス | 用途 | 必須 |
+|---------|------|------|
+| [Brave Search](https://brave.com/search/api/) | ニュース収集・ファクトチェック | Yes |
+| [OpenAI](https://platform.openai.com/) | AI (GPT) / TTS | いずれか1つ |
+| [Anthropic](https://console.anthropic.com/) | AI (Claude) | いずれか1つ |
+| [Google AI](https://aistudio.google.com/) | AI (Gemini) / TTS / Imagen | いずれか1つ |
+
 ## クイックスタート
 
 ```bash
