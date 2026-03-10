@@ -11,16 +11,15 @@ git clone https://github.com/<your-username>/ai-news-radio.git
 cd ai-news-radio
 ```
 
-### 2. Start the development environment
+### 2. Start with Claude Code
 
 ```bash
-cp .env.example .env
-# Edit .env with your API keys
-docker compose up -d --build
-docker compose exec backend alembic upgrade head
+claude
+# 「セットアップして」と入力
 ```
 
-See [docs/setup.md](docs/setup.md) for detailed instructions.
+Claude Code が環境チェック、依存インストール、`.env` 作成、Docker 起動、MCP 設定まで自動で行います。
+詳細は [docs/setup.md](docs/setup.md) を参照。
 
 ### 3. Verify
 
@@ -93,6 +92,19 @@ test: add factchecker unit tests
 
 ## Pull Request Process
 
+Claude Code を使って開発・PR 作成ができます。
+
+### Claude Code で作業する場合（推奨）
+
+```bash
+claude
+# 「Issue #42 を実装して」と入力
+```
+
+Claude Code が Issue を読み、ブランチ作成、実装、テスト、PR 作成まで行います。
+
+### 手動で作業する場合
+
 1. Create a feature branch from `main`:
    ```bash
    git checkout -b feat/your-feature
@@ -111,6 +123,17 @@ test: add factchecker unit tests
 5. Reference the related issue in your PR description (e.g., `Closes #42`).
 
 6. A maintainer will review your PR. Please respond to feedback promptly.
+
+## Feedback & Issues
+
+バグ報告・機能要望は Claude Code 経由でも受け付けています:
+
+```bash
+claude
+# 「〇〇のバグを報告して」「〇〇の機能が欲しい」と入力
+```
+
+Claude Code が Issue を作成します。もちろん [GitHub Issues](https://github.com/JFK/ai-news-radio/issues) から直接作成も可能です。
 
 ## Project Structure
 

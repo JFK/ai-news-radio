@@ -241,6 +241,12 @@ Brave Search API を使用。検索クエリは環境変数 `COLLECTION_QUERIES`
 - Disk: 80 GB SSD
 - GPU: 不要（CPU版VOICEVOX使用）
 
+## セットアップ手順
+
+ユーザーが「セットアップして」と言ったら、[docs/setup.md](docs/setup.md) の手順に従って実行すること。
+
+概要: 環境チェック → venv作成 → .env生成（ユーザーに質問） → Docker起動 → DBマイグレーション → .mcp.json生成
+
 ## コーディング規約
 
 - Python: Ruff (formatter + linter), type hints必須

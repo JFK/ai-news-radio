@@ -39,6 +39,8 @@ Each `✅` is a human approval gate. No step proceeds without explicit approval.
 | RAM | 8 GB |
 | Disk | 80 GB SSD |
 | Docker | Docker Engine 24+ / Docker Compose v2 |
+| Python | 3.12+ |
+| **[Claude Code](https://claude.com/claude-code)** | **Required for setup & operation** |
 
 **Required API keys** (at least one AI provider):
 
@@ -51,25 +53,24 @@ Each `✅` is a human approval gate. No step proceeds without explicit approval.
 
 ## Quick Start
 
+This project uses **[Claude Code](https://claude.com/claude-code)** for setup, development, and pipeline operation via MCP.
+
 ```bash
 # 1. Clone
 git clone https://github.com/JFK/ai-news-radio.git
 cd ai-news-radio
 
-# 2. Run the interactive setup script
-chmod +x setup.sh
-./setup.sh
+# 2. Launch Claude Code and say "セットアップして"
+claude
 ```
 
-The setup script will:
-- Check prerequisites (Docker, docker compose, Git)
+Claude Code will automatically:
+- Check prerequisites (Docker, Python, ports)
+- Create Python venv and install dependencies
 - Prompt for AI provider selection and API keys
 - Generate the `.env` file
-- Start all Docker services
-- Run database migrations
-- Verify the health check
-
-For manual setup, see [docs/setup.md](docs/setup.md).
+- Start all Docker services and run migrations
+- Configure MCP server for pipeline control
 
 ## Tech Stack
 

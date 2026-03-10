@@ -41,6 +41,8 @@
 | RAM | 8 GB |
 | Disk | 80 GB SSD |
 | Docker | Docker Engine 24+ / Docker Compose v2 |
+| Python | 3.12+ |
+| **[Claude Code](https://claude.com/claude-code)** | **セットアップ・運用に必須** |
 
 **必要なAPIキー**（AIプロバイダーは最低1つ）:
 
@@ -53,25 +55,23 @@
 
 ## クイックスタート
 
+本プロジェクトは **[Claude Code](https://claude.com/claude-code)** でセットアップ・開発・パイプライン操作を行います。
+
 ```bash
 # 1. クローン
 git clone https://github.com/JFK/ai-news-radio.git
 cd ai-news-radio
 
-# 2. セットアップスクリプトを実行（対話式）
-chmod +x setup.sh
-./setup.sh
+# 2. Claude Code を起動して「セットアップして」と入力
+claude
 ```
 
-セットアップスクリプトが以下を行います：
-- 前提条件のチェック（Docker, docker compose, Git）
-- AIプロバイダー選択・APIキー入力
-- `.env` ファイル生成
-- Docker サービス起動
-- DBマイグレーション実行
-- ヘルスチェック
-
-手動セットアップは [docs/setup.md](docs/setup.md) を参照してください。
+Claude Code が自動的に以下を実行します:
+- 前提条件のチェック（Docker, Python, ポート）
+- Python venv 作成・依存パッケージインストール
+- AIプロバイダー選択・APIキー入力 → `.env` 生成
+- Docker サービス起動・DBマイグレーション
+- MCP サーバー設定（パイプライン操作用）
 
 ## 技術スタック
 
