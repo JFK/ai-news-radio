@@ -39,7 +39,7 @@ YOUTUBE_METADATA_SYSTEM_PROMPT = """\
 - ⏱ タイムスタンプ（0:00 オープニング、おおよそのセクション位置）
 - 📌 ニュース一覧
 - 関連キーワードを自然に含める
-- 末尾にクレジット: 🎙 音声: VOICEVOX / 📻 AI News Radio Japan
+- 末尾にクレジット: 📻 AI News Radio Japan
 
 ### tags（配列、合計500文字以内）
 - ニュース関連キーワード

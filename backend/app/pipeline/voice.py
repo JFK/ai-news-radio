@@ -227,10 +227,12 @@ class VoiceStep(BaseStep):
         elapsed = 0.0
 
         for i, section in enumerate(section_results):
-            minutes = int(elapsed // 60)
-            seconds = int(elapsed % 60)
-            timestamp = f"{minutes}:{seconds:02d}"
-            lines.append(f"{timestamp} {section['label']}")
+            # Skip transitions in timestamps (not useful for YouTube index)
+            if not section["key"].startswith("transition_"):
+                minutes = int(elapsed // 60)
+                seconds = int(elapsed % 60)
+                timestamp = f"{minutes}:{seconds:02d}"
+                lines.append(f"{timestamp} {section['label']}")
             elapsed += section["duration_seconds"]
             # Add silence gap (except after last section)
             if i < len(section_results) - 1:
