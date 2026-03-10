@@ -197,6 +197,9 @@ class ScriptwriterStep(BaseStep):
             "items_scripted": len(item_scripts),
             "item_scripts": [{"news_item_id": s["news_item_id"], "title": s["title"]} for s in item_scripts],
             "episode_script": episode_script["full_script"],
+            "opening": episode_script["opening"],
+            "transitions": episode_script["transitions"],
+            "ending": episode_script["ending"],
             "total_input_tokens": total_input_tokens,
             "total_output_tokens": total_output_tokens,
         }
