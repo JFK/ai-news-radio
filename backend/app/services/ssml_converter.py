@@ -30,9 +30,9 @@ SSML_SYSTEM_PROMPT = """\
    - 話題の転換（「さて」「ところが」「一方で」）→ break
    - 段落の区切り → break time="800ms"
 4. 読み上げ速度（prosody rate）は変更しないこと。不自然になるため禁止
-4. `<speak>` タグで全体を囲むこと
-5. テキスト中の特殊文字（&, <, >, ", '）はXMLエスケープすること
-6. SSML以外のテキスト（説明やコメント）は含めないこと。SSMLのみ出力すること"""
+5. `<speak>` タグで全体を囲むこと
+6. テキスト中の特殊文字（&, <, >, ", '）はXMLエスケープすること
+7. SSML以外のテキスト（説明やコメント）は含めないこと。SSMLのみ出力すること"""
 
 
 async def convert_to_ssml(text: str, session=None, episode_id: int | None = None) -> str:
