@@ -39,7 +39,7 @@ YOUTUBE_METADATA_SYSTEM_PROMPT = """\
 - ⏱ タイムスタンプ（0:00 オープニング、おおよそのセクション位置）
 - 📌 ニュース一覧
 - 関連キーワードを自然に含める
-- 末尾にクレジット: 🎙 音声: VOICEVOX / 📻 AI News Radio Japan
+- 末尾にクレジット: 📻 AI News Radio Japan
 
 ### tags（配列、合計500文字以内）
 - ニュース関連キーワード
@@ -141,11 +141,15 @@ class VideoStep(BaseStep):
             script_text=script_text,
             duration_seconds=duration_seconds,
         )
+        # Pass timestamps from voice step if available
+        timestamps = input_data.get("timestamps", "")
+
         metadata_task = self._generate_youtube_metadata(
             episode=episode,
             news_items=news_items,
             script_text=script_text,
             duration_seconds=duration_seconds,
+            timestamps=timestamps,
             session=session,
         )
 
@@ -176,6 +180,7 @@ class VideoStep(BaseStep):
         news_items: list[NewsItem],
         script_text: str,
         duration_seconds: float,
+        timestamps: str,
         session: AsyncSession,
     ) -> dict | None:
         """Generate YouTube metadata (title, description, tags) using AI."""
@@ -187,11 +192,14 @@ class VideoStep(BaseStep):
             duration_min = int(duration_seconds // 60)
             duration_sec = int(duration_seconds % 60)
 
+            timestamps_info = f"\n\nタイムスタンプ（正確な値）:\n{timestamps}" if timestamps else ""
+
             prompt = (
                 f"番組タイトル: {episode.title}\n"
                 f"ニュース一覧:\n{news_summary}\n"
                 f"動画の長さ: {duration_min}分{duration_sec}秒\n\n"
                 f"台本の冒頭300文字:\n{script_text[:300]}"
+                f"{timestamps_info}"
             )
 
             response = await provider.generate(prompt=prompt, model=model, system=system_prompt)
@@ -257,16 +265,16 @@ class VideoStep(BaseStep):
         """Generate MP4 video with scrolling text overlay using FFmpeg."""
         escaped_text = self._escape_drawtext(script_text)
 
-        fontsize = 36
-        line_height = fontsize + 10
+        fontsize = 28
+        line_height = fontsize + 8
         lines = escaped_text.count("\\n") + 1
         text_height = lines * line_height
-        total_scroll = 1080 + text_height
+        total_scroll = 720 + text_height
         scroll_speed = total_scroll / duration_seconds if duration_seconds > 0 else 1
 
-        # FFmpeg: background image (looped) + audio + scrolling text
+        # FFmpeg: background image (looped) + audio + scrolling text (720p, ultrafast)
         filter_complex = (
-            f"[0:v]loop=loop=-1:size=1:start=0,setpts=N/FRAME_RATE/TB,scale=1920:1080,setsar=1[bg];"
+            f"[0:v]loop=loop=-1:size=1:start=0,setpts=N/FRAME_RATE/TB,scale=1280:720,setsar=1[bg];"
             f"[bg]drawtext="
             f"fontfile={FONT_PATH}:"
             f"text='{escaped_text}':"
@@ -274,7 +282,7 @@ class VideoStep(BaseStep):
             f"fontsize={fontsize}:"
             f"x=(w-text_w)/2:"
             f"y=h-{scroll_speed}*t:"
-            f"line_spacing=10"
+            f"line_spacing=8"
             f"[v]"
         )
 
@@ -287,8 +295,8 @@ class VideoStep(BaseStep):
             "-map", "[v]",
             "-map", "1:a",
             "-c:v", "libx264",
-            "-preset", "medium",
-            "-crf", "23",
+            "-preset", "ultrafast",
+            "-crf", "28",
             "-c:a", "aac",
             "-b:a", "128k",
             "-pix_fmt", "yuv420p",

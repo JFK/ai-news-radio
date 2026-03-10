@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
-import type { ModelPricing, PromptSummary, PromptHistory } from "../types";
+import type { ModelPricing, Pronunciation, PromptSummary, PromptHistory } from "../types";
 
 export default function Settings() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"pricing" | "prompts">("pricing");
+  const [activeTab, setActiveTab] = useState<"pricing" | "prompts" | "dictionary">("pricing");
 
   return (
     <div>
@@ -33,10 +33,21 @@ export default function Settings() {
         >
           {t("settings.prompts.title")}
         </button>
+        <button
+          onClick={() => setActiveTab("dictionary")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 cursor-pointer ${
+            activeTab === "dictionary"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          {t("settings.dictionary.title")}
+        </button>
       </div>
 
       {activeTab === "pricing" && <PricingSection />}
       {activeTab === "prompts" && <PromptsSection />}
+      {activeTab === "dictionary" && <DictionarySection />}
     </div>
   );
 }
@@ -457,6 +468,139 @@ function PromptsSection() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function DictionarySection() {
+  const { t } = useTranslation();
+  const [entries, setEntries] = useState<Pronunciation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({ surface: "", reading: "", priority: 0 });
+
+  const fetchEntries = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await api.getDictionary();
+      setEntries(res.data);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchEntries();
+  }, [fetchEntries]);
+
+  const handleAdd = async () => {
+    if (!form.surface || !form.reading) return;
+    try {
+      await api.createDictionary(form);
+      setForm({ surface: "", reading: "", priority: 0 });
+      setShowAdd(false);
+      fetchEntries();
+    } catch {
+      // 409 duplicate
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    await api.deleteDictionary(id);
+    fetchEntries();
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h3 className="text-base font-semibold text-gray-700">{t("settings.dictionary.title")}</h3>
+          <p className="text-xs text-gray-500 mt-1">{t("settings.dictionary.description")}</p>
+        </div>
+        <button
+          onClick={() => setShowAdd(!showAdd)}
+          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 cursor-pointer"
+        >
+          {t("settings.dictionary.add")}
+        </button>
+      </div>
+
+      {showAdd && (
+        <div className="bg-gray-50 rounded-lg p-4 mb-4 flex gap-2 items-end flex-wrap">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">{t("settings.dictionary.surface")}</label>
+            <input
+              type="text"
+              value={form.surface}
+              onChange={(e) => setForm({ ...form, surface: e.target.value })}
+              className="px-2 py-1.5 border border-gray-300 rounded text-sm w-40"
+              placeholder="菊陽町"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">{t("settings.dictionary.reading")}</label>
+            <input
+              type="text"
+              value={form.reading}
+              onChange={(e) => setForm({ ...form, reading: e.target.value })}
+              className="px-2 py-1.5 border border-gray-300 rounded text-sm w-40"
+              placeholder="きくようまち"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">{t("settings.dictionary.priority")}</label>
+            <input
+              type="number"
+              value={form.priority}
+              onChange={(e) => setForm({ ...form, priority: parseInt(e.target.value) || 0 })}
+              className="px-2 py-1.5 border border-gray-300 rounded text-sm w-20"
+            />
+          </div>
+          <button
+            onClick={handleAdd}
+            disabled={!form.surface || !form.reading}
+            className="px-3 py-1.5 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 disabled:opacity-50 cursor-pointer"
+          >
+            {t("settings.dictionary.save")}
+          </button>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-gray-500 text-sm">{t("settings.loading")}</p>
+      ) : entries.length === 0 ? (
+        <p className="text-gray-500 text-sm">{t("settings.dictionary.empty")}</p>
+      ) : (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left px-4 py-2 font-medium text-gray-600">{t("settings.dictionary.surface")}</th>
+                <th className="text-left px-4 py-2 font-medium text-gray-600">{t("settings.dictionary.reading")}</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-600">{t("settings.dictionary.priority")}</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-600 w-20"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {entries.map((e) => (
+                <tr key={e.id}>
+                  <td className="px-4 py-2 font-medium text-gray-900">{e.surface}</td>
+                  <td className="px-4 py-2 text-gray-600">{e.reading}</td>
+                  <td className="px-4 py-2 text-right text-gray-600">{e.priority}</td>
+                  <td className="px-4 py-2 text-right">
+                    <button
+                      onClick={() => handleDelete(e.id)}
+                      className="text-red-500 hover:text-red-700 text-xs font-medium cursor-pointer"
+                    >
+                      {t("settings.dictionary.delete")}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

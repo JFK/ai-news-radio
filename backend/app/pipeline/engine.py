@@ -147,6 +147,19 @@ class PipelineEngine:
 
         step.status = StepStatus.APPROVED
         step.approved_at = datetime.now(UTC)
+
+        # Check if all steps are approved → mark episode as completed
+        all_steps_result = await session.execute(
+            select(PipelineStep).where(PipelineStep.episode_id == step.episode_id)
+        )
+        all_steps = list(all_steps_result.scalars().all())
+        if all(s.status == StepStatus.APPROVED for s in all_steps):
+            ep_result = await session.execute(
+                select(Episode).where(Episode.id == step.episode_id)
+            )
+            episode = ep_result.scalar_one()
+            episode.status = EpisodeStatus.COMPLETED
+
         await session.commit()
         return step
 

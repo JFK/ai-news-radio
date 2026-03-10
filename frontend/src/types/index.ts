@@ -61,9 +61,10 @@ export interface NewsItem {
 export interface AnalysisData {
   background?: string;
   why_now?: string;
-  perspectives?: Array<{ viewpoint?: string; description?: string }>;
-  data_verification?: string;
-  impact_assessment?: string;
+  perspectives?: Array<{ standpoint?: string; argument?: string; basis?: string }>;
+  data_validation?: string;
+  impact?: string;
+  uncertainties?: string;
   severity?: string;
   topics?: string[];
 }
@@ -118,6 +119,14 @@ export interface ModelPricing {
   output_price_per_1m: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface Pronunciation {
+  id: number;
+  surface: string;
+  reading: string;
+  priority: number;
+  created_at: string;
 }
 
 export interface PromptSummary {

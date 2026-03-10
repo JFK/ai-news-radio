@@ -30,6 +30,25 @@ A web application that automates the entire news broadcast pipeline — from col
 
 Each `✅` is a human approval gate. No step proceeds without explicit approval.
 
+## Requirements
+
+| Resource | Minimum |
+|----------|---------|
+| OS | Ubuntu 22.04+ / WSL2 / macOS |
+| CPU | 4 vCPU |
+| RAM | 8 GB |
+| Disk | 80 GB SSD |
+| Docker | Docker Engine 24+ / Docker Compose v2 |
+
+**Required API keys** (at least one AI provider):
+
+| Service | Purpose | Required |
+|---------|---------|----------|
+| [Brave Search](https://brave.com/search/api/) | News collection & fact-check | Yes |
+| [OpenAI](https://platform.openai.com/) | AI (GPT) / TTS | One AI provider required |
+| [Anthropic](https://console.anthropic.com/) | AI (Claude) | One AI provider required |
+| [Google AI](https://aistudio.google.com/) | AI (Gemini) / TTS / Imagen | One AI provider required |
+
 ## Quick Start
 
 ```bash

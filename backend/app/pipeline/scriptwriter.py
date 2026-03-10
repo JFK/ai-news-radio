@@ -157,7 +157,23 @@ class ScriptwriterStep(BaseStep):
         total_input_tokens = 0
         total_output_tokens = 0
 
-        items = await self._get_news_items(episode_id, session)
+        all_items = await self._get_news_items(episode_id, session)
+
+        # Filter out items with low fact-check reliability (unverified or disputed).
+        # Items with fact_check_status=None (not yet checked) are kept.
+        items = [
+            item for item in all_items
+            if item.fact_check_status not in ("unverified", "disputed")
+        ]
+        skipped = len(all_items) - len(items)
+        if skipped:
+            logger.info(
+                "Episode %d: skipped %d items with low fact-check reliability",
+                episode_id, skipped,
+            )
+
+        if not items:
+            raise ValueError("No reliable news items to generate scripts for")
 
         # Phase 1: per-article scripts
         for item in items:
@@ -181,6 +197,9 @@ class ScriptwriterStep(BaseStep):
             "items_scripted": len(item_scripts),
             "item_scripts": [{"news_item_id": s["news_item_id"], "title": s["title"]} for s in item_scripts],
             "episode_script": episode_script["full_script"],
+            "opening": episode_script["opening"],
+            "transitions": episode_script["transitions"],
+            "ending": episode_script["ending"],
             "total_input_tokens": total_input_tokens,
             "total_output_tokens": total_output_tokens,
         }
@@ -223,17 +242,10 @@ class ScriptwriterStep(BaseStep):
                 f"- 不確実性: {ad.get('uncertainties', '(なし)')}"
             )
 
-        fact_check_info = ""
-        if item.fact_check_status:
-            fact_check_info = (
-                f"\n\nファクトチェック:\n- ステータス: {item.fact_check_status}\n- スコア: {item.fact_check_score}/5"
-            )
-
         prompt = (
             f"タイトル: {item.title}\n"
             f"ソース: {item.source_name}\n"
             f"要約: {item.summary or '(なし)'}"
-            f"{fact_check_info}"
             f"{analysis_info}"
         )
 

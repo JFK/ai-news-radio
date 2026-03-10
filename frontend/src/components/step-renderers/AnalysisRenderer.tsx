@@ -105,10 +105,10 @@ export default function AnalysisRenderer({ newsItems }: Props) {
                           {data.perspectives.map((p, i) => (
                             <tr key={i} className="border-b last:border-0">
                               <td className="py-1 pr-2 font-medium text-gray-700">
-                                {p.viewpoint}
+                                {p.standpoint}
                               </td>
                               <td className="py-1 text-gray-600">
-                                {p.description}
+                                {p.argument}
                               </td>
                             </tr>
                           ))}
@@ -117,21 +117,21 @@ export default function AnalysisRenderer({ newsItems }: Props) {
                     </div>
                   )}
 
-                  {data.data_verification && (
+                  {data.data_validation && (
                     <div>
                       <p className="text-xs font-medium text-gray-500 mb-1">
                         {t("stepData.analysis.dataVerification")}
                       </p>
-                      <p className="text-gray-700">{data.data_verification}</p>
+                      <p className="text-gray-700">{data.data_validation}</p>
                     </div>
                   )}
 
-                  {data.impact_assessment && (
+                  {data.impact && (
                     <div>
                       <p className="text-xs font-medium text-gray-500 mb-1">
                         {t("stepData.analysis.impact")}
                       </p>
-                      <p className="text-gray-700">{data.impact_assessment}</p>
+                      <p className="text-gray-700">{data.impact}</p>
                     </div>
                   )}
                 </div>
