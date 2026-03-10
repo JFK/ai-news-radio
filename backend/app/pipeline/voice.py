@@ -80,7 +80,7 @@ class VoiceStep(BaseStep):
         # Synthesize each section
         section_results: list[dict] = []
         all_audio_chunks: list[bytes] = []
-        silence_chunk = self._generate_silence(SECTION_SILENCE_SECONDS, audio_format) if audio_format == "wav" else None
+        silence_chunk: bytes | None = None  # Generated after first section (to match sample rate)
         total_chars = 0
 
         for i, section in enumerate(sections):
@@ -93,6 +93,11 @@ class VoiceStep(BaseStep):
             )
 
             audio_bytes = await provider.synthesize(tts_text)
+
+            # Generate silence chunk matching the sample rate of the first WAV
+            if silence_chunk is None and audio_format == "wav":
+                sample_rate = self._get_wav_sample_rate(audio_bytes)
+                silence_chunk = self._generate_silence(SECTION_SILENCE_SECONDS, audio_format, sample_rate)
 
             # Save individual section audio
             section_filename = f"{section['key']}.{audio_format}"
@@ -178,12 +183,16 @@ class VoiceStep(BaseStep):
             tts_text = tts_text.replace(entry.surface, entry.reading)
         return tts_text
 
-    def _generate_silence(self, duration_seconds: float, audio_format: str) -> bytes:
+    def _get_wav_sample_rate(self, wav_bytes: bytes) -> int:
+        """Extract sample rate from WAV bytes."""
+        with wave.open(io.BytesIO(wav_bytes), "rb") as wav:
+            return wav.getframerate()
+
+    def _generate_silence(self, duration_seconds: float, audio_format: str, sample_rate: int = 24000) -> bytes:
         """Generate silence audio in WAV format."""
         if audio_format != "wav":
-            return b""
+            return b""  # TODO: MP3 silence generation not yet supported
 
-        sample_rate = 24000
         num_frames = int(sample_rate * duration_seconds)
         silence_frames = b"\x00\x00" * num_frames  # 16-bit silence
 

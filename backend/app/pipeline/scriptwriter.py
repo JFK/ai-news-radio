@@ -159,7 +159,8 @@ class ScriptwriterStep(BaseStep):
 
         all_items = await self._get_news_items(episode_id, session)
 
-        # Filter out items with low fact-check reliability (unverified or disputed)
+        # Filter out items with low fact-check reliability (unverified or disputed).
+        # Items with fact_check_status=None (not yet checked) are kept.
         items = [
             item for item in all_items
             if item.fact_check_status not in ("unverified", "disputed")
