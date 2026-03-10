@@ -9,8 +9,12 @@ from app.models import NewsItem, StepName
 from app.pipeline.base import BaseStep
 from app.pipeline.utils import parse_json_response
 from app.services.ai_provider import get_step_provider
+from app.services.prompt_loader import get_active_prompt, register_default
 
 logger = logging.getLogger(__name__)
+
+PROMPT_KEY_ITEM = "script_item"
+PROMPT_KEY_EPISODE = "script_episode"
 
 SCRIPT_ITEM_SYSTEM_PROMPT = """\
 あなたはラジオニュース番組「一緒に考えるラジオ」の台本を書くベテラン放送作家です。
@@ -129,6 +133,9 @@ SCRIPT_EPISODE_SYSTEM_PROMPT = """\
   "background_prompt": "English prompt for dark background image, no text/letters/words"
 }"""
 
+register_default(PROMPT_KEY_ITEM, SCRIPT_ITEM_SYSTEM_PROMPT)
+register_default(PROMPT_KEY_EPISODE, SCRIPT_EPISODE_SYSTEM_PROMPT)
+
 
 class ScriptwriterStep(BaseStep):
     """Generate radio scripts from analyzed news articles."""
@@ -144,6 +151,8 @@ class ScriptwriterStep(BaseStep):
         Phase 2: Episode composition (1 AI call)
         """
         provider, model = get_step_provider(self.step_name.value)
+        item_prompt, item_prompt_version = await get_active_prompt(session, PROMPT_KEY_ITEM)
+        episode_prompt, episode_prompt_version = await get_active_prompt(session, PROMPT_KEY_EPISODE)
         item_scripts: list[dict] = []
         total_input_tokens = 0
         total_output_tokens = 0
@@ -152,13 +161,15 @@ class ScriptwriterStep(BaseStep):
 
         # Phase 1: per-article scripts
         for item in items:
-            result = await self._script_item(item, provider, model, session, episode_id)
+            result = await self._script_item(item, provider, model, item_prompt, session, episode_id)
             item_scripts.append(result)
             total_input_tokens += result["input_tokens"]
             total_output_tokens += result["output_tokens"]
 
         # Phase 2: episode composition
-        episode_script = await self._compose_episode(item_scripts, provider, model, session, episode_id)
+        episode_script = await self._compose_episode(
+            item_scripts, provider, model, episode_prompt, session, episode_id
+        )
         total_input_tokens += episode_script["input_tokens"]
         total_output_tokens += episode_script["output_tokens"]
 
@@ -177,6 +188,12 @@ class ScriptwriterStep(BaseStep):
             result["thumbnail_prompt"] = episode_script["thumbnail_prompt"]
         if episode_script.get("background_prompt"):
             result["background_prompt"] = episode_script["background_prompt"]
+        if item_prompt_version is not None:
+            result["prompt_versions"] = result.get("prompt_versions", {})
+            result["prompt_versions"]["script_item"] = item_prompt_version
+        if episode_prompt_version is not None:
+            result["prompt_versions"] = result.get("prompt_versions", {})
+            result["prompt_versions"]["script_episode"] = episode_prompt_version
         return result
 
     async def _script_item(
@@ -184,6 +201,7 @@ class ScriptwriterStep(BaseStep):
         item: NewsItem,
         provider,
         model: str,
+        system_prompt: str,
         session: AsyncSession,
         episode_id: int,
     ) -> dict:
@@ -222,7 +240,7 @@ class ScriptwriterStep(BaseStep):
         response = await provider.generate(
             prompt=prompt,
             model=model,
-            system=SCRIPT_ITEM_SYSTEM_PROMPT,
+            system=system_prompt,
         )
 
         data = parse_json_response(response.content)
@@ -249,6 +267,7 @@ class ScriptwriterStep(BaseStep):
         item_scripts: list[dict],
         provider,
         model: str,
+        system_prompt: str,
         session: AsyncSession,
         episode_id: int,
     ) -> dict:
@@ -271,7 +290,7 @@ class ScriptwriterStep(BaseStep):
         response = await provider.generate(
             prompt=prompt,
             model=model,
-            system=SCRIPT_EPISODE_SYSTEM_PROMPT,
+            system=system_prompt,
         )
 
         data = parse_json_response(response.content)

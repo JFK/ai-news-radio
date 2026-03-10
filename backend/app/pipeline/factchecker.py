@@ -8,8 +8,11 @@ from app.models import NewsItem, StepName
 from app.pipeline.base import BaseStep
 from app.pipeline.utils import parse_json_response
 from app.services.ai_provider import get_step_provider
+from app.services.prompt_loader import get_active_prompt, register_default
 
 logger = logging.getLogger(__name__)
+
+PROMPT_KEY = "factcheck"
 
 FACTCHECK_SYSTEM_PROMPT = """\
 あなたはニュースのファクトチェックを行う専門家です。
@@ -36,6 +39,8 @@ FACTCHECK_SYSTEM_PROMPT = """\
   ]
 }"""
 
+register_default(PROMPT_KEY, FACTCHECK_SYSTEM_PROMPT)
+
 
 class FactcheckerStep(BaseStep):
     """Fact-check news articles using AI."""
@@ -51,6 +56,7 @@ class FactcheckerStep(BaseStep):
         Idempotent: re-running overwrites previous results.
         """
         provider, model = get_step_provider(self.step_name.value)
+        system_prompt, prompt_version = await get_active_prompt(session, PROMPT_KEY)
         results: list[dict] = []
         total_input_tokens = 0
         total_output_tokens = 0
@@ -58,7 +64,7 @@ class FactcheckerStep(BaseStep):
         items = await self._get_news_items(episode_id, session)
 
         for item in items:
-            result = await self._check_item(item, provider, model, session, episode_id)
+            result = await self._check_item(item, provider, model, system_prompt, session, episode_id)
             results.append(result)
             total_input_tokens += result["input_tokens"]
             total_output_tokens += result["output_tokens"]
@@ -74,13 +80,16 @@ class FactcheckerStep(BaseStep):
             avg_score,
         )
 
-        return {
+        result_data: dict = {
             "items_checked": len(results),
             "results": results,
             "average_score": round(avg_score, 2),
             "total_input_tokens": total_input_tokens,
             "total_output_tokens": total_output_tokens,
         }
+        if prompt_version is not None:
+            result_data["prompt_version"] = prompt_version
+        return result_data
 
     async def _search_references(self, item: NewsItem) -> str:
         """Search for reference material using Brave Search (if available)."""
@@ -112,6 +121,7 @@ class FactcheckerStep(BaseStep):
         item: NewsItem,
         provider,
         model: str,
+        system_prompt: str,
         session: AsyncSession,
         episode_id: int,
     ) -> dict:
@@ -130,7 +140,7 @@ class FactcheckerStep(BaseStep):
         response = await provider.generate(
             prompt=prompt,
             model=model,
-            system=FACTCHECK_SYSTEM_PROMPT,
+            system=system_prompt,
         )
 
         data = parse_json_response(response.content)

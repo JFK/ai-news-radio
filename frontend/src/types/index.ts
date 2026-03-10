@@ -119,3 +119,30 @@ export interface ModelPricing {
   created_at: string;
   updated_at: string;
 }
+
+export interface PromptSummary {
+  key: string;
+  name: string;
+  active_version: number | null;
+  has_custom: boolean;
+  content_preview: string;
+}
+
+export interface PromptTemplateVersion {
+  id: number;
+  key: string;
+  name: string;
+  content: string;
+  version: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PromptHistory {
+  key: string;
+  name: string;
+  default_content: string;
+  active_version: number | null;
+  versions: PromptTemplateVersion[];
+}

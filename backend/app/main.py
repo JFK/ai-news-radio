@@ -9,6 +9,7 @@ from app.api.episodes import router as episodes_router
 from app.api.health import router as health_router
 from app.api.pipeline import router as pipeline_router
 from app.api.pricing import router as pricing_router
+from app.api.prompts import router as prompts_router
 from app.api.search import router as search_router
 from app.api.stats import router as stats_router
 from app.config import settings
@@ -36,4 +37,5 @@ app.include_router(pipeline_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")
 app.include_router(pricing_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
+app.include_router(prompts_router, prefix="/api")
 app.include_router(dictionary_router, prefix="/api")
