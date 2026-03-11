@@ -161,14 +161,16 @@ class ScriptwriterStep(BaseStep):
 
         # Filter out items with low fact-check reliability (unverified or disputed).
         # Items with fact_check_status=None (not yet checked) are kept.
+        # Filter out non-primary group members (they are merged into the primary).
         items = [
             item for item in all_items
             if item.fact_check_status not in ("unverified", "disputed")
+            and (item.is_group_primary is True or item.group_id is None)
         ]
         skipped = len(all_items) - len(items)
         if skipped:
             logger.info(
-                "Episode %d: skipped %d items with low fact-check reliability",
+                "Episode %d: skipped %d items (low reliability or non-primary group members)",
                 episode_id, skipped,
             )
 
@@ -177,7 +179,7 @@ class ScriptwriterStep(BaseStep):
 
         # Phase 1: per-article scripts
         for item in items:
-            result = await self._script_item(item, provider, model, item_prompt, session, episode_id)
+            result = await self._script_item(item, provider, model, item_prompt, session, episode_id, all_items)
             item_scripts.append(result)
             total_input_tokens += result["input_tokens"]
             total_output_tokens += result["output_tokens"]
@@ -223,6 +225,7 @@ class ScriptwriterStep(BaseStep):
         system_prompt: str,
         session: AsyncSession,
         episode_id: int,
+        all_items: list[NewsItem] | None = None,
     ) -> dict:
         """Generate a script for a single news item."""
         analysis_info = ""
@@ -241,12 +244,29 @@ class ScriptwriterStep(BaseStep):
                 f"- 生活への影響: {ad.get('impact', '(なし)')}\n"
                 f"- 不確実性: {ad.get('uncertainties', '(なし)')}"
             )
+            if ad.get("source_comparison"):
+                analysis_info += f"\n- ソース間比較: {ad['source_comparison']}"
+
+        # Add group member sources for primary articles
+        group_sources_info = ""
+        if item.is_group_primary and item.group_id is not None and all_items:
+            group_members = [
+                it for it in all_items
+                if it.group_id == item.group_id and it.id != item.id
+            ]
+            if group_members:
+                sources = [f"- {it.source_name}: {it.title} ({it.source_url})" for it in group_members]
+                group_sources_info = (
+                    f"\n\n同じニュースの他のソース（{len(group_members) + 1}社が報道）:\n"
+                    + "\n".join(sources)
+                )
 
         prompt = (
             f"タイトル: {item.title}\n"
             f"ソース: {item.source_name}\n"
             f"要約: {item.summary or '(なし)'}"
             f"{analysis_info}"
+            f"{group_sources_info}"
         )
 
         response = await provider.generate(
@@ -293,9 +313,11 @@ class ScriptwriterStep(BaseStep):
         result = await session.execute(select(NewsItem).where(NewsItem.episode_id == episode_id).order_by(NewsItem.id))
         items = list(result.scalars().all())
 
+        # Only include items that have scripts (excludes non-primary group members)
+        scripted_items = [item for item in items if item.script_text]
         scripts_text = ""
-        for i, item in enumerate(items, 1):
-            scripts_text += f"\n\n--- ニュース{i}: {item.title} ---\n{item.script_text or '(台本なし)'}"
+        for i, item in enumerate(scripted_items, 1):
+            scripts_text += f"\n\n--- ニュース{i}: {item.title} ---\n{item.script_text}"
 
         prompt = f"今日のニュース一覧:{items_summary}\n\n各ニュースの台本:{scripts_text}"
 
@@ -322,9 +344,8 @@ class ScriptwriterStep(BaseStep):
         ending = data.get("ending", "")
 
         full_script_parts = [opening]
-        for i, item in enumerate(items):
-            if item.script_text:
-                full_script_parts.append(item.script_text)
+        for i, item in enumerate(scripted_items):
+            full_script_parts.append(item.script_text)
             if i < len(transitions):
                 full_script_parts.append(transitions[i])
         full_script_parts.append(ending)

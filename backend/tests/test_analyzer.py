@@ -44,6 +44,22 @@ def _make_analysis_response(severity: str = "medium") -> AIResponse:
     )
 
 
+def _make_grouping_response(ungrouped_ids: list[int] | None = None) -> AIResponse:
+    """Create a mock AIResponse for the grouping step (no groups)."""
+    return AIResponse(
+        content=json.dumps(
+            {
+                "groups": [],
+                "ungrouped_ids": ungrouped_ids or [],
+            }
+        ),
+        input_tokens=50,
+        output_tokens=50,
+        model="test-model",
+        provider="test-provider",
+    )
+
+
 class TestAnalyzerStep:
     """Tests for the analysis pipeline step."""
 
@@ -61,7 +77,12 @@ class TestAnalyzerStep:
         episode_id, item_ids = await create_episode_with_items(session, 2)
 
         mock_provider = AsyncMock()
-        mock_provider.generate.return_value = _make_analysis_response()
+        # First call: grouping (2 items), then 2 analysis calls
+        mock_provider.generate.side_effect = [
+            _make_grouping_response(item_ids),
+            _make_analysis_response(),
+            _make_analysis_response(),
+        ]
         mock_get_provider.return_value = (mock_provider, "test-model")
 
         result = await analyzer.execute(episode_id, {}, session)
@@ -106,10 +127,11 @@ class TestAnalyzerStep:
         session: AsyncSession,
     ):
         """output_data should include severity_summary counts."""
-        episode_id, _ = await create_episode_with_items(session, 3)
+        episode_id, item_ids = await create_episode_with_items(session, 3)
 
         mock_provider = AsyncMock()
         responses = [
+            _make_grouping_response(item_ids),  # grouping call
             _make_analysis_response("high"),
             _make_analysis_response("medium"),
             _make_analysis_response("low"),
@@ -129,10 +151,14 @@ class TestAnalyzerStep:
         session: AsyncSession,
     ):
         """execute() should record ApiUsage for each AI call."""
-        episode_id, _ = await create_episode_with_items(session, 2)
+        episode_id, item_ids = await create_episode_with_items(session, 2)
 
         mock_provider = AsyncMock()
-        mock_provider.generate.return_value = _make_analysis_response()
+        mock_provider.generate.side_effect = [
+            _make_grouping_response(item_ids),
+            _make_analysis_response(),
+            _make_analysis_response(),
+        ]
         mock_get_provider.return_value = (mock_provider, "test-model")
 
         await analyzer.execute(episode_id, {}, session)
@@ -144,7 +170,8 @@ class TestAnalyzerStep:
             )
         )
         usages = db_result.scalars().all()
-        assert len(usages) == 2
+        # 1 grouping call + 2 analysis calls = 3 usages
+        assert len(usages) == 3
 
     @patch("app.pipeline.analyzer.get_step_provider")
     async def test_output_data_structure(

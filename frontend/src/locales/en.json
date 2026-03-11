@@ -138,7 +138,12 @@
       "argument": "Argument",
       "description": "Description",
       "dataVerification": "Data Verification",
-      "impact": "Impact Assessment"
+      "impact": "Impact Assessment",
+      "sourceComparison": "Source Comparison",
+      "merged": "Merged",
+      "group": "Group",
+      "sources": "sources",
+      "groupCount": "{{count}} group(s) detected"
     },
     "script": {
       "fullScript": "Full Episode Script",
@@ -146,7 +151,8 @@
       "edit": "Edit",
       "save": "Save",
       "saving": "Saving...",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "sources": "sources"
     },
     "video": {
       "youtubeMetadata": "YouTube Metadata",

@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Episode, StepName
+from app.models import Episode, NewsItem, StepName
 from app.pipeline.engine import PipelineEngine
 from app.pipeline.voice import VoiceStep
 
@@ -50,6 +50,18 @@ class TestVoiceStep:
         episode = await engine.create_episode("Test Episode", session)
         episode_id = episode.id
 
+        # Add a news item with script_text containing reading hints
+        news_item = NewsItem(
+            episode_id=episode_id,
+            title="テストニュース",
+            summary="テスト要約",
+            source_url="https://example.com/1",
+            source_name="TestSource",
+            script_text="健軍（けんぐん）駐屯地でテストの台本です。音声を生成します。",
+        )
+        session.add(news_item)
+        await session.commit()
+
         mock_settings.media_dir = str(tmp_path)
         mock_settings.pipeline_voice_provider = "voicevox"
 
@@ -60,16 +72,21 @@ class TestVoiceStep:
         mock_provider.synthesize = AsyncMock(return_value=wav_bytes)
         mock_get_provider.return_value = mock_provider
 
-        input_data = {"episode_script": "健軍（けんぐん）駐屯地でテストの台本です。音声を生成します。"}
+        input_data = {
+            "opening": "こんにちは。",
+            "transitions": [],
+            "ending": "ありがとうございました。",
+        }
 
         # Execute
         result = await voice_step.execute(episode_id, input_data, session)
 
-        # Verify reading hints were expanded for TTS
-        synth_call = mock_provider.synthesize
-        tts_text = synth_call.call_args[0][0]
-        assert "けんぐん駐屯地" in tts_text
-        assert "健軍（けんぐん）" not in tts_text
+        # Verify reading hints were expanded for TTS in the news section
+        synth_calls = mock_provider.synthesize.call_args_list
+        # Find the call for the news item (second call, after opening)
+        news_call_text = synth_calls[1][0][0]
+        assert "けんぐん駐屯地" in news_call_text
+        assert "健軍（けんぐん）" not in news_call_text
 
         # Verify output
         assert "audio_path" in result
@@ -87,9 +104,12 @@ class TestVoiceStep:
         assert episode.audio_path == f"{episode_id}/audio.wav"
 
     async def test_execute_raises_on_empty_script(self, voice_step: VoiceStep, session: AsyncSession):
-        """execute() should raise ValueError when episode_script is empty."""
-        with pytest.raises(ValueError, match="No episode_script"):
-            await voice_step.execute(1, {}, session)
+        """execute() should raise ValueError when no script sections exist."""
+        engine = PipelineEngine()
+        episode = await engine.create_episode("Empty Episode", session)
 
-        with pytest.raises(ValueError, match="No episode_script"):
-            await voice_step.execute(1, {"episode_script": ""}, session)
+        with pytest.raises(ValueError, match="No script sections found"):
+            await voice_step.execute(episode.id, {}, session)
+
+        with pytest.raises(ValueError, match="No script sections found"):
+            await voice_step.execute(episode.id, {"episode_script": ""}, session)

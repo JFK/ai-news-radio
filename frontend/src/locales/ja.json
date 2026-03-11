@@ -138,7 +138,12 @@
       "argument": "主張",
       "description": "説明",
       "dataVerification": "データ検証",
-      "impact": "影響評価"
+      "impact": "影響評価",
+      "sourceComparison": "ソース間比較",
+      "merged": "統合済",
+      "group": "グループ",
+      "sources": "ソース",
+      "groupCount": "{{count}}件のグループが検出されました"
     },
     "script": {
       "fullScript": "エピソード全体台本",
@@ -146,7 +151,8 @@
       "edit": "編集",
       "save": "保存",
       "saving": "保存中...",
-      "cancel": "キャンセル"
+      "cancel": "キャンセル",
+      "sources": "ソース"
     },
     "video": {
       "youtubeMetadata": "YouTube メタデータ",

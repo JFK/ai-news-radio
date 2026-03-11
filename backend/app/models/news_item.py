@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -25,6 +25,10 @@ class NewsItem(Base):
 
     # Analysis
     analysis_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # Grouping (similar news consolidation)
+    group_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    is_group_primary: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     # Script
     script_text: Mapped[str | None] = mapped_column(Text, nullable=True)

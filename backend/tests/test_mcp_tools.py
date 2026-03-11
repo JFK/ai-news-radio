@@ -14,7 +14,7 @@ class TestToolDefinitions:
 
     def test_tool_count(self):
         tools = get_tool_definitions()
-        assert len(tools) == 11
+        assert len(tools) == 17
 
     def test_tool_names(self):
         tools = get_tool_definitions()
@@ -22,12 +22,18 @@ class TestToolDefinitions:
         expected = {
             "create_episode",
             "create_episode_from_articles",
+            "delete_episode",
             "list_episodes",
             "get_episode_status",
             "run_step",
             "approve_step",
             "reject_step",
             "get_step_detail",
+            "edit_item_script",
+            "edit_episode_script",
+            "add_reading",
+            "list_readings",
+            "delete_reading",
             "search_news",
             "get_cost_stats",
             "health_check",

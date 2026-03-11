@@ -120,9 +120,19 @@ export default function ScriptRenderer({ outputData, newsItems, episodeId, edita
                   <span className="text-sm font-medium text-gray-800 truncate mr-2">
                     {item.title}
                   </span>
-                  <span className="text-gray-400 text-xs shrink-0">
-                    {expandedId === item.id ? "▲" : "▼"}
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {item.is_group_primary && item.group_id != null && (() => {
+                      const groupSize = newsItems.filter((n) => n.group_id === item.group_id).length;
+                      return groupSize > 1 ? (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-purple-50 text-purple-700">
+                          {groupSize} {t("stepData.script.sources")}
+                        </span>
+                      ) : null;
+                    })()}
+                    <span className="text-gray-400 text-xs">
+                      {expandedId === item.id ? "▲" : "▼"}
+                    </span>
+                  </div>
                 </button>
                 {expandedId === item.id && item.script_text && (
                   <div className="px-3 pb-3 border-t">
