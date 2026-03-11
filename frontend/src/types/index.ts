@@ -67,6 +67,7 @@ export interface AnalysisData {
   data_validation?: string;
   impact?: string;
   uncertainties?: string;
+  source_comparison?: string;
   severity?: string;
   topics?: string[];
 }

@@ -59,14 +59,12 @@ function AnalysisDetail({ data }: { data: AnalysisData }) {
         </div>
       )}
 
-      {(data as AnalysisData & { source_comparison?: string }).source_comparison && (
+      {data.source_comparison && (
         <div>
           <p className="text-xs font-medium text-gray-500 mb-1">
             {t("stepData.analysis.sourceComparison")}
           </p>
-          <p className="text-gray-700">
-            {(data as AnalysisData & { source_comparison?: string }).source_comparison}
-          </p>
+          <p className="text-gray-700">{data.source_comparison}</p>
         </div>
       )}
 

@@ -237,40 +237,60 @@ class AnalyzerStep(BaseStep):
             output_tokens=response.output_tokens,
         )
 
-        data = parse_json_response(response.content)
+        try:
+            data = parse_json_response(response.content)
+        except Exception:
+            logger.warning(
+                "Episode %d: grouping AI returned invalid JSON, treating all items as ungrouped",
+                episode_id,
+            )
+            return {"groups": [], "ungrouped_ids": [item.id for item in items]}
 
         # Validate and apply grouping to DB
         item_ids = {item.id for item in items}
         item_by_id = {item.id: item for item in items}
+        claimed_ids: set[int] = set()  # Track items already assigned to a group
+        valid_groups: list[dict] = []
+        group_counter = 0
 
         for group in data.get("groups", []):
-            gid = group.get("group_id")
             primary_id = group.get("primary_id")
             member_ids = group.get("member_ids", [])
 
-            # Filter to valid IDs
-            valid_members = [mid for mid in member_ids if mid in item_ids]
+            # Filter to valid, unclaimed IDs (prevent overlapping groups)
+            valid_members = [mid for mid in member_ids if mid in item_ids and mid not in claimed_ids]
             if len(valid_members) < 2:
                 continue
+
+            # Assign server-side group_id (episode-scoped sequential)
+            group_counter += 1
+            gid = group_counter
 
             # Ensure primary_id is in members
             if primary_id not in valid_members:
                 primary_id = valid_members[0]
-            group["primary_id"] = primary_id
-            group["member_ids"] = valid_members
+
+            claimed_ids.update(valid_members)
 
             for mid in valid_members:
                 item_by_id[mid].group_id = gid
                 item_by_id[mid].is_group_primary = (mid == primary_id)
 
+            valid_groups.append({
+                "group_id": gid,
+                "reason": group.get("reason", ""),
+                "primary_id": primary_id,
+                "member_ids": valid_members,
+            })
+
         logger.info(
             "Episode %d: detected %d groups from %d articles",
             episode_id,
-            len(data.get("groups", [])),
+            len(valid_groups),
             len(items),
         )
 
-        return data
+        return {"groups": valid_groups, "ungrouped_ids": [item.id for item in items if item.id not in claimed_ids]}
 
     async def _analyze_group(
         self,
