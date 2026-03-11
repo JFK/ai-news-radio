@@ -55,6 +55,8 @@ export interface NewsItem {
   reference_urls: string[] | null;
   analysis_data: Record<string, unknown> | null;
   script_text: string | null;
+  group_id: number | null;
+  is_group_primary: boolean | null;
   created_at: string;
 }
 
@@ -65,6 +67,7 @@ export interface AnalysisData {
   data_validation?: string;
   impact?: string;
   uncertainties?: string;
+  source_comparison?: string;
   severity?: string;
   topics?: string[];
 }

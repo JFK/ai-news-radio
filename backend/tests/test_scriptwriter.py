@@ -178,3 +178,40 @@ class TestScriptwriterStep:
         assert "episode_script" in result
         assert "total_input_tokens" in result
         assert "total_output_tokens" in result
+
+    @patch("app.pipeline.scriptwriter.get_step_provider")
+    async def test_group_filtering_skips_non_primary(
+        self,
+        mock_get_provider,
+        scriptwriter: ScriptwriterStep,
+        session: AsyncSession,
+    ):
+        """Non-primary group members should be skipped in script generation."""
+        episode_id, item_ids = await create_episode_with_items(session, 3, with_analysis=True)
+
+        # Set up grouping: items 0 (primary) and 1 (non-primary) grouped, item 2 ungrouped
+        item0 = await session.get(NewsItem, item_ids[0])
+        item0.group_id = 1
+        item0.is_group_primary = True
+        item1 = await session.get(NewsItem, item_ids[1])
+        item1.group_id = 1
+        item1.is_group_primary = False
+        await session.commit()
+
+        mock_provider = AsyncMock()
+        # Only 2 per-item scripts (primary + ungrouped) + 1 composition = 3 calls
+        mock_provider.generate.side_effect = [
+            _make_script_item_response("ニュース0"),
+            _make_script_item_response("ニュース2"),
+            _make_episode_composition_response(1),
+        ]
+        mock_get_provider.return_value = (mock_provider, "test-model")
+
+        result = await scriptwriter.execute(episode_id, {}, session)
+
+        assert result["items_scripted"] == 2
+        assert mock_provider.generate.call_count == 3
+
+        # Non-primary item should have no script_text
+        item1 = await session.get(NewsItem, item_ids[1])
+        assert item1.script_text is None

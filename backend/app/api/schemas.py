@@ -120,6 +120,8 @@ class NewsItemResponse(BaseModel):
     reference_urls: list[str] | None = None
     analysis_data: dict | None = None
     script_text: str | None = None
+    group_id: int | None = None
+    is_group_primary: bool | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
