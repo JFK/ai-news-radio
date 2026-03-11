@@ -32,6 +32,19 @@ class Settings(BaseSettings):
     collection_method: str = "brave"
     collection_queries: str = "熊本 ニュース,熊本県 政治,熊本 経済"
 
+    # Content enrichment
+    collection_crawl_enabled: bool = True
+    collection_crawl_timeout: float = 15.0
+    collection_crawl_max_body_chars: int = 50000
+    collection_youtube_enabled: bool = True
+    collection_document_enabled: bool = True
+
+    # AI multi-stage research
+    collection_ai_research_enabled: bool = False
+    collection_ai_research_max_rounds: int = 2
+    collection_ai_research_provider: str = ""
+    collection_ai_research_model: str = ""
+
     # Media
     media_dir: str = "/app/media"
 

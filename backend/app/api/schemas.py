@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 # --- Request schemas ---
 
@@ -105,6 +105,9 @@ class EpisodeListResponse(BaseModel):
     total: int
 
 
+_BODY_TRUNCATE_CHARS = 2000
+
+
 class NewsItemResponse(BaseModel):
     """Response for a single news item."""
 
@@ -112,6 +115,8 @@ class NewsItemResponse(BaseModel):
     episode_id: int
     title: str
     summary: str | None = None
+    body: str | None = None
+    body_length: int | None = None
     source_url: str
     source_name: str
     fact_check_status: str | None = None
@@ -125,6 +130,15 @@ class NewsItemResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="after")
+    def truncate_body(self) -> "NewsItemResponse":
+        """Truncate body for API response and expose original length."""
+        if self.body is not None:
+            self.body_length = len(self.body)
+            if len(self.body) > _BODY_TRUNCATE_CHARS:
+                self.body = self.body[:_BODY_TRUNCATE_CHARS] + "…"
+        return self
 
 
 class PronunciationResponse(BaseModel):

@@ -52,9 +52,35 @@ class FactcheckerStep(BaseStep):
     async def execute(self, episode_id: int, input_data: dict, session: AsyncSession, **kwargs) -> dict:
         """Fact-check each NewsItem for the episode.
 
+        If the collection step already performed AI research (factcheck_included=True),
+        skip AI calls and return the pre-populated fact-check data.
+
         One AI call per article for quality, cost management, and error isolation.
         Idempotent: re-running overwrites previous results.
         """
+        # Skip path: collection AI research already did fact-checking
+        if input_data.get("factcheck_included"):
+            items = await self._get_news_items(episode_id, session)
+            results = []
+            for item in items:
+                results.append({
+                    "news_item_id": item.id,
+                    "title": item.title,
+                    "status": item.fact_check_status or "unverified",
+                    "score": item.fact_check_score or 1,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                })
+            avg_score = sum(r["score"] for r in results) / len(results) if results else 0
+            return {
+                "items_checked": len(results),
+                "results": results,
+                "average_score": round(avg_score, 2),
+                "total_input_tokens": 0,
+                "total_output_tokens": 0,
+                "factcheck_source": "collection_ai_research",
+            }
+
         provider, model = get_step_provider(self.step_name.value)
         system_prompt, prompt_version = await get_active_prompt(session, PROMPT_KEY)
         results: list[dict] = []
@@ -129,11 +155,16 @@ class FactcheckerStep(BaseStep):
         # Search for reference material
         search_context = await self._search_references(item)
 
+        body_excerpt = ""
+        if item.body:
+            body_excerpt = f"\n本文（冒頭5000字）:\n{item.body[:5000]}"
+
         prompt = (
             f"タイトル: {item.title}\n"
             f"ソース: {item.source_name}\n"
             f"URL: {item.source_url}\n"
             f"要約: {item.summary or '(なし)'}"
+            f"{body_excerpt}"
             f"{search_context}"
         )
 

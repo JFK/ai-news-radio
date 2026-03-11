@@ -18,6 +18,9 @@ dependencies = [
     "mcp>=1.18.0",
     "pydantic-settings>=2.7",
     "beautifulsoup4>=4.12",
+    "youtube-transcript-api>=0.6",
+    "pypdf>=5.0",
+    "python-pptx>=1.0",
 ]
 
 [project.optional-dependencies]

@@ -317,6 +317,10 @@ class AnalyzerStep(BaseStep):
                     f"(スコア: {item.fact_check_score}/5)"
                 )
 
+            body_excerpt = ""
+            if item.body:
+                body_excerpt = f"\n本文（冒頭3000字）:\n{item.body[:3000]}"
+
             is_primary = " [代表記事]" if item.id == primary_id else ""
             articles_text += (
                 f"\n--- 記事{is_primary} ---\n"
@@ -324,6 +328,7 @@ class AnalyzerStep(BaseStep):
                 f"ソース: {item.source_name}\n"
                 f"URL: {item.source_url}\n"
                 f"要約: {item.summary or '(なし)'}"
+                f"{body_excerpt}"
                 f"{fact_check_info}\n"
             )
 
@@ -389,11 +394,16 @@ class AnalyzerStep(BaseStep):
                 f"- 詳細: {item.fact_check_details or '(なし)'}"
             )
 
+        body_excerpt = ""
+        if item.body:
+            body_excerpt = f"\n本文（冒頭3000字）:\n{item.body[:3000]}"
+
         prompt = (
             f"タイトル: {item.title}\n"
             f"ソース: {item.source_name}\n"
             f"URL: {item.source_url}\n"
             f"要約: {item.summary or '(なし)'}"
+            f"{body_excerpt}"
             f"{fact_check_info}"
         )
 

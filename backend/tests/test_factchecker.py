@@ -191,3 +191,46 @@ class TestFactcheckerStep:
         assert "average_score" in result
         assert "total_input_tokens" in result
         assert "total_output_tokens" in result
+
+
+class TestFactcheckerSkipPath:
+    """Tests for the factcheck skip path when collection AI research already ran."""
+
+    async def test_skip_when_factcheck_included(
+        self,
+        factchecker: FactcheckerStep,
+        session: AsyncSession,
+    ):
+        """Should skip AI calls when factcheck_included is True."""
+        episode_id, item_ids = await create_episode_with_items(session, 2, with_factcheck=True)
+
+        result = await factchecker.execute(
+            episode_id, {"factcheck_included": True}, session
+        )
+
+        assert result["factcheck_source"] == "collection_ai_research"
+        assert result["items_checked"] == 2
+        assert result["total_input_tokens"] == 0
+        assert result["total_output_tokens"] == 0
+        assert result["results"][0]["status"] == "verified"
+        assert result["results"][0]["score"] == 4
+
+    @patch("app.pipeline.factchecker.get_step_provider")
+    async def test_no_skip_without_flag(
+        self,
+        mock_get_provider,
+        factchecker: FactcheckerStep,
+        session: AsyncSession,
+    ):
+        """Should run normal AI fact-check when factcheck_included is not set."""
+        episode_id, _ = await create_episode_with_items(session, 1)
+
+        mock_provider = AsyncMock()
+        mock_provider.generate.return_value = _make_ai_response()
+        mock_get_provider.return_value = (mock_provider, "test-model")
+
+        result = await factchecker.execute(episode_id, {}, session)
+
+        assert "factcheck_source" not in result
+        assert result["items_checked"] == 1
+        mock_provider.generate.assert_called_once()

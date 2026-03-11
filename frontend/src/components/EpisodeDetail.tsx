@@ -57,12 +57,12 @@ export default function EpisodeDetail() {
 
   const handleRunStep = async () => {
     if (!selectedStep) return;
+    setRunningStep(true);
     try {
-      setRunningStep(true);
       await api.runStep(episodeId, selectedStep);
-      refetch();
+      await refetch();
     } catch {
-      refetch();
+      await refetch();
     } finally {
       setRunningStep(false);
     }

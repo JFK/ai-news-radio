@@ -14,6 +14,7 @@ class NewsItem(Base):
     episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"), index=True)
     title: Mapped[str] = mapped_column(String(500))
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_url: Mapped[str] = mapped_column(String(2000))
     source_name: Mapped[str] = mapped_column(String(200))
 

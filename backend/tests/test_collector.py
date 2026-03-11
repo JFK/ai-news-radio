@@ -1,5 +1,6 @@
 """Tests for CollectorStep pipeline step."""
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -43,6 +44,10 @@ class TestCollectorStep:
         mock_settings.collection_method = "brave"
         mock_settings.collection_queries = "熊本 ニュース"
         mock_settings.brave_search_api_key = "test-key"
+        mock_settings.collection_crawl_enabled = False
+        mock_settings.collection_youtube_enabled = False
+        mock_settings.collection_document_enabled = False
+        mock_settings.collection_ai_research_enabled = False
 
         results = _make_brave_results(3)
 
@@ -72,6 +77,10 @@ class TestCollectorStep:
         mock_settings.collection_method = "brave"
         mock_settings.collection_queries = "熊本 ニュース"
         mock_settings.brave_search_api_key = "test-key"
+        mock_settings.collection_crawl_enabled = False
+        mock_settings.collection_youtube_enabled = False
+        mock_settings.collection_document_enabled = False
+        mock_settings.collection_ai_research_enabled = False
 
         results = _make_brave_results(2)
 
@@ -97,6 +106,10 @@ class TestCollectorStep:
         mock_settings.collection_method = "brave"
         mock_settings.collection_queries = "熊本 ニュース"
         mock_settings.brave_search_api_key = "test-key"
+        mock_settings.collection_crawl_enabled = False
+        mock_settings.collection_youtube_enabled = False
+        mock_settings.collection_document_enabled = False
+        mock_settings.collection_ai_research_enabled = False
 
         engine = PipelineEngine()
         episode = await engine.create_episode("Test", session)
@@ -124,3 +137,220 @@ class TestCollectorStep:
 
         with pytest.raises(ValueError, match="Unknown collection method"):
             await collector.execute(episode.id, {}, session)
+
+
+class TestEnrichment:
+    """Tests for article enrichment (crawl, YouTube, documents)."""
+
+    @patch("app.pipeline.collector.settings")
+    async def test_crawl_enabled_enriches_articles(
+        self, mock_settings, collector: CollectorStep, session: AsyncSession
+    ):
+        """When crawl is enabled, articles should get body text."""
+        mock_settings.collection_method = "brave"
+        mock_settings.collection_queries = "テスト"
+        mock_settings.brave_search_api_key = "test-key"
+        mock_settings.collection_crawl_enabled = True
+        mock_settings.collection_crawl_timeout = 5.0
+        mock_settings.collection_crawl_max_body_chars = 50000
+        mock_settings.collection_youtube_enabled = False
+        mock_settings.collection_document_enabled = False
+        mock_settings.collection_ai_research_enabled = False
+
+        engine = PipelineEngine()
+        episode = await engine.create_episode("Test", session)
+
+        from app.services.web_crawler import CrawlResult
+
+        mock_crawl_result = CrawlResult(body="Full article text here", content_type="text/html", success=True)
+
+        with (
+            patch("app.services.brave_search.BraveSearchService") as mock_search_cls,
+            patch("app.services.web_crawler.WebCrawlerService") as mock_crawler_cls,
+        ):
+            mock_search = MagicMock()
+            mock_search.web_search = AsyncMock(return_value=_make_brave_results(2))
+            mock_search_cls.return_value = mock_search
+
+            mock_crawler = MagicMock()
+            mock_crawler.crawl = AsyncMock(return_value=mock_crawl_result)
+            mock_crawler_cls.return_value = mock_crawler
+
+            result = await collector.execute(episode.id, {}, session)
+
+        assert result["enrichment"]["crawled"] == 2
+        assert result["enrichment"]["errors"] == 0
+
+        db_result = await session.execute(select(NewsItem).where(NewsItem.episode_id == episode.id))
+        items = db_result.scalars().all()
+        for item in items:
+            assert item.body == "Full article text here"
+
+    @patch("app.pipeline.collector.settings")
+    async def test_crawl_disabled_skips_enrichment(
+        self, mock_settings, collector: CollectorStep, session: AsyncSession
+    ):
+        """When crawl is disabled, articles should not get body text."""
+        mock_settings.collection_method = "brave"
+        mock_settings.collection_queries = "テスト"
+        mock_settings.brave_search_api_key = "test-key"
+        mock_settings.collection_crawl_enabled = False
+        mock_settings.collection_youtube_enabled = False
+        mock_settings.collection_document_enabled = False
+        mock_settings.collection_ai_research_enabled = False
+
+        engine = PipelineEngine()
+        episode = await engine.create_episode("Test", session)
+
+        with patch("app.services.brave_search.BraveSearchService") as mock_search_cls:
+            mock_search = MagicMock()
+            mock_search.web_search = AsyncMock(return_value=_make_brave_results(1))
+            mock_search_cls.return_value = mock_search
+
+            result = await collector.execute(episode.id, {}, session)
+
+        assert result["enrichment"]["crawled"] == 0
+
+        db_result = await session.execute(select(NewsItem).where(NewsItem.episode_id == episode.id))
+        items = db_result.scalars().all()
+        for item in items:
+            assert item.body is None
+
+    @patch("app.pipeline.collector.settings")
+    async def test_crawl_failure_graceful(
+        self, mock_settings, collector: CollectorStep, session: AsyncSession
+    ):
+        """Crawl failure should not break the pipeline."""
+        mock_settings.collection_method = "brave"
+        mock_settings.collection_queries = "テスト"
+        mock_settings.brave_search_api_key = "test-key"
+        mock_settings.collection_crawl_enabled = True
+        mock_settings.collection_crawl_timeout = 5.0
+        mock_settings.collection_crawl_max_body_chars = 50000
+        mock_settings.collection_youtube_enabled = False
+        mock_settings.collection_document_enabled = False
+        mock_settings.collection_ai_research_enabled = False
+
+        engine = PipelineEngine()
+        episode = await engine.create_episode("Test", session)
+
+        from app.services.web_crawler import CrawlResult
+
+        mock_crawl_result = CrawlResult(body="", content_type="", success=False, error="Connection timeout")
+
+        with (
+            patch("app.services.brave_search.BraveSearchService") as mock_search_cls,
+            patch("app.services.web_crawler.WebCrawlerService") as mock_crawler_cls,
+        ):
+            mock_search = MagicMock()
+            mock_search.web_search = AsyncMock(return_value=_make_brave_results(1))
+            mock_search_cls.return_value = mock_search
+
+            mock_crawler = MagicMock()
+            mock_crawler.crawl = AsyncMock(return_value=mock_crawl_result)
+            mock_crawler_cls.return_value = mock_crawler
+
+            result = await collector.execute(episode.id, {}, session)
+
+        assert result["enrichment"]["errors"] == 1
+        assert result["articles_saved"] == 1
+
+
+class TestAIResearch:
+    """Tests for AI multi-stage research."""
+
+    @patch("app.pipeline.collector.settings")
+    async def test_ai_research_sets_factcheck_included(
+        self, mock_settings, collector: CollectorStep, session: AsyncSession
+    ):
+        """AI research should set factcheck_included=True in output."""
+        mock_settings.collection_method = "brave"
+        mock_settings.collection_queries = "テスト"
+        mock_settings.brave_search_api_key = "test-key"
+        mock_settings.collection_crawl_enabled = False
+        mock_settings.collection_youtube_enabled = False
+        mock_settings.collection_document_enabled = False
+        mock_settings.collection_ai_research_enabled = True
+        mock_settings.collection_ai_research_max_rounds = 1
+        mock_settings.collection_ai_research_provider = ""
+        mock_settings.collection_ai_research_model = ""
+
+        engine = PipelineEngine()
+        episode = await engine.create_episode("Test", session)
+
+        from app.services.ai_provider import AIResponse
+
+        plan_response = AIResponse(
+            content=json.dumps({
+                "claims_to_verify": [{"article_index": 0, "claim": "Test", "reason": "Verify"}],
+                "search_queries": ["追加クエリ1"],
+            }),
+            input_tokens=100, output_tokens=200, model="test", provider="test",
+        )
+        integrate_response = AIResponse(
+            content=json.dumps({
+                "results": [{
+                    "article_index": 0,
+                    "fact_check_status": "verified",
+                    "fact_check_score": 4,
+                    "fact_check_details": "確認済み",
+                    "reference_urls": ["https://ref.example.com"],
+                    "key_claims": [],
+                }],
+            }),
+            input_tokens=200, output_tokens=300, model="test", provider="test",
+        )
+
+        mock_provider = AsyncMock()
+        mock_provider.generate = AsyncMock(side_effect=[plan_response, integrate_response])
+
+        additional_search_results = [
+            BraveSearchResult(title="Ref", url="https://ref.example.com", description="Reference"),
+        ]
+
+        with (
+            patch("app.services.brave_search.BraveSearchService") as mock_search_cls,
+            patch("app.services.ai_provider.get_step_provider", return_value=(mock_provider, "test-model")),
+        ):
+            mock_search = MagicMock()
+            mock_search.web_search = AsyncMock(side_effect=[
+                _make_brave_results(1),  # Initial collection
+                additional_search_results,  # AI research additional search
+            ])
+            mock_search_cls.return_value = mock_search
+
+            result = await collector.execute(episode.id, {}, session)
+
+        assert result.get("factcheck_included") is True
+
+        # Verify fact-check data written to NewsItem
+        db_result = await session.execute(select(NewsItem).where(NewsItem.episode_id == episode.id))
+        items = db_result.scalars().all()
+        assert len(items) == 1
+        assert items[0].fact_check_status == "verified"
+        assert items[0].fact_check_score == 4
+
+    @patch("app.pipeline.collector.settings")
+    async def test_ai_research_disabled_by_default(
+        self, mock_settings, collector: CollectorStep, session: AsyncSession
+    ):
+        """AI research should not run when disabled."""
+        mock_settings.collection_method = "brave"
+        mock_settings.collection_queries = "テスト"
+        mock_settings.brave_search_api_key = "test-key"
+        mock_settings.collection_crawl_enabled = False
+        mock_settings.collection_youtube_enabled = False
+        mock_settings.collection_document_enabled = False
+        mock_settings.collection_ai_research_enabled = False
+
+        engine = PipelineEngine()
+        episode = await engine.create_episode("Test", session)
+
+        with patch("app.services.brave_search.BraveSearchService") as mock_search_cls:
+            mock_search = MagicMock()
+            mock_search.web_search = AsyncMock(return_value=_make_brave_results(1))
+            mock_search_cls.return_value = mock_search
+
+            result = await collector.execute(episode.id, {}, session)
+
+        assert result.get("factcheck_included") is None
