@@ -117,7 +117,9 @@ class FactcheckerStep(BaseStep):
             result_data["prompt_version"] = prompt_version
         return result_data
 
-    async def _search_references(self, item: NewsItem) -> str:
+    async def _search_references(
+        self, item: NewsItem, session: AsyncSession, episode_id: int
+    ) -> str:
         """Search for reference material using Brave Search (if available)."""
         try:
             from app.config import settings
@@ -125,10 +127,22 @@ class FactcheckerStep(BaseStep):
             if not settings.brave_search_api_key:
                 return ""
 
-            from app.services.brave_search import BraveSearchService
+            from app.services.brave_search import BRAVE_COST_PER_QUERY, BraveSearchService
 
             service = BraveSearchService()
             results = await service.web_search(item.title, count=5)
+
+            # Record Brave Search API usage
+            await self.record_usage(
+                session=session,
+                episode_id=episode_id,
+                provider="brave",
+                model="brave-search",
+                input_tokens=1,
+                output_tokens=0,
+                cost_usd=BRAVE_COST_PER_QUERY,
+            )
+
             if not results:
                 return ""
 
@@ -153,7 +167,7 @@ class FactcheckerStep(BaseStep):
     ) -> dict:
         """Fact-check a single news item."""
         # Search for reference material
-        search_context = await self._search_references(item)
+        search_context = await self._search_references(item, session, episode_id)
 
         body_excerpt = ""
         if item.body:
