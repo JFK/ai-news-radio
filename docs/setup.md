@@ -72,7 +72,7 @@ pip install -e backend/
 | Provider | Model |
 |----------|-------|
 | Anthropic | `claude-sonnet-4-20250514` |
-| OpenAI | `gpt-4o` |
+| OpenAI | `gpt-5.2` |
 | Google | `gemini-2.5-pro` |
 
 ### Step 3: Docker 起動 + DB マイグレーション
@@ -126,7 +126,7 @@ docker compose exec backend alembic upgrade head
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DEFAULT_AI_PROVIDER` | `openai` | Default AI provider (`anthropic`, `openai`, `google`) |
-| `DEFAULT_AI_MODEL` | `gpt-5` | Default model |
+| `DEFAULT_AI_MODEL` | `gpt-5.2` | Default model |
 | `PIPELINE_FACTCHECK_PROVIDER` | (default) | Provider for fact-check step |
 | `PIPELINE_FACTCHECK_MODEL` | (default) | Model for fact-check step |
 | `PIPELINE_ANALYSIS_PROVIDER` | (default) | Provider for analysis step |

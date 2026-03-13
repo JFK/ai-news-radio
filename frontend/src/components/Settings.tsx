@@ -129,7 +129,7 @@ function PricingSection() {
               value={form.model_prefix}
               onChange={(e) => setForm({ ...form, model_prefix: e.target.value })}
               className="px-2 py-1.5 border border-gray-300 rounded text-sm w-40"
-              placeholder="gpt-5"
+              placeholder="gpt-5.2"
             />
           </div>
           <div>
