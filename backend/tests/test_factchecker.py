@@ -1,7 +1,7 @@
 """Tests for FactcheckerStep pipeline step."""
 
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy import select
@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import ApiUsage, NewsItem, StepName
 from app.pipeline.factchecker import FactcheckerStep
 from app.services.ai_provider import AIResponse
+from app.services.brave_search import BraveSearchResult
 from tests.helpers import create_episode_with_items
 
 
@@ -139,10 +140,12 @@ class TestFactcheckerStep:
 
         await factchecker.execute(episode_id, {}, session)
 
+        # Check AI provider usages (excludes Brave Search usages)
         db_result = await session.execute(
             select(ApiUsage).where(
                 ApiUsage.episode_id == episode_id,
                 ApiUsage.step_name == "factcheck",
+                ApiUsage.provider != "brave",
             )
         )
         usages = db_result.scalars().all()
@@ -234,3 +237,46 @@ class TestFactcheckerSkipPath:
         assert "factcheck_source" not in result
         assert result["items_checked"] == 1
         mock_provider.generate.assert_called_once()
+
+
+class TestBraveSearchCostTracking:
+    """Tests for Brave Search cost tracking in factchecker."""
+
+    @patch("app.pipeline.factchecker.get_step_provider")
+    async def test_brave_search_records_api_usage(
+        self,
+        mock_get_provider,
+        factchecker: FactcheckerStep,
+        session: AsyncSession,
+    ):
+        """Brave Search queries in fact-checking should be recorded as ApiUsage."""
+        episode_id, _ = await create_episode_with_items(session, 1)
+
+        mock_provider = AsyncMock()
+        mock_provider.generate.return_value = _make_ai_response()
+        mock_get_provider.return_value = (mock_provider, "test-model")
+
+        brave_results = [
+            BraveSearchResult(title="Ref", url="https://ref.example.com", description="Reference"),
+        ]
+
+        with patch("app.services.brave_search.BraveSearchService") as mock_search_cls:
+            mock_search = MagicMock()
+            mock_search.web_search = AsyncMock(return_value=brave_results)
+            mock_search_cls.return_value = mock_search
+
+            await factchecker.execute(episode_id, {}, session)
+
+        # Verify Brave Search usage recorded
+        db_result = await session.execute(
+            select(ApiUsage).where(
+                ApiUsage.episode_id == episode_id,
+                ApiUsage.provider == "brave",
+            )
+        )
+        usages = db_result.scalars().all()
+        assert len(usages) == 1
+        assert usages[0].model == "brave-search"
+        assert usages[0].input_tokens == 1
+        assert usages[0].output_tokens == 0
+        assert usages[0].cost_usd == pytest.approx(0.005)

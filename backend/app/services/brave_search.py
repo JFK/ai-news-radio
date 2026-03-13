@@ -23,6 +23,9 @@ class BraveSearchResult:
     age: str | None = None
 
 
+BRAVE_COST_PER_QUERY = 0.005  # $5 per 1,000 queries
+
+
 class BraveSearchService:
     """Brave Search API client for news collection and fact-checking."""
 
@@ -30,6 +33,7 @@ class BraveSearchService:
         self._api_key = api_key or settings.brave_search_api_key
         if not self._api_key:
             raise ValueError("BRAVE_SEARCH_API_KEY is not set")
+        self.query_count: int = 0
 
     async def web_search(
         self,
@@ -115,5 +119,6 @@ class BraveSearchService:
                     )
                 )
 
+        self.query_count += 1
         logger.info("Brave %s search '%s': %d results", search_type, params["q"], len(results))
         return results

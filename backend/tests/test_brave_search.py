@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.brave_search import BraveSearchResult, BraveSearchService
+from app.services.brave_search import BRAVE_COST_PER_QUERY, BraveSearchResult, BraveSearchService
 
 
 class TestBraveSearchService:
@@ -97,3 +97,26 @@ class TestBraveSearchService:
         results = await service.web_search("obscure query")
 
         assert results == []
+
+    @patch("app.services.brave_search.httpx.AsyncClient")
+    async def test_query_count_incremented(self, mock_client_cls):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"web": {"results": []}}
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_response
+        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        service = BraveSearchService(api_key="test-key")
+        assert service.query_count == 0
+
+        await service.web_search("query1")
+        assert service.query_count == 1
+
+        await service.web_search("query2")
+        assert service.query_count == 2
+
+    def test_cost_per_query_constant(self):
+        assert BRAVE_COST_PER_QUERY == 0.005

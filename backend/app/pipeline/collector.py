@@ -81,7 +81,7 @@ class CollectorStep(BaseStep):
         queries = kwargs.get("queries")
 
         if method == "brave":
-            articles = await self._collect_brave(queries=queries)
+            articles = await self._collect_brave(session, episode_id, queries=queries)
         else:
             raise ValueError(f"Unknown collection method: {method}")
 
@@ -137,9 +137,11 @@ class CollectorStep(BaseStep):
             output["factcheck_included"] = True
         return output
 
-    async def _collect_brave(self, queries: list[str] | None = None) -> list[dict]:
+    async def _collect_brave(
+        self, session: AsyncSession, episode_id: int, queries: list[str] | None = None
+    ) -> list[dict]:
         """Collect news using Brave Search API."""
-        from app.services.brave_search import BraveSearchService
+        from app.services.brave_search import BRAVE_COST_PER_QUERY, BraveSearchService
 
         service = BraveSearchService()
         if not queries:
@@ -162,6 +164,18 @@ class CollectorStep(BaseStep):
                         "source_name": f"Brave Search ({query})",
                     }
                 )
+
+        # Record Brave Search API usage
+        if service.query_count > 0:
+            await self.record_usage(
+                session=session,
+                episode_id=episode_id,
+                provider="brave",
+                model="brave-search",
+                input_tokens=service.query_count,
+                output_tokens=0,
+                cost_usd=service.query_count * BRAVE_COST_PER_QUERY,
+            )
 
         return all_articles
 
@@ -300,7 +314,10 @@ class CollectorStep(BaseStep):
             return False
 
         # --- Pass 2: Additional search ---
+        from app.services.brave_search import BRAVE_COST_PER_QUERY, BraveSearchService
+
         additional_info = ""
+        brave_query_count = 0
         max_rounds = settings.collection_ai_research_max_rounds
         for round_num in range(max_rounds):
             if round_num >= len(search_queries):
@@ -308,10 +325,9 @@ class CollectorStep(BaseStep):
             batch = search_queries[round_num * 3 : (round_num + 1) * 3]
             for query in batch:
                 try:
-                    from app.services.brave_search import BraveSearchService
-
                     search_svc = BraveSearchService()
                     results = await search_svc.web_search(query, count=5)
+                    brave_query_count += 1
                     for r in results:
                         additional_info += f"\n- [{query}] {r.title}: {r.description}\n  URL: {r.url}"
 
@@ -329,6 +345,18 @@ class CollectorStep(BaseStep):
                                 additional_info += f"\n  本文: {crawl_result.body[:2000]}"
                 except Exception as e:
                     logger.warning("Additional search failed for '%s': %s", query, e)
+
+        # Record Brave Search API usage for research queries
+        if brave_query_count > 0:
+            await self.record_usage(
+                session=session,
+                episode_id=episode_id,
+                provider="brave",
+                model="brave-search",
+                input_tokens=brave_query_count,
+                output_tokens=0,
+                cost_usd=brave_query_count * BRAVE_COST_PER_QUERY,
+            )
 
         if not additional_info:
             return False

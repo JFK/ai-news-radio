@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import NewsItem, StepName
+from app.models import ApiUsage, NewsItem, StepName
 from app.pipeline.collector import CollectorStep
 from app.pipeline.engine import PipelineEngine
 from app.services.brave_search import BraveSearchResult
@@ -57,6 +57,7 @@ class TestCollectorStep:
         with patch("app.services.brave_search.BraveSearchService") as mock_service_cls:
             mock_service = MagicMock()
             mock_service.web_search = AsyncMock(return_value=results)
+            mock_service.query_count = 1
             mock_service_cls.return_value = mock_service
 
             result = await collector.execute(episode.id, {}, session)
@@ -90,6 +91,7 @@ class TestCollectorStep:
         with patch("app.services.brave_search.BraveSearchService") as mock_service_cls:
             mock_service = MagicMock()
             mock_service.web_search = AsyncMock(return_value=results)
+            mock_service.query_count = 1
             mock_service_cls.return_value = mock_service
 
             result1 = await collector.execute(episode.id, {}, session)
@@ -117,6 +119,7 @@ class TestCollectorStep:
         with patch("app.services.brave_search.BraveSearchService") as mock_service_cls:
             mock_service = MagicMock()
             mock_service.web_search = AsyncMock(return_value=[])
+            mock_service.query_count = 1
             mock_service_cls.return_value = mock_service
 
             result = await collector.execute(episode.id, {}, session)
@@ -169,6 +172,7 @@ class TestEnrichment:
             patch("app.services.web_crawler.WebCrawlerService") as mock_crawler_cls,
         ):
             mock_search = MagicMock()
+            mock_search.query_count = 1
             mock_search.web_search = AsyncMock(return_value=_make_brave_results(2))
             mock_search_cls.return_value = mock_search
 
@@ -204,6 +208,7 @@ class TestEnrichment:
 
         with patch("app.services.brave_search.BraveSearchService") as mock_search_cls:
             mock_search = MagicMock()
+            mock_search.query_count = 1
             mock_search.web_search = AsyncMock(return_value=_make_brave_results(1))
             mock_search_cls.return_value = mock_search
 
@@ -243,6 +248,7 @@ class TestEnrichment:
             patch("app.services.web_crawler.WebCrawlerService") as mock_crawler_cls,
         ):
             mock_search = MagicMock()
+            mock_search.query_count = 1
             mock_search.web_search = AsyncMock(return_value=_make_brave_results(1))
             mock_search_cls.return_value = mock_search
 
@@ -313,6 +319,7 @@ class TestAIResearch:
             patch("app.services.ai_provider.get_step_provider", return_value=(mock_provider, "test-model")),
         ):
             mock_search = MagicMock()
+            mock_search.query_count = 1
             mock_search.web_search = AsyncMock(side_effect=[
                 _make_brave_results(1),  # Initial collection
                 additional_search_results,  # AI research additional search
@@ -348,9 +355,52 @@ class TestAIResearch:
 
         with patch("app.services.brave_search.BraveSearchService") as mock_search_cls:
             mock_search = MagicMock()
+            mock_search.query_count = 1
             mock_search.web_search = AsyncMock(return_value=_make_brave_results(1))
             mock_search_cls.return_value = mock_search
 
             result = await collector.execute(episode.id, {}, session)
 
         assert result.get("factcheck_included") is None
+
+
+class TestBraveSearchCostTracking:
+    """Tests for Brave Search API cost tracking in collector."""
+
+    @patch("app.pipeline.collector.settings")
+    async def test_brave_search_records_api_usage(
+        self, mock_settings, collector: CollectorStep, session: AsyncSession
+    ):
+        """Brave Search queries should be recorded as ApiUsage."""
+        mock_settings.collection_method = "brave"
+        mock_settings.collection_queries = "テスト"
+        mock_settings.brave_search_api_key = "test-key"
+        mock_settings.collection_crawl_enabled = False
+        mock_settings.collection_youtube_enabled = False
+        mock_settings.collection_document_enabled = False
+        mock_settings.collection_ai_research_enabled = False
+
+        engine = PipelineEngine()
+        episode = await engine.create_episode("Test", session)
+
+        with patch("app.services.brave_search.BraveSearchService") as mock_service_cls:
+            mock_service = MagicMock()
+            mock_service.web_search = AsyncMock(return_value=_make_brave_results(2))
+            mock_service.query_count = 1
+            mock_service_cls.return_value = mock_service
+
+            await collector.execute(episode.id, {}, session)
+
+        # Verify Brave Search usage recorded
+        db_result = await session.execute(
+            select(ApiUsage).where(
+                ApiUsage.episode_id == episode.id,
+                ApiUsage.provider == "brave",
+            )
+        )
+        usages = db_result.scalars().all()
+        assert len(usages) == 1
+        assert usages[0].model == "brave-search"
+        assert usages[0].input_tokens == 1
+        assert usages[0].output_tokens == 0
+        assert usages[0].cost_usd == pytest.approx(0.005)
