@@ -33,8 +33,8 @@ export const api = {
     client.delete(`/episodes/${episodeId}`),
   runStep: (episodeId: number, stepName: string, body?: { queries?: string[] }) =>
     client.post<PipelineStep>(`/episodes/${episodeId}/steps/${stepName}/run`, body),
-  approveStep: (stepId: number) =>
-    client.post<PipelineStep>(`/steps/${stepId}/approve`),
+  approveStep: (stepId: number, excludedItemIds?: number[]) =>
+    client.post<PipelineStep>(`/steps/${stepId}/approve`, excludedItemIds?.length ? { excluded_item_ids: excludedItemIds } : undefined),
   rejectStep: (stepId: number, reason: string) =>
     client.post<PipelineStep>(`/steps/${stepId}/reject`, { reason }),
   editItemScript: (episodeId: number, newsItemId: number, scriptText: string) =>

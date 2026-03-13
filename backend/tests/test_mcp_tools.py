@@ -144,7 +144,15 @@ class TestClient:
         with patch.object(api_client, "_request", new_callable=AsyncMock) as mock:
             mock.return_value = {"id": 5, "step_name": "collection", "status": "approved"}
             await api_client.approve_step(5)
-            mock.assert_called_once_with("POST", "/api/steps/5/approve")
+            mock.assert_called_once_with("POST", "/api/steps/5/approve", json=None)
+
+    async def test_approve_step_with_exclusions(self, api_client):
+        with patch.object(api_client, "_request", new_callable=AsyncMock) as mock:
+            mock.return_value = {"id": 5, "step_name": "collection", "status": "approved"}
+            await api_client.approve_step(5, [1, 3])
+            mock.assert_called_once_with(
+                "POST", "/api/steps/5/approve", json={"excluded_item_ids": [1, 3]}
+            )
 
     async def test_reject_step(self, api_client):
         with patch.object(api_client, "_request", new_callable=AsyncMock) as mock:

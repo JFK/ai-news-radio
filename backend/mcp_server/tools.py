@@ -114,7 +114,11 @@ def get_tool_definitions() -> list[Tool]:
         ),
         Tool(
             name="approve_step",
-            description="Approve a completed pipeline step (status must be needs_approval). Allows the next step to proceed.",
+            description=(
+                "Approve a completed pipeline step (status must be needs_approval). "
+                "Optionally exclude specific news items by passing their IDs. "
+                "Excluded items will be skipped in subsequent steps."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -123,6 +127,11 @@ def get_tool_definitions() -> list[Tool]:
                         "type": "string",
                         "enum": STEP_NAMES,
                         "description": "Pipeline step to approve",
+                    },
+                    "excluded_item_ids": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "News item IDs to exclude from this step onwards (optional)",
                     },
                 },
                 "required": ["episode_id", "step_name"],

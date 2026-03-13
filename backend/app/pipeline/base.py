@@ -84,11 +84,18 @@ class BaseStep(ABC):
             await session.commit()
             raise
 
-    async def _get_news_items(self, episode_id: int, session: AsyncSession) -> list[NewsItem]:
-        """Load all NewsItems for the episode."""
-        result = await session.execute(
-            select(NewsItem).where(NewsItem.episode_id == episode_id).order_by(NewsItem.id)
-        )
+    async def _get_news_items(
+        self, episode_id: int, session: AsyncSession, *, include_excluded: bool = False
+    ) -> list[NewsItem]:
+        """Load NewsItems for the episode.
+
+        By default, excluded items are filtered out. Pass include_excluded=True
+        to load all items (e.g. for collection step).
+        """
+        query = select(NewsItem).where(NewsItem.episode_id == episode_id)
+        if not include_excluded:
+            query = query.where(NewsItem.excluded.is_(False))
+        result = await session.execute(query.order_by(NewsItem.id))
         return list(result.scalars().all())
 
     async def _get_input_data(self, episode_id: int, session: AsyncSession) -> dict:

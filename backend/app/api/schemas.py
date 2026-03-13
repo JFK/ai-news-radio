@@ -35,6 +35,12 @@ class RunStepRequest(BaseModel):
     queries: list[str] | None = None  # Override collection queries
 
 
+class ApproveRequest(BaseModel):
+    """Request body for approving a step with optional per-article exclusion."""
+
+    excluded_item_ids: list[int] = []
+
+
 class RejectRequest(BaseModel):
     """Request body for rejecting a step."""
 
@@ -127,6 +133,8 @@ class NewsItemResponse(BaseModel):
     script_text: str | None = None
     group_id: int | None = None
     is_group_primary: bool | None = None
+    excluded: bool = False
+    excluded_at_step: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

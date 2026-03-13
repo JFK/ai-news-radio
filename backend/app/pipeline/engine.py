@@ -137,13 +137,33 @@ class PipelineEngine:
         step_instance = step_class()
         await step_instance.run(episode_id, session, **kwargs)
 
-    async def approve_step(self, step_id: int, session: AsyncSession) -> PipelineStep:
-        """Approve a pipeline step that is awaiting approval."""
+    async def approve_step(
+        self, step_id: int, session: AsyncSession, excluded_item_ids: list[int] | None = None
+    ) -> PipelineStep:
+        """Approve a pipeline step that is awaiting approval.
+
+        Args:
+            step_id: The pipeline step ID.
+            session: Database session.
+            excluded_item_ids: Optional list of news item IDs to exclude at this step.
+        """
         result = await session.execute(select(PipelineStep).where(PipelineStep.id == step_id))
         step = result.scalar_one()
 
         if step.status != StepStatus.NEEDS_APPROVAL:
             raise ValueError(f"Step is not awaiting approval (current status: {step.status.value})")
+
+        # Mark excluded items
+        if excluded_item_ids:
+            items_result = await session.execute(
+                select(NewsItem).where(
+                    NewsItem.episode_id == step.episode_id,
+                    NewsItem.id.in_(excluded_item_ids),
+                )
+            )
+            for item in items_result.scalars():
+                item.excluded = True
+                item.excluded_at_step = step.step_name.value
 
         step.status = StepStatus.APPROVED
         step.approved_at = datetime.now(UTC)

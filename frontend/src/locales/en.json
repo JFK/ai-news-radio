@@ -63,7 +63,12 @@
     "rejectPlaceholder": "Enter rejection reason...",
     "processing": "Processing...",
     "approveFailed": "Approval failed",
-    "rejectFailed": "Rejection failed"
+    "rejectFailed": "Rejection failed",
+    "selectArticles": "Select articles to approve",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "approveSelected": "Approve {{count}} selected",
+    "excludeCount": "{{count}} article(s) will be excluded"
   },
   "pipeline": {
     "inputData": "Input Data",

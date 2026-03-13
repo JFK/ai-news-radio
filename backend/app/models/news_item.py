@@ -31,6 +31,10 @@ class NewsItem(Base):
     group_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     is_group_primary: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
+    # Approval (per-article exclusion)
+    excluded: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    excluded_at_step: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
     # Script
     script_text: Mapped[str | None] = mapped_column(Text, nullable=True)
 

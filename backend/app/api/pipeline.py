@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import (
+    ApproveRequest,
     EpisodeScriptEditRequest,
     RejectRequest,
     RunStepRequest,
@@ -97,11 +98,13 @@ async def run_step(
 @router.post("/steps/{step_id}/approve", response_model=StepResponse)
 async def approve_step(
     step_id: int,
+    body: ApproveRequest | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> PipelineStep:
-    """Approve a pipeline step."""
+    """Approve a pipeline step, optionally excluding specific news items."""
     try:
-        return await engine.approve_step(step_id, session)
+        excluded_ids = body.excluded_item_ids if body else None
+        return await engine.approve_step(step_id, session, excluded_item_ids=excluded_ids)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
