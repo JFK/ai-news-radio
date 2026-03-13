@@ -141,14 +141,22 @@ async def _get_episode_status(args: dict) -> str:
         lines.append(line)
 
     if news_items:
-        lines.extend(["", f"News Items ({len(news_items)}):"])
-        for item in news_items:
+        active = [i for i in news_items if not i.get("excluded")]
+        excluded = [i for i in news_items if i.get("excluded")]
+        lines.extend(["", f"News Items ({len(active)}):"])
+        for item in active:
             fc = ""
             if item.get("fact_check_score") is not None:
                 fc = f" [fact-check: {item['fact_check_score']}/5]"
             script = " [script: ready]" if item.get("script_text") else ""
             lines.append(f"  - {item['title']}{fc}{script}")
             lines.append(f"    {item['source_name']}: {item['source_url']}")
+        if excluded:
+            lines.extend(["", f"Excluded Items ({len(excluded)}):"])
+            for item in excluded:
+                step = item.get("excluded_at_step", "?")
+                lines.append(f"  x {item['title']} (excluded at: {step})")
+                lines.append(f"    {item['source_name']}: {item['source_url']}")
 
     return "\n".join(lines)
 
@@ -173,12 +181,15 @@ async def _run_step(args: dict) -> str:
 async def _approve_step(args: dict) -> str:
     episode_id = args["episode_id"]
     step_name = args["step_name"]
+    excluded_item_ids = args.get("excluded_item_ids")
 
     step_id = await client.resolve_step_id(episode_id, step_name)
-    step = await client.approve_step(step_id)
+    step = await client.approve_step(step_id, excluded_item_ids)
 
     next_step = _next_step(step_name)
     lines = [f"Step '{step_name}' approved for episode #{episode_id}."]
+    if excluded_item_ids:
+        lines.append(f"Excluded {len(excluded_item_ids)} item(s): {excluded_item_ids}")
     if next_step:
         lines.append(f"Next step: run_step with step_name='{next_step}'")
     else:

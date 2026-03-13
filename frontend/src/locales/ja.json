@@ -63,7 +63,12 @@
     "rejectPlaceholder": "却下理由を入力してください...",
     "processing": "処理中...",
     "approveFailed": "承認に失敗しました",
-    "rejectFailed": "却下に失敗しました"
+    "rejectFailed": "却下に失敗しました",
+    "selectArticles": "承認する記事を選択してください",
+    "selectAll": "すべて選択",
+    "deselectAll": "すべて解除",
+    "approveSelected": "選択した{{count}}件を承認",
+    "excludeCount": "{{count}}件の記事を除外します"
   },
   "pipeline": {
     "inputData": "入力データ",

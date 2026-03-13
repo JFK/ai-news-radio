@@ -85,9 +85,12 @@ class AINewsRadioClient:
             body["queries"] = queries
         return await self._request("POST", f"/api/episodes/{episode_id}/steps/{step_name}/run", json=body)
 
-    async def approve_step(self, step_id: int) -> dict:
+    async def approve_step(self, step_id: int, excluded_item_ids: list[int] | None = None) -> dict:
         """POST /api/steps/{step_id}/approve"""
-        return await self._request("POST", f"/api/steps/{step_id}/approve")
+        body = {}
+        if excluded_item_ids:
+            body["excluded_item_ids"] = excluded_item_ids
+        return await self._request("POST", f"/api/steps/{step_id}/approve", json=body if body else None)
 
     async def reject_step(self, step_id: int, reason: str) -> dict:
         """POST /api/steps/{step_id}/reject"""

@@ -57,6 +57,8 @@ export interface NewsItem {
   script_text: string | null;
   group_id: number | null;
   is_group_primary: boolean | null;
+  excluded: boolean;
+  excluded_at_step: string | null;
   created_at: string;
 }
 
