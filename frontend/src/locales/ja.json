@@ -90,6 +90,7 @@
     "factcheck": "ファクトチェック",
     "analysis": "分析",
     "script": "台本生成",
+    "export": "エクスポート",
     "voice": "音声生成",
     "video": "動画化"
   },
