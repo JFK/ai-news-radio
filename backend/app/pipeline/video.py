@@ -105,6 +105,7 @@ class VideoStep(BaseStep):
         thumb_prompt = script_output.get("thumbnail_prompt") or episode.title
 
         images_generated = 0
+        await self.log_progress(episode_id, "[1/4] 背景画像を生成中...")
         try:
             await visual_provider.generate_background_image(bg_prompt, bg_image_path)
             images_generated += 1
@@ -113,6 +114,7 @@ class VideoStep(BaseStep):
             from app.services.visual_static import StaticVisualProvider
             await StaticVisualProvider().generate_background_image(bg_prompt, bg_image_path)
 
+        await self.log_progress(episode_id, "[2/4] サムネイル画像を生成中...")
         try:
             await visual_provider.generate_thumbnail(thumb_prompt, thumbnail_path)
             self._overlay_title_on_thumbnail(thumbnail_path, episode.title)
@@ -137,6 +139,7 @@ class VideoStep(BaseStep):
         # Run FFmpeg encoding and YouTube metadata generation in parallel
         news_items = await self._get_news_items(episode_id, session)
 
+        await self.log_progress(episode_id, "[3/4] FFmpegで動画エンコード中...")
         video_task = self._generate_video(
             audio_path=audio_full_path,
             video_path=video_path,
@@ -147,6 +150,7 @@ class VideoStep(BaseStep):
         # Pass timestamps from voice step if available
         timestamps = input_data.get("timestamps", "")
 
+        await self.log_progress(episode_id, "[3/4] YouTubeメタデータを同時生成中...")
         metadata_task = self._generate_youtube_metadata(
             episode=episode,
             news_items=news_items,
@@ -157,6 +161,7 @@ class VideoStep(BaseStep):
         )
 
         _, youtube_metadata = await asyncio.gather(video_task, metadata_task)
+        await self.log_progress(episode_id, "[4/4] 動画生成完了")
 
         # Update episode record
         relative_path = f"{episode_id}/video.mp4"
@@ -265,28 +270,11 @@ class VideoStep(BaseStep):
         script_text: str,
         duration_seconds: float,
     ) -> None:
-        """Generate MP4 video with scrolling text overlay using FFmpeg."""
-        escaped_text = self._escape_drawtext(script_text)
-
-        fontsize = 28
-        line_height = fontsize + 8
-        lines = escaped_text.count("\\n") + 1
-        text_height = lines * line_height
-        total_scroll = 720 + text_height
-        scroll_speed = total_scroll / duration_seconds if duration_seconds > 0 else 1
-
-        # FFmpeg: background image (looped) + audio + scrolling text (720p, ultrafast)
+        """Generate MP4 video: background image + audio (no text overlay)."""
+        # FFmpeg: static background image (looped) + audio → 720p MP4
         filter_complex = (
-            f"[0:v]loop=loop=-1:size=1:start=0,setpts=N/FRAME_RATE/TB,scale=1280:720,setsar=1[bg];"
-            f"[bg]drawtext="
-            f"fontfile={FONT_PATH}:"
-            f"text='{escaped_text}':"
-            f"fontcolor=white:"
-            f"fontsize={fontsize}:"
-            f"x=(w-text_w)/2:"
-            f"y=h-{scroll_speed}*t:"
-            f"line_spacing=8"
-            f"[v]"
+            "[0:v]loop=loop=-1:size=1:start=0,"
+            "setpts=N/FRAME_RATE/TB,scale=1280:720,setsar=1[v]"
         )
 
         cmd = [
@@ -320,69 +308,86 @@ class VideoStep(BaseStep):
 
         logger.info("FFmpeg completed: %s", video_path)
 
-    def _escape_drawtext(self, text: str) -> str:
-        """Escape text for FFmpeg drawtext filter."""
-        text = text.replace("\\", "\\\\")
-        text = text.replace("'", "'\\''")
-        text = text.replace(":", "\\:")
-        text = text.replace("\n", "\\n")
-        return text
-
     def _overlay_title_on_thumbnail(self, image_path: str, title: str) -> None:
-        """Overlay episode title text on the thumbnail image using Pillow.
+        """Overlay episode title on thumbnail with news-style design.
 
-        Layout: large bold text at bottom-center with dark gradient overlay
-        for contrast. Text is auto-wrapped to fit the image width.
+        Design:
+        - Red accent bar at top with "AI NEWS RADIO" badge
+        - Dark gradient overlay on bottom half
+        - Large bold white title text with thick black outline
+        - Thin red/white border frame for polished look
         """
         img = Image.open(image_path).convert("RGBA")
         w, h = img.size
 
-        # Create gradient overlay (bottom 45% of image)
         overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         draw_overlay = ImageDraw.Draw(overlay)
-        gradient_top = int(h * 0.55)
+
+        # --- Top accent bar: red banner with channel name ---
+        bar_height = int(h * 0.07)
+        draw_overlay.rectangle([(0, 0), (w, bar_height)], fill=(220, 30, 30, 230))
+
+        try:
+            badge_font = ImageFont.truetype(FONT_PATH, int(bar_height * 0.55))
+        except OSError:
+            badge_font = ImageFont.load_default()
+        badge_text = "AI NEWS RADIO"
+        draw_overlay.text(
+            (int(w * 0.03), int(bar_height * 0.18)),
+            badge_text, font=badge_font, fill="white",
+        )
+
+        # --- Bottom gradient overlay (stronger, covering bottom 55%) ---
+        gradient_top = int(h * 0.45)
         for y in range(gradient_top, h):
-            alpha = int(200 * (y - gradient_top) / (h - gradient_top))
+            progress = (y - gradient_top) / (h - gradient_top)
+            alpha = int(230 * progress)
             draw_overlay.rectangle([(0, y), (w, y + 1)], fill=(0, 0, 0, alpha))
 
-        img = Image.alpha_composite(img, overlay)
+        # --- Border frame: thin red outer + white inner ---
+        border = 4
+        draw_overlay.rectangle([(0, 0), (w - 1, h - 1)], outline=(220, 30, 30, 255), width=border)
+        draw_overlay.rectangle(
+            [(border, border), (w - 1 - border, h - 1 - border)],
+            outline=(255, 255, 255, 180), width=2,
+        )
 
+        img = Image.alpha_composite(img, overlay)
         draw = ImageDraw.Draw(img)
 
-        # Auto-size font: start large, shrink if text doesn't fit
-        max_width = int(w * 0.85)
-        fontsize = int(h * 0.08)  # ~8% of image height
-        min_fontsize = int(h * 0.04)
+        # --- Title text: auto-size, large and impactful ---
+        max_width = int(w * 0.88)
+        fontsize = int(h * 0.10)  # Start at ~10% of image height (bigger)
+        min_fontsize = int(h * 0.05)
 
         wrapped = title
+        font: ImageFont.FreeTypeFont | ImageFont.ImageFont = ImageFont.load_default()
         while fontsize >= min_fontsize:
             try:
                 font = ImageFont.truetype(FONT_PATH, fontsize)
             except OSError:
-                font = ImageFont.load_default()
                 break
 
             wrapped = textwrap.fill(title, width=max(1, max_width // (fontsize // 2)))
             lines = wrapped.split("\n")
-            # Check if all lines fit
             fits = all(
                 draw.textlength(line, font=font) <= max_width for line in lines
             )
-            if fits and len(lines) <= 4:
+            if fits and len(lines) <= 3:
                 break
             fontsize -= 2
         else:
             try:
                 font = ImageFont.truetype(FONT_PATH, min_fontsize)
             except OSError:
-                font = ImageFont.load_default()
+                pass
             wrapped = textwrap.fill(title, width=max(1, max_width // (min_fontsize // 2)))
 
         lines = wrapped.split("\n")
-        line_height = fontsize + 8
+        line_height = fontsize + 12
         total_text_height = len(lines) * line_height
 
-        # Position text at bottom with padding
+        # Position: bottom area, above border
         y_start = h - total_text_height - int(h * 0.06)
 
         for i, line in enumerate(lines):
@@ -391,10 +396,13 @@ class VideoStep(BaseStep):
             x = (w - text_w) // 2
             y = y_start + i * line_height
 
-            # Draw text outline (stroke) for readability
+            # Thick black outline + yellow shadow for impact
+            draw.text((x + 3, y + 3), line, font=font, fill=(0, 0, 0, 160),
+                       stroke_width=5, stroke_fill="black")
+            # Main white text with strong outline
             draw.text((x, y), line, font=font, fill="white",
-                       stroke_width=3, stroke_fill="black")
+                       stroke_width=4, stroke_fill=(30, 30, 30))
 
-        # Save as RGB (drop alpha)
+        # Save as RGB
         img.convert("RGB").save(image_path)
-        logger.info("Title overlay applied to thumbnail: %s", image_path)
+        logger.info("News-style title overlay applied to thumbnail: %s", image_path)
