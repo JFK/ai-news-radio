@@ -33,7 +33,9 @@ class VoiceStep(BaseStep):
         Produces individual WAV/MP3 files per section (opening, each news item,
         transitions, ending) and a combined audio file.
         """
-        provider = get_tts_provider()
+        tts_model_override = kwargs.get("tts_model")
+        tts_voice_override = kwargs.get("tts_voice")
+        provider = get_tts_provider(model=tts_model_override, voice=tts_voice_override)
         audio_format = provider.audio_format
         use_ssml = settings.pipeline_voice_provider == "google"  # SSML only for Cloud TTS, not Gemini
 
@@ -200,6 +202,8 @@ class VoiceStep(BaseStep):
             "audio_path": relative_path,
             "duration_seconds": total_duration,
             "provider": settings.pipeline_voice_provider,
+            "model": getattr(provider, "_model", None) or "",
+            "voice": getattr(provider, "_voice", None) or "",
             "audio_format": audio_format,
             "sections": section_results,
             "timestamps": timestamps,

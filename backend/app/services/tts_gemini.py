@@ -34,10 +34,10 @@ class GeminiTTSProvider(TTSProvider):
     via natural language instructions (no SSML needed).
     """
 
-    def __init__(self) -> None:
+    def __init__(self, model: str | None = None, voice: str | None = None) -> None:
         self._client = genai.Client(api_key=settings.google_api_key)
-        self._model = settings.gemini_tts_model
-        self._voice = settings.gemini_tts_voice
+        self._model = model or settings.gemini_tts_model
+        self._voice = voice or settings.gemini_tts_voice
         self._instructions = settings.gemini_tts_instructions
         # Accumulated token usage across synthesize() calls
         self.total_input_tokens = 0

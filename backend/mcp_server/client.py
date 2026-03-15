@@ -78,11 +78,22 @@ class AINewsRadioClient:
         """GET /api/episodes/{episode_id}/steps"""
         return await self._request("GET", f"/api/episodes/{episode_id}/steps")
 
-    async def run_step(self, episode_id: int, step_name: str, queries: list[str] | None = None) -> dict:
+    async def run_step(
+        self,
+        episode_id: int,
+        step_name: str,
+        queries: list[str] | None = None,
+        tts_model: str | None = None,
+        tts_voice: str | None = None,
+    ) -> dict:
         """POST /api/episodes/{episode_id}/steps/{step_name}/run"""
-        body = {}
+        body: dict = {}
         if queries:
             body["queries"] = queries
+        if tts_model:
+            body["tts_model"] = tts_model
+        if tts_voice:
+            body["tts_voice"] = tts_voice
         return await self._request("POST", f"/api/episodes/{episode_id}/steps/{step_name}/run", json=body)
 
     async def approve_step(self, step_id: int, excluded_item_ids: list[int] | None = None) -> dict:

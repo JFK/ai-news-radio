@@ -5,11 +5,45 @@ import { api } from "../api/client";
 import { useEpisode } from "../hooks/useEpisode";
 import { useNewsItems } from "../hooks/useNewsItems";
 import type { StepName, PipelineStep } from "../types";
+import { GEMINI_TTS_MODELS, GEMINI_TTS_VOICES } from "../constants/tts";
 import PipelineView from "./PipelineView";
 import ApprovalGate from "./ApprovalGate";
 import StepDataRenderer from "./step-renderers/StepDataRenderer";
 
 const MEDIA_BASE_URL = "/media";
+
+/** Persistent <details> that remembers open/closed state in localStorage. */
+function PersistentDetails({
+  storageKey,
+  defaultOpen = false,
+  className,
+  summary,
+  children,
+}: {
+  storageKey: string;
+  defaultOpen?: boolean;
+  className?: string;
+  summary: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(() => {
+    const stored = localStorage.getItem(storageKey);
+    return stored !== null ? stored === "1" : defaultOpen;
+  });
+  const handleToggle = (e: React.SyntheticEvent<HTMLDetailsElement>) => {
+    const isOpen = (e.target as HTMLDetailsElement).open;
+    setOpen(isOpen);
+    localStorage.setItem(storageKey, isOpen ? "1" : "0");
+  };
+  return (
+    <details className={className} open={open} onToggle={handleToggle}>
+      <summary className="cursor-pointer p-4 text-sm font-medium text-gray-600 select-none">
+        {summary}
+      </summary>
+      {children}
+    </details>
+  );
+}
 
 function ElapsedTime({ startedAt }: { startedAt: string }) {
   const [elapsed, setElapsed] = useState("");
@@ -106,6 +140,8 @@ export default function EpisodeDetail() {
   const [exportSuccess, setExportSuccess] = useState(false);
   const [driveEnabled, setDriveEnabled] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const [ttsModel, setTtsModel] = useState("");
+  const [ttsVoice, setTtsVoice] = useState("");
 
   useEffect(() => {
     api.getSettings().then((res) => {
@@ -132,8 +168,20 @@ export default function EpisodeDetail() {
     if (!selectedStep) return;
     setRunningStep(true);
     try {
-      await api.runStep(episodeId, selectedStep);
-      await refetch();
+      const body: { tts_model?: string; tts_voice?: string } = {};
+      if (selectedStep === "voice") {
+        if (ttsModel) body.tts_model = ttsModel;
+        if (ttsVoice) body.tts_voice = ttsVoice;
+      }
+      await api.runStep(episodeId, selectedStep, Object.keys(body).length > 0 ? body : undefined);
+      // Backend launches background task and returns immediately.
+      // Poll until the step status changes from pending to running (or beyond).
+      for (let i = 0; i < 10; i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        const ep = await refetch();
+        const updated = ep?.pipeline_steps.find((s) => s.step_name === selectedStep);
+        if (updated && updated.status !== "pending" && updated.status !== "rejected") break;
+      }
     } catch {
       await refetch();
     } finally {
@@ -228,8 +276,8 @@ export default function EpisodeDetail() {
         const videoStep = steps.find((s) => s.step_name === "video");
         const thumbnailPath = (videoStep?.output_data as Record<string, unknown> | null)?.thumbnail_path as string | undefined;
         return (
-        <div className="mb-6 bg-white rounded-lg shadow p-4 space-y-3">
-          <h3 className="text-sm font-medium text-gray-600">{t("episode.media")}</h3>
+        <PersistentDetails storageKey="episode-media-open" defaultOpen className="mb-6 bg-white rounded-lg shadow" summary={t("episode.media")}>
+          <div className="px-4 pb-4 space-y-3">
           {episode.audio_path && (
             <div>
               <p className="text-xs text-gray-500 mb-1">{t("episode.audio")}</p>
@@ -269,14 +317,14 @@ export default function EpisodeDetail() {
               </a>
             </div>
           )}
-        </div>
+          </div>
+        </PersistentDetails>
         );
       })()}
 
       {showDriveExport && (
-        <div className="mb-6 bg-white rounded-lg shadow p-4">
-          <h3 className="text-sm font-medium text-gray-600 mb-2">Google Drive</h3>
-          <div className="flex items-center gap-3 flex-wrap">
+        <PersistentDetails storageKey="episode-drive-open" className="mb-6 bg-white rounded-lg shadow" summary="Google Drive">
+          <div className="px-4 pb-4 flex items-center gap-3 flex-wrap">
             {episode.drive_file_url && (
               <a
                 href={episode.drive_file_url}
@@ -305,7 +353,7 @@ export default function EpisodeDetail() {
               <span className="text-sm text-red-600">{exportError}</span>
             )}
           </div>
-        </div>
+        </PersistentDetails>
       )}
 
       <div className="mb-6">
@@ -341,6 +389,37 @@ export default function EpisodeDetail() {
               )}
             </div>
           </div>
+
+          {activeStep.step_name === "voice" && canRunStep(activeStep) && (
+            <div className="mb-3 flex items-center gap-3 flex-wrap">
+              <label className="text-xs text-gray-500">
+                {t("episode.voiceModel")}
+                <select
+                  value={ttsModel}
+                  onChange={(e) => setTtsModel(e.target.value)}
+                  className="ml-1 text-sm border rounded px-2 py-1"
+                >
+                  <option value="">{t("episode.voiceDefault")}</option>
+                  {GEMINI_TTS_MODELS.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-xs text-gray-500">
+                {t("episode.voiceVoice")}
+                <select
+                  value={ttsVoice}
+                  onChange={(e) => setTtsVoice(e.target.value)}
+                  className="ml-1 text-sm border rounded px-2 py-1"
+                >
+                  <option value="">{t("episode.voiceDefault")}</option>
+                  {GEMINI_TTS_VOICES.map((v) => (
+                    <option key={v.value} value={v.value}>{v.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
 
           <StepLogs episodeId={episodeId} stepName={activeStep.step_name} isRunning={activeStep.status === "running"} />
 

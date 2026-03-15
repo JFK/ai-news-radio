@@ -62,7 +62,13 @@
     "driveLink": "Open in Google Drive",
     "markComplete": "Mark as Completed",
     "markIncomplete": "Reopen",
-    "toggling": "Updating..."
+    "toggling": "Updating...",
+    "voiceModel": "Model",
+    "voiceVoice": "Voice",
+    "voiceDefault": "Default",
+    "voiceProvider": "Provider",
+    "voiceDuration": "Duration",
+    "voiceSections": "Sections"
   },
   "approval": {
     "title": "Approval Gate",
@@ -225,6 +231,8 @@
         "gemini_tts_voice": "Gemini TTS Voice",
         "gemini_tts_instructions": "Gemini TTS Instructions",
         "visual_provider": "Visual Provider",
+        "visual_imagen_model": "Imagen Model",
+        "visual_veo_model": "Veo Model",
         "google_drive_enabled": "Enabled",
         "google_drive_client_id": "OAuth Client ID",
         "google_drive_client_secret": "OAuth Client Secret",

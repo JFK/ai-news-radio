@@ -12,13 +12,15 @@ export function useEpisode(id: number) {
 
   const hasRunningStep = episode?.pipeline_steps.some((s) => s.status === "running") ?? false;
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (): Promise<Episode | null> => {
     try {
       setError(null);
       const res = await api.getEpisode(id);
       setEpisode(res.data);
+      return res.data;
     } catch (e) {
       setError(e instanceof Error ? e.message : t("errors.fetchEpisode"));
+      return null;
     } finally {
       setLoading(false);
     }

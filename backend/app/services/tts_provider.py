@@ -28,8 +28,15 @@ class TTSProvider(ABC):
         ...
 
 
-def get_tts_provider() -> TTSProvider:
-    """Factory function to get a TTS provider based on settings."""
+def get_tts_provider(
+    model: str | None = None, voice: str | None = None
+) -> TTSProvider:
+    """Factory function to get a TTS provider based on settings.
+
+    Args:
+        model: Override TTS model (provider-specific).
+        voice: Override TTS voice name.
+    """
     provider_name = settings.pipeline_voice_provider
 
     if provider_name == "voicevox":
@@ -39,7 +46,7 @@ def get_tts_provider() -> TTSProvider:
     elif provider_name == "openai":
         from app.services.tts_openai import OpenAITTSProvider
 
-        return OpenAITTSProvider()
+        return OpenAITTSProvider(model=model, voice=voice)
     elif provider_name == "elevenlabs":
         from app.services.tts_elevenlabs import ElevenLabsTTSProvider
 
@@ -47,10 +54,10 @@ def get_tts_provider() -> TTSProvider:
     elif provider_name == "google":
         from app.services.tts_google import GoogleTTSProvider
 
-        return GoogleTTSProvider()
+        return GoogleTTSProvider(voice=voice)
     elif provider_name == "gemini":
         from app.services.tts_gemini import GeminiTTSProvider
 
-        return GeminiTTSProvider()
+        return GeminiTTSProvider(model=model, voice=voice)
     else:
         raise ValueError(f"Unknown TTS provider: {provider_name}")

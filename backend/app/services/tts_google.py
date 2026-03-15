@@ -24,6 +24,9 @@ class GoogleTTSProvider(TTSProvider):
     Supports both plain text and SSML input.
     """
 
+    def __init__(self, voice: str | None = None) -> None:
+        self._voice = voice or settings.google_tts_voice
+
     @property
     def audio_format(self) -> str:
         return "wav"
@@ -134,7 +137,7 @@ class GoogleTTSProvider(TTSProvider):
                 "input": input_data,
                 "voice": {
                     "languageCode": settings.google_tts_language_code,
-                    "name": settings.google_tts_voice,
+                    "name": self._voice,
                 },
                 "audioConfig": {
                     "audioEncoding": "LINEAR16",

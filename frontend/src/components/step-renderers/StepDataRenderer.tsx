@@ -3,6 +3,7 @@ import CollectionRenderer from "./CollectionRenderer";
 import FactcheckRenderer from "./FactcheckRenderer";
 import AnalysisRenderer from "./AnalysisRenderer";
 import ScriptRenderer from "./ScriptRenderer";
+import VoiceRenderer from "./VoiceRenderer";
 import VideoRenderer from "./VideoRenderer";
 
 interface Props {
@@ -41,6 +42,8 @@ export default function StepDataRenderer({
           onUpdated={onUpdated}
         />
       );
+    case "voice":
+      return <VoiceRenderer outputData={outputData} />;
     case "video":
       return <VideoRenderer outputData={outputData} />;
     default:
