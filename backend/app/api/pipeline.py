@@ -1,11 +1,15 @@
 """Pipeline step management API endpoints."""
 
 import asyncio
+import json
 import logging
 
+import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import settings as app_settings
 
 from app.api.schemas import (
     ApproveRequest,
@@ -38,6 +42,20 @@ async def list_steps(
         select(PipelineStep).where(PipelineStep.episode_id == episode_id).order_by(PipelineStep.id)
     )
     return list(result.scalars().all())
+
+
+@router.get("/episodes/{episode_id}/steps/{step_name}/logs")
+async def get_step_logs(episode_id: int, step_name: str) -> dict:
+    """Get real-time progress logs for a running step."""
+    key = f"step_logs:{episode_id}:{step_name}"
+    try:
+        r = aioredis.from_url(app_settings.redis_url, socket_connect_timeout=2)
+        raw_entries = await r.lrange(key, 0, -1)
+        await r.aclose()
+        logs = [json.loads(entry) for entry in raw_entries]
+        return {"logs": logs}
+    except Exception:
+        return {"logs": []}
 
 
 async def _run_step_background(episode_id: int, step_name: StepName, **kwargs) -> None:

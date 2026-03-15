@@ -4,15 +4,24 @@ Each pipeline step inherits from BaseStep and implements execute().
 The run() method handles the common workflow: status tracking, data flow, error handling.
 """
 
+import json
+import logging
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 
+import redis.asyncio as aioredis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models import ApiUsage, NewsItem, PipelineStep, StepName, StepStatus
 from app.services.ai_provider import STEP_ORDER
 from app.services.cost_estimator import estimate_cost
+
+logger = logging.getLogger(__name__)
+
+# Log entries expire after 1 hour (auto-cleanup)
+STEP_LOG_TTL = 3600
 
 
 class BaseStep(ABC):
@@ -39,6 +48,28 @@ class BaseStep(ABC):
         """
         ...
 
+    async def log_progress(self, episode_id: int, message: str) -> None:
+        """Push a progress log message to Redis for real-time display."""
+        key = f"step_logs:{episode_id}:{self.step_name.value}"
+        try:
+            r = aioredis.from_url(settings.redis_url, socket_connect_timeout=2)
+            entry = json.dumps({"message": message, "timestamp": datetime.now(UTC).isoformat()})
+            await r.rpush(key, entry)
+            await r.expire(key, STEP_LOG_TTL)
+            await r.aclose()
+        except Exception:
+            logger.debug("Failed to push step log to Redis", exc_info=True)
+
+    async def _clear_logs(self, episode_id: int) -> None:
+        """Clear step logs from Redis."""
+        key = f"step_logs:{episode_id}:{self.step_name.value}"
+        try:
+            r = aioredis.from_url(settings.redis_url, socket_connect_timeout=2)
+            await r.delete(key)
+            await r.aclose()
+        except Exception:
+            pass
+
     async def run(self, episode_id: int, session: AsyncSession, **kwargs) -> None:
         """Run this pipeline step with full lifecycle management.
 
@@ -57,10 +88,12 @@ class BaseStep(ABC):
         )
         step = result.scalar_one()
 
-        # Mark as running
+        # Clear previous logs and mark as running
+        await self._clear_logs(episode_id)
         step.status = StepStatus.RUNNING
         step.started_at = datetime.now(UTC)
         await session.commit()
+        await self.log_progress(episode_id, f"ステップ「{self.step_name.value}」を開始")
 
         try:
             # Get input from previous step

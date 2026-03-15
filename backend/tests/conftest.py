@@ -1,6 +1,7 @@
 """Test configuration and fixtures."""
 
 from collections.abc import AsyncGenerator
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -25,6 +26,16 @@ async def setup_database():
     yield
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+
+
+@pytest.fixture(autouse=True)
+def _mock_redis_logs():
+    """Mock Redis-based step logging to avoid connection issues in tests."""
+    with (
+        patch("app.pipeline.base.BaseStep.log_progress", new_callable=AsyncMock),
+        patch("app.pipeline.base.BaseStep._clear_logs", new_callable=AsyncMock),
+    ):
+        yield
 
 
 async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
