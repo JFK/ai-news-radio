@@ -35,7 +35,7 @@ class VoiceStep(BaseStep):
         """
         provider = get_tts_provider()
         audio_format = provider.audio_format
-        use_ssml = settings.pipeline_voice_provider == "google"
+        use_ssml = settings.pipeline_voice_provider == "google"  # SSML only for Cloud TTS, not Gemini
 
         # Load pronunciation dictionary
         pron_result = await session.execute(
@@ -162,12 +162,17 @@ class VoiceStep(BaseStep):
                     if len(settings.google_tts_voice.split("-")) > 2
                     else "google-tts-standard"
                 ),
+                "gemini": settings.gemini_tts_model,
+            }
+            provider_label_map = {
+                "google": "google-tts",
+                "gemini": "gemini-tts",
             }
             model_name = model_map.get(provider_name, provider_name)
             await self.record_usage(
                 session=session,
                 episode_id=episode_id,
-                provider=f"{provider_name}-tts" if provider_name == "google" else provider_name,
+                provider=provider_label_map.get(provider_name, provider_name),
                 model=model_name,
                 input_tokens=total_chars,
                 output_tokens=0,

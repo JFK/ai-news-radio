@@ -144,9 +144,12 @@ function ConfigSection() {
     {
       title: t("settings.config.voice"),
       fields: [
-        { key: "pipeline_voice_provider", label: "Voice Provider", type: "select", options: ["voicevox", "openai", "elevenlabs", "google"] },
+        { key: "pipeline_voice_provider", label: "Voice Provider", type: "select", options: ["voicevox", "openai", "elevenlabs", "google", "gemini"] },
         { key: "voicevox_host", label: "VOICEVOX Host", type: "text" },
         { key: "voicevox_speaker_id", label: "VOICEVOX Speaker ID", type: "number" },
+        { key: "gemini_tts_model", label: "Gemini TTS Model", type: "text" },
+        { key: "gemini_tts_voice", label: "Gemini TTS Voice", type: "text" },
+        { key: "gemini_tts_instructions", label: "Gemini TTS Instructions", type: "text" },
       ],
     },
     {
