@@ -81,7 +81,7 @@ class GeminiTTSProvider(TTSProvider):
             ),
         )
 
-        response = self._client.models.generate_content(
+        response = await self._client.aio.models.generate_content(
             model=self._model,
             contents=content,
             config=config,
@@ -108,8 +108,7 @@ class GeminiTTSProvider(TTSProvider):
     async def health_check(self) -> bool:
         """Check if Gemini API is accessible."""
         try:
-            # List models to verify API key works
-            self._client.models.get(model=self._model)
+            await self._client.aio.models.get(model=self._model)
             return True
         except Exception:
             return False
