@@ -4,7 +4,9 @@ import asyncio
 import json
 import logging
 import os
+import textwrap
 
+from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -113,6 +115,7 @@ class VideoStep(BaseStep):
 
         try:
             await visual_provider.generate_thumbnail(thumb_prompt, thumbnail_path)
+            self._overlay_title_on_thumbnail(thumbnail_path, episode.title)
             thumbnail_relative = f"{episode_id}/thumbnail.png"
             images_generated += 1
         except Exception as e:
@@ -324,3 +327,74 @@ class VideoStep(BaseStep):
         text = text.replace(":", "\\:")
         text = text.replace("\n", "\\n")
         return text
+
+    def _overlay_title_on_thumbnail(self, image_path: str, title: str) -> None:
+        """Overlay episode title text on the thumbnail image using Pillow.
+
+        Layout: large bold text at bottom-center with dark gradient overlay
+        for contrast. Text is auto-wrapped to fit the image width.
+        """
+        img = Image.open(image_path).convert("RGBA")
+        w, h = img.size
+
+        # Create gradient overlay (bottom 45% of image)
+        overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        draw_overlay = ImageDraw.Draw(overlay)
+        gradient_top = int(h * 0.55)
+        for y in range(gradient_top, h):
+            alpha = int(200 * (y - gradient_top) / (h - gradient_top))
+            draw_overlay.rectangle([(0, y), (w, y + 1)], fill=(0, 0, 0, alpha))
+
+        img = Image.alpha_composite(img, overlay)
+
+        draw = ImageDraw.Draw(img)
+
+        # Auto-size font: start large, shrink if text doesn't fit
+        max_width = int(w * 0.85)
+        fontsize = int(h * 0.08)  # ~8% of image height
+        min_fontsize = int(h * 0.04)
+
+        wrapped = title
+        while fontsize >= min_fontsize:
+            try:
+                font = ImageFont.truetype(FONT_PATH, fontsize)
+            except OSError:
+                font = ImageFont.load_default()
+                break
+
+            wrapped = textwrap.fill(title, width=max(1, max_width // (fontsize // 2)))
+            lines = wrapped.split("\n")
+            # Check if all lines fit
+            fits = all(
+                draw.textlength(line, font=font) <= max_width for line in lines
+            )
+            if fits and len(lines) <= 4:
+                break
+            fontsize -= 2
+        else:
+            try:
+                font = ImageFont.truetype(FONT_PATH, min_fontsize)
+            except OSError:
+                font = ImageFont.load_default()
+            wrapped = textwrap.fill(title, width=max(1, max_width // (min_fontsize // 2)))
+
+        lines = wrapped.split("\n")
+        line_height = fontsize + 8
+        total_text_height = len(lines) * line_height
+
+        # Position text at bottom with padding
+        y_start = h - total_text_height - int(h * 0.06)
+
+        for i, line in enumerate(lines):
+            bbox = draw.textbbox((0, 0), line, font=font)
+            text_w = bbox[2] - bbox[0]
+            x = (w - text_w) // 2
+            y = y_start + i * line_height
+
+            # Draw text outline (stroke) for readability
+            draw.text((x, y), line, font=font, fill="white",
+                       stroke_width=3, stroke_fill="black")
+
+        # Save as RGB (drop alpha)
+        img.convert("RGB").save(image_path)
+        logger.info("Title overlay applied to thumbnail: %s", image_path)
