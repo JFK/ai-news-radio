@@ -29,7 +29,7 @@ export default function PipelineView({ steps, selectedStep, onSelectStep }: Prop
   const stepMap = new Map(steps.map((s) => [s.step_name, s]));
 
   return (
-    <div className="flex items-center gap-1 overflow-x-auto pb-2">
+    <div className="flex items-center gap-1 overflow-x-auto p-1">
       {STEP_ORDER.map((name, i) => {
         const step = stepMap.get(name);
         const status: StepStatus = step?.status ?? "pending";

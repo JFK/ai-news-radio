@@ -31,6 +31,8 @@ export const api = {
     client.get<PipelineStep[]>(`/episodes/${episodeId}/steps`),
   getNewsItems: (episodeId: number) =>
     client.get<NewsItem[]>(`/episodes/${episodeId}/news-items`),
+  updateEpisode: (episodeId: number, data: { title: string }) =>
+    client.patch<Episode>(`/episodes/${episodeId}`, data),
   deleteEpisode: (episodeId: number) =>
     client.delete(`/episodes/${episodeId}`),
   runStep: (episodeId: number, stepName: string, body?: { queries?: string[]; tts_model?: string; tts_voice?: string }) =>

@@ -77,6 +77,27 @@ async def get_episode(
         raise HTTPException(status_code=404, detail="Episode not found") from e
 
 
+@router.patch("/episodes/{episode_id}", response_model=EpisodeResponse)
+async def update_episode(
+    episode_id: int,
+    body: dict,
+    session: AsyncSession = Depends(get_session),
+) -> Episode:
+    """Update episode fields (currently only title)."""
+    result = await session.execute(
+        select(Episode).where(Episode.id == episode_id)
+    )
+    episode = result.scalar_one_or_none()
+    if not episode:
+        raise HTTPException(status_code=404, detail="Episode not found")
+
+    if "title" in body:
+        episode.title = body["title"]
+
+    await session.commit()
+    return await engine.get_episode_with_steps(episode_id, session)
+
+
 @router.delete("/episodes/{episode_id}", status_code=204)
 async def delete_episode(
     episode_id: int,

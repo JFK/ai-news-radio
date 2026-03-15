@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     media_dir: str = "/app/media"
 
     # Voice/TTS
+    voice_section_silence: float = 1.5  # Silence between sections (seconds)
+    srt_offset: float = 0.0  # SRT subtitle delay offset (seconds, positive = later)
     pipeline_voice_provider: str = "gemini"  # "voicevox", "openai", "elevenlabs", "google", "gemini"
     openai_tts_model: str = "tts-1"
     openai_tts_voice: str = "alloy"
@@ -74,6 +76,25 @@ class Settings(BaseSettings):
     visual_provider: str = "static"  # "static" or "google"
     visual_imagen_model: str = "imagen-4.0-fast-generate-001"
     visual_veo_model: str = "veo-2.0-generate-001"
+
+    # Video overlay styling
+    video_border_color: str = "#DC1E1E"  # Hex color for thumbnail/video border
+    video_logo_path: str = ""  # Path to logo image (replaces "AI NEWS RADIO" text badge)
+
+    # YouTube CTA (Call To Action) after opening
+    youtube_cta_enabled: bool = True
+    youtube_cta_text: str = (
+        "この番組では、ニュースの背景や多様な視点をわかりやすくお届けしています。"
+        "チャンネル登録と高評価、よろしくお願いします。"
+    )
+
+    # YouTube Outro after ending
+    youtube_outro_enabled: bool = True
+    youtube_outro_text: str = (
+        "ご視聴ありがとうございました。"
+        "チャンネル登録、高評価もよろしくお願いします。"
+        "また次回の放送でお会いしましょう。"
+    )
 
     # Google Drive Export (OAuth 2.0)
     google_drive_enabled: bool = False

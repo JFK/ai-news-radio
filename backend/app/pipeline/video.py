@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import textwrap
 
 from PIL import Image, ImageDraw, ImageFont
@@ -20,8 +21,9 @@ from app.services.visual_provider import get_visual_provider
 
 logger = logging.getLogger(__name__)
 
-# Font path for Japanese text rendering (Noto Sans CJK)
+# Font paths for Japanese text rendering (Noto Sans CJK)
 FONT_PATH = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
+FONT_PATH_BOLD = "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"
 
 PROMPT_KEY = "youtube_metadata"
 
@@ -105,7 +107,7 @@ class VideoStep(BaseStep):
         thumb_prompt = script_output.get("thumbnail_prompt") or episode.title
 
         images_generated = 0
-        await self.log_progress(episode_id, "[1/4] 背景画像を生成中...")
+        await self.log_progress(episode_id, "[1/5] 背景画像を生成中...")
         try:
             await visual_provider.generate_background_image(bg_prompt, bg_image_path)
             images_generated += 1
@@ -114,7 +116,7 @@ class VideoStep(BaseStep):
             from app.services.visual_static import StaticVisualProvider
             await StaticVisualProvider().generate_background_image(bg_prompt, bg_image_path)
 
-        await self.log_progress(episode_id, "[2/4] サムネイル画像を生成中...")
+        await self.log_progress(episode_id, "[2/5] サムネイル画像を生成中...")
         try:
             await visual_provider.generate_thumbnail(thumb_prompt, thumbnail_path)
             self._overlay_title_on_thumbnail(thumbnail_path, episode.title)
@@ -136,21 +138,31 @@ class VideoStep(BaseStep):
                 cost_usd=0.04 * images_generated,  # Imagen 4 Fast: ~$0.04/image
             )
 
-        # Run FFmpeg encoding and YouTube metadata generation in parallel
+        # Apply the same title+border design to the video background
+        video_bg_path = os.path.join(episode_dir, "video_background.png")
+        self._overlay_title_on_thumbnail(bg_image_path, episode.title, output_path=video_bg_path)
+        await self.log_progress(episode_id, "[2.5/5] 動画背景にタイトルオーバーレイ適用")
+
+        # Get news items (needed for SRT and metadata)
         news_items = await self._get_news_items(episode_id, session)
 
-        await self.log_progress(episode_id, "[3/4] FFmpegで動画エンコード中...")
+        # Generate SRT subtitles from voice sections + script text
+        srt_path = os.path.join(episode_dir, "subtitles.srt")
+        voice_sections = input_data.get("sections", [])
+        self._generate_srt(script_output, voice_sections, srt_path, news_items)
+        await self.log_progress(episode_id, "[3/5] 字幕SRTを生成しました")
+
+        await self.log_progress(episode_id, "[4/5] FFmpegで動画エンコード中...")
         video_task = self._generate_video(
             audio_path=audio_full_path,
             video_path=video_path,
-            bg_image_path=bg_image_path,
-            script_text=script_text,
-            duration_seconds=duration_seconds,
+            bg_image_path=video_bg_path,
+            srt_path=srt_path,
         )
         # Pass timestamps from voice step if available
         timestamps = input_data.get("timestamps", "")
 
-        await self.log_progress(episode_id, "[3/4] YouTubeメタデータを同時生成中...")
+        await self.log_progress(episode_id, "[4/5] YouTubeメタデータを同時生成中...")
         metadata_task = self._generate_youtube_metadata(
             episode=episode,
             news_items=news_items,
@@ -161,7 +173,7 @@ class VideoStep(BaseStep):
         )
 
         _, youtube_metadata = await asyncio.gather(video_task, metadata_task)
-        await self.log_progress(episode_id, "[4/4] 動画生成完了")
+        await self.log_progress(episode_id, "[5/5] 動画生成完了")
 
         # Update episode record
         relative_path = f"{episode_id}/video.mp4"
@@ -170,8 +182,10 @@ class VideoStep(BaseStep):
 
         logger.info("Episode %d: video saved to %s (%.1fs)", episode_id, relative_path, duration_seconds)
 
+        srt_relative = f"{episode_id}/subtitles.srt"
         result = {
             "video_path": relative_path,
+            "srt_path": srt_relative,
             "duration_seconds": duration_seconds,
             "visual_provider": settings.visual_provider,
         }
@@ -267,15 +281,29 @@ class VideoStep(BaseStep):
         audio_path: str,
         video_path: str,
         bg_image_path: str,
-        script_text: str,
-        duration_seconds: float,
+        srt_path: str | None = None,
     ) -> None:
-        """Generate MP4 video: background image + audio (no text overlay)."""
-        # FFmpeg: static background image (looped) + audio → 720p MP4
-        filter_complex = (
-            "[0:v]loop=loop=-1:size=1:start=0,"
-            "setpts=N/FRAME_RATE/TB,scale=1280:720,setsar=1[v]"
-        )
+        """Generate MP4 video: background image + audio + optional SRT subtitles."""
+        # Build filter: scale background, then optionally burn in subtitles
+        if srt_path and os.path.exists(srt_path):
+            # Escape path for FFmpeg filter (colons, backslashes)
+            escaped_srt = srt_path.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+            filter_complex = (
+                f"[0:v]loop=loop=-1:size=1:start=0,"
+                f"setpts=N/FRAME_RATE/TB,scale=1280:720,setsar=1,"
+                f"subtitles='{escaped_srt}'"
+                f":force_style='FontName=Noto Sans CJK JP"
+                f",FontSize=22,PrimaryColour=&H00FFFFFF"
+                f",OutlineColour=&H00000000,BorderStyle=3"
+                f",Outline=2,Shadow=1,BackColour=&H80000000"
+                f",MarginV=30'"
+                f"[v]"
+            )
+        else:
+            filter_complex = (
+                "[0:v]loop=loop=-1:size=1:start=0,"
+                "setpts=N/FRAME_RATE/TB,scale=1280:720,setsar=1[v]"
+            )
 
         cmd = [
             "ffmpeg",
@@ -308,101 +336,315 @@ class VideoStep(BaseStep):
 
         logger.info("FFmpeg completed: %s", video_path)
 
-    def _overlay_title_on_thumbnail(self, image_path: str, title: str) -> None:
-        """Overlay episode title on thumbnail with news-style design.
+    def _generate_srt(
+        self,
+        script_output: dict,
+        voice_sections: list[dict],
+        srt_path: str,
+        news_items: list[NewsItem],
+    ) -> None:
+        """Generate SRT subtitle file from script text and voice section timings.
+
+        Splits each section's text into sentences, distributes duration
+        proportionally by character count.
+        """
+        # Build section key → text mapping from script output
+        section_texts: dict[str, str] = {}
+
+        # Opening / ending from script output
+        opening = script_output.get("opening", "")
+        if opening:
+            section_texts["opening"] = opening
+        ending = script_output.get("ending", "")
+        if ending:
+            section_texts["ending"] = ending
+
+        # CTA text
+        if settings.youtube_cta_enabled and settings.youtube_cta_text:
+            section_texts["cta"] = settings.youtube_cta_text
+
+        # Outro text
+        if settings.youtube_outro_enabled and settings.youtube_outro_text:
+            section_texts["outro"] = settings.youtube_outro_text
+
+        # Per-article scripts from NewsItem.script_text (DB)
+        for item in news_items:
+            if item.script_text:
+                section_texts[f"news_{item.id}"] = item.script_text
+
+        # Transitions
+        transitions = script_output.get("transitions", [])
+        for i, t in enumerate(transitions):
+            if t:
+                section_texts[f"transition_{i}"] = t
+
+        # Build SRT entries
+        # First pass: compute raw timings using reported durations + silence gap
+        silence_gap = settings.voice_section_silence
+        raw_entries: list[tuple[float, float, str]] = []
+        elapsed = 0.0
+
+        for sec in voice_sections:
+            key = sec.get("key", "")
+            duration = sec.get("duration_seconds", 0.0)
+            text = section_texts.get(key, "")
+
+            if text and duration > 0:
+                # Remove reading hints like （けんぐん） or (けんぐん) from display text
+                display = re.sub(r'[（\(][ぁ-んー]+[）\)]', '', text)
+
+                # Split into sentences by Japanese period, question mark, etc.
+                sentences = re.split(r'(?<=[。？！\?!])', display)
+                sentences = [s.strip() for s in sentences if s.strip()]
+
+                if not sentences:
+                    sentences = [text]
+
+                # Distribute duration proportionally by character count
+                total_chars = sum(len(s) for s in sentences)
+                if total_chars == 0:
+                    total_chars = 1
+
+                sub_elapsed = elapsed
+                for sentence in sentences:
+                    ratio = len(sentence) / total_chars
+                    sub_duration = duration * ratio
+                    # Limit subtitle length for readability
+                    display_text = sentence
+                    if len(display_text) > 40:
+                        # Wrap long lines
+                        mid = len(display_text) // 2
+                        # Find a natural break point near the middle
+                        for sep in ["、", "。", "（", "が", "の", "を", "に", "は", "で", "と"]:
+                            pos = display_text.find(sep, mid - 10, mid + 10)
+                            if pos > 0:
+                                mid = pos + 1
+                                break
+                        display_text = display_text[:mid] + "\n" + display_text[mid:]
+
+                    raw_entries.append((sub_elapsed, sub_elapsed + sub_duration, display_text))
+                    sub_elapsed += sub_duration
+
+            elapsed += duration + silence_gap
+
+        # Apply fixed offset to all SRT timestamps (positive = subtitles appear later)
+        offset = settings.srt_offset
+        if offset:
+            entries = [(max(0.0, s + offset), e + offset, t) for s, e, t in raw_entries]
+        else:
+            entries = raw_entries
+
+        # Write SRT file
+        with open(srt_path, "w", encoding="utf-8") as f:
+            for i, (start, end, text) in enumerate(entries, 1):
+                f.write(f"{i}\n")
+                f.write(f"{self._format_srt_time(start)} --> {self._format_srt_time(end)}\n")
+                f.write(f"{text}\n\n")
+
+        logger.info("SRT generated: %s (%d entries)", srt_path, len(entries))
+
+    @staticmethod
+    def _format_srt_time(seconds: float) -> str:
+        """Format seconds as SRT timestamp: HH:MM:SS,mmm"""
+        h = int(seconds // 3600)
+        m = int((seconds % 3600) // 60)
+        s = int(seconds % 60)
+        ms = int((seconds % 1) * 1000)
+        return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+    def _overlay_title_on_thumbnail(self, image_path: str, title: str, output_path: str | None = None) -> None:
+        """Overlay episode title on thumbnail with breaking-news style design.
 
         Design:
-        - Red accent bar at top with "AI NEWS RADIO" badge
-        - Dark gradient overlay on bottom half
-        - Large bold white title text with thick black outline
-        - Thin red/white border frame for polished look
+        - Background image darkened to serve as backdrop
+        - Thick red border frame with padding
+        - "AI NEWS RADIO" badge at top-left
+        - Title text large and bold, centered in the middle
+        - Semi-transparent highlight behind text for readability
+
+        Args:
+            image_path: Source image to overlay on.
+            title: Episode title text.
+            output_path: Where to save result. Defaults to image_path (overwrite).
         """
+        if output_path is None:
+            output_path = image_path
         img = Image.open(image_path).convert("RGBA")
         w, h = img.size
+
+        # --- Darken the background image ---
+        dark = Image.new("RGBA", (w, h), (0, 0, 0, 140))
+        img = Image.alpha_composite(img, dark)
 
         overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         draw_overlay = ImageDraw.Draw(overlay)
 
-        # --- Top accent bar: red banner with channel name ---
-        bar_height = int(h * 0.07)
-        draw_overlay.rectangle([(0, 0), (w, bar_height)], fill=(220, 30, 30, 230))
-
+        # --- Parse border color from settings ---
+        border_hex = settings.video_border_color or "#DC1E1E"
         try:
-            badge_font = ImageFont.truetype(FONT_PATH, int(bar_height * 0.55))
-        except OSError:
-            badge_font = ImageFont.load_default()
-        badge_text = "AI NEWS RADIO"
-        draw_overlay.text(
-            (int(w * 0.03), int(bar_height * 0.18)),
-            badge_text, font=badge_font, fill="white",
-        )
+            border_hex = border_hex.lstrip("#")
+            border_r = int(border_hex[0:2], 16)
+            border_g = int(border_hex[2:4], 16)
+            border_b = int(border_hex[4:6], 16)
+        except (ValueError, IndexError):
+            border_r, border_g, border_b = 220, 30, 30
+        border_color = (border_r, border_g, border_b, 255)
+        border_color_fill = (border_r, border_g, border_b, 240)
 
-        # --- Bottom gradient overlay (stronger, covering bottom 55%) ---
-        gradient_top = int(h * 0.45)
-        for y in range(gradient_top, h):
-            progress = (y - gradient_top) / (h - gradient_top)
-            alpha = int(230 * progress)
-            draw_overlay.rectangle([(0, y), (w, y + 1)], fill=(0, 0, 0, alpha))
-
-        # --- Border frame: thin red outer + white inner ---
-        border = 4
-        draw_overlay.rectangle([(0, 0), (w - 1, h - 1)], outline=(220, 30, 30, 255), width=border)
+        # --- Thick border frame with padding ---
+        border_width = int(min(w, h) * 0.05)  # ~5%
         draw_overlay.rectangle(
-            [(border, border), (w - 1 - border, h - 1 - border)],
+            [(0, 0), (w - 1, h - 1)],
+            outline=border_color, width=border_width,
+        )
+        inner = border_width + 3
+        draw_overlay.rectangle(
+            [(inner, inner), (w - 1 - inner, h - 1 - inner)],
             outline=(255, 255, 255, 180), width=2,
         )
+
+        # --- Logo or "AI NEWS RADIO" badge — top-left ---
+        badge_pad = border_width + 12
+        logo_path = settings.video_logo_path
+        if logo_path and os.path.exists(logo_path):
+            # Use custom logo image
+            try:
+                logo = Image.open(logo_path).convert("RGBA")
+                # Scale logo to fit badge area (height ~10% of image)
+                logo_max_h = int(h * 0.10)
+                ratio = logo_max_h / logo.height
+                logo_w = int(logo.width * ratio)
+                logo = logo.resize((logo_w, logo_max_h), Image.Resampling.LANCZOS)
+                overlay.paste(logo, (badge_pad, badge_pad), logo)
+            except Exception as e:
+                logger.warning("Logo load failed, falling back to text badge: %s", e)
+                self._draw_text_badge(draw_overlay, badge_pad, h, border_color_fill)
+        else:
+            self._draw_text_badge(draw_overlay, badge_pad, h, border_color_fill)
 
         img = Image.alpha_composite(img, overlay)
         draw = ImageDraw.Draw(img)
 
-        # --- Title text: auto-size, large and impactful ---
-        max_width = int(w * 0.88)
-        fontsize = int(h * 0.10)  # Start at ~10% of image height (bigger)
-        min_fontsize = int(h * 0.05)
+        # --- Split title before date pattern (e.g. "2026年3月15日") ---
+        date_match = re.search(r'\s*(\d{4}年\d{1,2}月\d{1,2}日)\s*$', title)
+        if date_match:
+            title_main = title[:date_match.start()].strip()
+            title_date = date_match.group(1)
+        else:
+            title_main = title
+            title_date = None
 
-        wrapped = title
+        # --- Title text: large, bold, centered ---
+        # Max 9 characters per line to keep text readable at large size
+        max_chars_per_line = 9
+        content_w = w - (border_width + inner + 10) * 2
+        max_width = int(content_w * 0.90)
+        fontsize = int(h * 0.18)  # ~18% — 1.5x bigger
+        min_fontsize = int(h * 0.06)
+
+        wrapped = textwrap.fill(title_main, width=max_chars_per_line)
         font: ImageFont.FreeTypeFont | ImageFont.ImageFont = ImageFont.load_default()
         while fontsize >= min_fontsize:
             try:
-                font = ImageFont.truetype(FONT_PATH, fontsize)
+                font = ImageFont.truetype(FONT_PATH_BOLD, fontsize)
             except OSError:
                 break
 
-            wrapped = textwrap.fill(title, width=max(1, max_width // (fontsize // 2)))
             lines = wrapped.split("\n")
             fits = all(
                 draw.textlength(line, font=font) <= max_width for line in lines
             )
-            if fits and len(lines) <= 3:
+            if fits:
                 break
             fontsize -= 2
         else:
             try:
-                font = ImageFont.truetype(FONT_PATH, min_fontsize)
+                font = ImageFont.truetype(FONT_PATH_BOLD, min_fontsize)
             except OSError:
                 pass
-            wrapped = textwrap.fill(title, width=max(1, max_width // (min_fontsize // 2)))
 
         lines = wrapped.split("\n")
-        line_height = fontsize + 12
+        line_height = fontsize + 18
         total_text_height = len(lines) * line_height
 
-        # Position: bottom area, above border
-        y_start = h - total_text_height - int(h * 0.06)
+        # Date line (smaller font below title)
+        date_height = 0
+        date_font = font
+        if title_date:
+            date_fontsize = int(fontsize * 0.55)
+            try:
+                date_font = ImageFont.truetype(FONT_PATH_BOLD, date_fontsize)
+            except OSError:
+                date_font = font
+            date_height = date_fontsize + 20
 
+        total_block_height = total_text_height + date_height
+
+        # Center vertically (slightly above center for visual balance)
+        y_start = (h - total_block_height) // 2 - int(h * 0.02)
+
+        # --- Semi-transparent highlight background behind text ---
+        highlight_pad_x = int(w * 0.05)
+        highlight_pad_y = int(h * 0.035)
+        highlight_overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        highlight_draw = ImageDraw.Draw(highlight_overlay)
+        highlight_draw.rounded_rectangle(
+            [
+                (w // 2 - max_width // 2 - highlight_pad_x, y_start - highlight_pad_y),
+                (w // 2 + max_width // 2 + highlight_pad_x, y_start + total_block_height + highlight_pad_y),
+            ],
+            radius=16,
+            fill=(0, 0, 0, 160),
+        )
+        img = Image.alpha_composite(img, highlight_overlay)
+        draw = ImageDraw.Draw(img)
+
+        # --- Draw title text (bold, white, centered) ---
         for i, line in enumerate(lines):
             bbox = draw.textbbox((0, 0), line, font=font)
             text_w = bbox[2] - bbox[0]
             x = (w - text_w) // 2
             y = y_start + i * line_height
 
-            # Thick black outline + yellow shadow for impact
-            draw.text((x + 3, y + 3), line, font=font, fill=(0, 0, 0, 160),
-                       stroke_width=5, stroke_fill="black")
-            # Main white text with strong outline
             draw.text((x, y), line, font=font, fill="white",
-                       stroke_width=4, stroke_fill=(30, 30, 30))
+                       stroke_width=5, stroke_fill=(20, 20, 20))
+
+        # --- Draw date below title ---
+        if title_date:
+            date_bbox = draw.textbbox((0, 0), title_date, font=date_font)
+            date_tw = date_bbox[2] - date_bbox[0]
+            date_x = (w - date_tw) // 2
+            date_y = y_start + total_text_height + 8
+            draw.text((date_x, date_y), title_date, font=date_font, fill=(255, 220, 100),
+                       stroke_width=2, stroke_fill=(20, 20, 20))
 
         # Save as RGB
-        img.convert("RGB").save(image_path)
-        logger.info("News-style title overlay applied to thumbnail: %s", image_path)
+        img.convert("RGB").save(output_path)
+        logger.info("News-style title overlay applied: %s", output_path)
+
+    @staticmethod
+    def _draw_text_badge(
+        draw: ImageDraw.ImageDraw,
+        pad: int,
+        img_h: int,
+        bg_color: tuple[int, int, int, int],
+    ) -> None:
+        """Draw 'AI NEWS RADIO' text badge at top-left."""
+        badge_fontsize = int(img_h * 0.07)
+        try:
+            badge_font = ImageFont.truetype(FONT_PATH_BOLD, badge_fontsize)
+        except OSError:
+            badge_font = ImageFont.load_default()
+        badge_text = "AI NEWS RADIO"
+        badge_bbox = draw.textbbox((0, 0), badge_text, font=badge_font)
+        badge_tw = badge_bbox[2] - badge_bbox[0]
+        badge_th = badge_bbox[3] - badge_bbox[1]
+        badge_rect_h = badge_th + int(img_h * 0.02)
+        draw.rectangle(
+            [(pad, pad), (pad + badge_tw + 24, pad + badge_rect_h)],
+            fill=bg_color,
+        )
+        draw.text(
+            (pad + 12, pad + int(img_h * 0.008)),
+            badge_text, font=badge_font, fill="white",
+        )

@@ -16,8 +16,15 @@ from app.services.tts_utils import concatenate_wav, expand_reading_hints
 
 logger = logging.getLogger(__name__)
 
-# Silence duration between sections (seconds)
-SECTION_SILENCE_SECONDS = 1.5
+def _silence_seconds() -> float:
+    """Get silence duration between sections from settings."""
+    return settings.voice_section_silence
+
+# Default CTA (Call To Action) text inserted after opening
+DEFAULT_CTA_TEXT = (
+    "この番組では、ニュースの背景や多様な視点をわかりやすくお届けしています。"
+    "チャンネル登録と高評価、よろしくお願いします。"
+)
 
 
 class VoiceStep(BaseStep):
@@ -59,6 +66,10 @@ class VoiceStep(BaseStep):
         if opening:
             sections.append({"key": "opening", "label": "オープニング", "text": opening})
 
+        # CTA (subscribe & like) after opening
+        if settings.youtube_cta_enabled and settings.youtube_cta_text:
+            sections.append({"key": "cta", "label": "CTA", "text": settings.youtube_cta_text})
+
         for i, item in enumerate(items):
             if item.script_text:
                 sections.append({
@@ -72,6 +83,10 @@ class VoiceStep(BaseStep):
 
         if ending:
             sections.append({"key": "ending", "label": "エンディング", "text": ending})
+
+        # Outro (closing message) after ending
+        if settings.youtube_outro_enabled and settings.youtube_outro_text:
+            sections.append({"key": "outro", "label": "アウトロ", "text": settings.youtube_outro_text})
 
         if not sections:
             raise ValueError("No script sections found for audio synthesis")
@@ -115,7 +130,7 @@ class VoiceStep(BaseStep):
             # Generate silence chunk matching the sample rate of the first WAV
             if silence_chunk is None and audio_format == "wav":
                 sample_rate = self._get_wav_sample_rate(audio_bytes)
-                silence_chunk = self._generate_silence(SECTION_SILENCE_SECONDS, audio_format, sample_rate)
+                silence_chunk = self._generate_silence(_silence_seconds(), audio_format, sample_rate)
 
             # Save individual section audio
             section_filename = f"{section['key']}.{audio_format}"
@@ -255,7 +270,7 @@ class VoiceStep(BaseStep):
             elapsed += section["duration_seconds"]
             # Add silence gap (except after last section)
             if i < len(section_results) - 1:
-                elapsed += SECTION_SILENCE_SECONDS
+                elapsed += _silence_seconds()
 
         return "\n".join(lines)
 

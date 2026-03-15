@@ -1,6 +1,8 @@
 """Settings API for managing application configuration via WebUI."""
 
-from fastapi import APIRouter, Depends
+import os
+
+from fastapi import APIRouter, Depends, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -104,3 +106,36 @@ async def update_settings(
 
     await session.commit()
     return {"updated": updated}
+
+
+@router.post("/settings/upload-logo")
+async def upload_logo(
+    file: UploadFile,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Upload a logo image for video/thumbnail overlay."""
+    if not file.content_type or not file.content_type.startswith("image/"):
+        return {"error": "Only image files are accepted"}
+
+    # Save to media directory
+    logo_dir = os.path.join(settings.media_dir, "branding")
+    os.makedirs(logo_dir, exist_ok=True)
+    logo_path = os.path.join(logo_dir, "logo.png")
+
+    content = await file.read()
+    with open(logo_path, "wb") as f:
+        f.write(content)
+
+    # Update video_logo_path setting in DB and memory
+    result = await session.execute(
+        select(AppSetting).where(AppSetting.key == "video_logo_path")
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        existing.value = logo_path
+    else:
+        session.add(AppSetting(key="video_logo_path", value=logo_path))
+    object.__setattr__(settings, "video_logo_path", logo_path)
+    await session.commit()
+
+    return {"path": logo_path}

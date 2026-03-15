@@ -140,6 +140,8 @@ export default function EpisodeDetail() {
   const [exportSuccess, setExportSuccess] = useState(false);
   const [driveEnabled, setDriveEnabled] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
   const [ttsModel, setTtsModel] = useState("");
   const [ttsVoice, setTtsVoice] = useState("");
 
@@ -186,6 +188,20 @@ export default function EpisodeDetail() {
       await refetch();
     } finally {
       setRunningStep(false);
+    }
+  };
+
+  const saveTitle = async () => {
+    if (!episode || !titleDraft.trim() || titleDraft === episode.title) {
+      setEditingTitle(false);
+      return;
+    }
+    try {
+      await api.updateEpisode(episode.id, { title: titleDraft.trim() });
+      await refetch();
+      setEditingTitle(false);
+    } catch (err) {
+      console.error("Failed to update title:", err);
     }
   };
 
@@ -240,7 +256,39 @@ export default function EpisodeDetail() {
 
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-800">{episode.title}</h2>
+          {editingTitle ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === "Enter") {
+                    await saveTitle();
+                  } else if (e.key === "Escape") {
+                    setEditingTitle(false);
+                  }
+                }}
+                className="text-xl font-semibold text-gray-800 border-b-2 border-blue-500 outline-none bg-transparent px-0 py-0.5 min-w-[300px]"
+                autoFocus
+              />
+              <button onClick={saveTitle} className="text-xs text-blue-600 hover:underline cursor-pointer">{t("stepData.script.save")}</button>
+              <button onClick={() => setEditingTitle(false)} className="text-xs text-gray-500 hover:underline cursor-pointer">{t("stepData.script.cancel")}</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 group">
+              <h2 className="text-xl font-semibold text-gray-800">{episode.title}</h2>
+              <button
+                onClick={() => { setTitleDraft(episode.title); setEditingTitle(true); }}
+                className="text-gray-400 hover:text-blue-600 cursor-pointer"
+                title={t("episode.editTitle")}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                </svg>
+              </button>
+            </div>
+          )}
           <p className="text-sm text-gray-500 mt-1">
             {t("episode.id")}: #{episode.id} / {t("episode.status")}: {t(`episodeStatus.${episode.status}`)} / {t("episode.createdAt")}:{" "}
             {new Date(episode.created_at).toLocaleDateString("ja-JP")}
@@ -274,7 +322,9 @@ export default function EpisodeDetail() {
 
       {(episode.audio_path || episode.video_path) && (() => {
         const videoStep = steps.find((s) => s.step_name === "video");
-        const thumbnailPath = (videoStep?.output_data as Record<string, unknown> | null)?.thumbnail_path as string | undefined;
+        const videoOutputData = videoStep?.output_data as Record<string, unknown> | null;
+        const thumbnailPath = videoOutputData?.thumbnail_path as string | undefined;
+        const srtPath = videoOutputData?.srt_path as string | undefined;
         return (
         <PersistentDetails storageKey="episode-media-open" defaultOpen className="mb-6 bg-white rounded-lg shadow" summary={t("episode.media")}>
           <div className="px-4 pb-4 space-y-3">
@@ -314,6 +364,18 @@ export default function EpisodeDetail() {
                 className="text-xs text-blue-600 hover:underline mt-1 inline-block"
               >
                 {t("episode.download")}
+              </a>
+            </div>
+          )}
+          {srtPath && (
+            <div>
+              <p className="text-xs text-gray-500 mb-1">{t("episode.subtitle")}</p>
+              <a
+                href={`${MEDIA_BASE_URL}/${srtPath}`}
+                download
+                className="text-xs text-blue-600 hover:underline inline-block"
+              >
+                {t("episode.download")} (SRT)
               </a>
             </div>
           )}

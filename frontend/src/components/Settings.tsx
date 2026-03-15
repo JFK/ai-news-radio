@@ -54,7 +54,7 @@ export default function Settings() {
 interface FieldDef {
   key: string;
   label: string;
-  type: "text" | "password" | "number" | "select" | "checkbox" | "textarea" | "model";
+  type: "text" | "password" | "number" | "select" | "checkbox" | "textarea" | "model" | "file" | "color";
   options?: string[];
   optionLabels?: Record<string, string>;
   wide?: boolean;
@@ -152,6 +152,8 @@ function ConfigSection() {
     {
       title: t("settings.config.voice"),
       fields: [
+        { key: "voice_section_silence", label: t("settings.config.fields.voice_section_silence"), type: "number" },
+        { key: "srt_offset", label: t("settings.config.fields.srt_offset"), type: "number" },
         { key: "pipeline_voice_provider", label: t("settings.config.fields.pipeline_voice_provider"), type: "select", options: ["voicevox", "openai", "elevenlabs", "google", "gemini"], optionLabels: { voicevox: "VOICEVOX (Local/Free)", openai: "OpenAI TTS", elevenlabs: "ElevenLabs", google: "Google Cloud TTS (Neural2)", gemini: "Gemini TTS (Recommended)" } },
         { key: "voicevox_host", label: t("settings.config.fields.voicevox_host"), type: "text", showWhen: { key: "pipeline_voice_provider", value: "voicevox" } },
         { key: "voicevox_speaker_id", label: t("settings.config.fields.voicevox_speaker_id"), type: "number", showWhen: { key: "pipeline_voice_provider", value: "voicevox" } },
@@ -170,6 +172,17 @@ function ConfigSection() {
         { key: "visual_provider", label: t("settings.config.fields.visual_provider"), type: "select", options: ["static", "google"] },
         { key: "visual_imagen_model", label: t("settings.config.fields.visual_imagen_model"), type: "select", options: ["imagen-4.0-fast-generate-001", "imagen-4.0-generate-001", "imagen-4.0-ultra-generate-001", "imagen-3.0-generate-002"], optionLabels: { "imagen-4.0-fast-generate-001": "Imagen 4 Fast (速い/低コスト)", "imagen-4.0-generate-001": "Imagen 4 Standard (高品質)", "imagen-4.0-ultra-generate-001": "Imagen 4 Ultra (最高品質)", "imagen-3.0-generate-002": "Imagen 3" }, showWhen: { key: "visual_provider", value: "google" } },
         { key: "visual_veo_model", label: t("settings.config.fields.visual_veo_model"), type: "select", options: ["veo-2.0-generate-001", "veo-3.0-generate-preview", "veo-3.0-fast-generate-preview", "veo-3.1-generate-preview", "veo-3.1-fast-generate-preview"], optionLabels: { "veo-2.0-generate-001": "Veo 2.0 (安定版)", "veo-3.0-generate-preview": "Veo 3.0 (プレビュー)", "veo-3.0-fast-generate-preview": "Veo 3.0 Fast (プレビュー)", "veo-3.1-generate-preview": "Veo 3.1 4K (プレビュー)", "veo-3.1-fast-generate-preview": "Veo 3.1 Fast (プレビュー)" }, showWhen: { key: "visual_provider", value: "google" } },
+        { key: "video_border_color", label: t("settings.config.fields.video_border_color"), type: "color" },
+        { key: "video_logo_path", label: t("settings.config.fields.video_logo_path"), type: "file" },
+      ],
+    },
+    {
+      title: t("settings.config.youtube"),
+      fields: [
+        { key: "youtube_cta_enabled", label: t("settings.config.fields.youtube_cta_enabled"), type: "checkbox" },
+        { key: "youtube_cta_text", label: t("settings.config.fields.youtube_cta_text"), type: "textarea" },
+        { key: "youtube_outro_enabled", label: t("settings.config.fields.youtube_outro_enabled"), type: "checkbox" },
+        { key: "youtube_outro_text", label: t("settings.config.fields.youtube_outro_text"), type: "textarea" },
       ],
     },
     {
@@ -358,6 +371,29 @@ function ConfigSection() {
       );
     }
 
+    if (field.type === "color") {
+      return (
+        <div key={field.key}>
+          <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={value || "#DC1E1E"}
+              onChange={(e) => handleChange(field.key, e.target.value)}
+              className="w-10 h-8 border border-gray-300 rounded cursor-pointer"
+            />
+            <input
+              type="text"
+              value={value}
+              onChange={(e) => handleChange(field.key, e.target.value)}
+              className="px-2 py-1.5 border border-gray-300 rounded text-sm w-28 font-mono"
+              placeholder="#DC1E1E"
+            />
+          </div>
+        </div>
+      );
+    }
+
     if (field.type === "textarea") {
       return (
         <div key={field.key} className="col-span-2">
@@ -368,6 +404,53 @@ function ConfigSection() {
             className="px-2 py-1.5 border border-gray-300 rounded text-sm w-full font-mono resize-y h-24"
             placeholder="{...}"
           />
+        </div>
+      );
+    }
+
+    if (field.type === "file") {
+      const uploadHandler = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append("file", file);
+        try {
+          const res = await fetch("/api/settings/upload-logo", { method: "POST", body: formData });
+          const data = await res.json();
+          if (data.path) {
+            handleChange(field.key, data.path);
+          }
+        } catch (err) {
+          console.error("Logo upload failed:", err);
+        }
+        e.target.value = "";
+      };
+      return (
+        <div key={field.key} className="col-span-2">
+          <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
+          <div className="flex items-center gap-3">
+            {value && (
+              <img
+                src="/media/branding/logo.png"
+                alt="Logo"
+                className="h-12 rounded border border-gray-200 bg-gray-800 p-1"
+                key={value}
+              />
+            )}
+            <label className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded cursor-pointer hover:bg-blue-700">
+              {value ? t("settings.config.fields.changeLogo") : t("settings.config.fields.uploadLogo")}
+              <input type="file" accept="image/*" className="hidden" onChange={uploadHandler} />
+            </label>
+            {value && (
+              <button
+                type="button"
+                onClick={() => handleChange(field.key, "")}
+                className="px-2 py-1 text-xs text-red-600 hover:text-red-800 border border-red-300 rounded cursor-pointer"
+              >
+                {t("settings.config.fields.removeLogo")}
+              </button>
+            )}
+          </div>
         </div>
       );
     }
