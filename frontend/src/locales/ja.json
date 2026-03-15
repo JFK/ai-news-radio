@@ -62,7 +62,13 @@
     "driveLink": "Google Driveで開く",
     "markComplete": "完了にする",
     "markIncomplete": "進行中に戻す",
-    "toggling": "更新中..."
+    "toggling": "更新中...",
+    "voiceModel": "モデル",
+    "voiceVoice": "ボイス",
+    "voiceDefault": "デフォルト",
+    "voiceProvider": "プロバイダー",
+    "voiceDuration": "再生時間",
+    "voiceSections": "セクション"
   },
   "approval": {
     "title": "承認ゲート",
@@ -225,6 +231,8 @@
         "gemini_tts_voice": "Gemini TTS ボイス",
         "gemini_tts_instructions": "Gemini TTS 話し方指示",
         "visual_provider": "ビジュアル プロバイダー",
+        "visual_imagen_model": "Imagen モデル",
+        "visual_veo_model": "Veo モデル",
         "google_drive_enabled": "有効",
         "google_drive_client_id": "OAuth クライアント ID",
         "google_drive_client_secret": "OAuth クライアント シークレット",

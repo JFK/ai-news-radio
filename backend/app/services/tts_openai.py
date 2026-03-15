@@ -14,8 +14,10 @@ logger = logging.getLogger(__name__)
 class OpenAITTSProvider(TTSProvider):
     """TTS provider using OpenAI's TTS API."""
 
-    def __init__(self) -> None:
+    def __init__(self, model: str | None = None, voice: str | None = None) -> None:
         self._client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
+        self._model = model or settings.openai_tts_model
+        self._voice = voice or settings.openai_tts_voice
 
     @property
     def audio_format(self) -> str:
@@ -33,8 +35,8 @@ class OpenAITTSProvider(TTSProvider):
         audio_chunks: list[bytes] = []
         for chunk in text_chunks:
             response = await self._client.audio.speech.create(
-                model=settings.openai_tts_model,
-                voice=settings.openai_tts_voice,
+                model=self._model,
+                voice=self._voice,
                 input=chunk,
             )
             audio_chunks.append(response.content)

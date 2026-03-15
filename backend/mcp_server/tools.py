@@ -107,6 +107,14 @@ def get_tool_definitions() -> list[Tool]:
                         "items": {"type": "string"},
                         "description": "Search queries for collection step (optional, uses default if omitted)",
                     },
+                    "tts_model": {
+                        "type": "string",
+                        "description": "Override TTS model for voice step (e.g., gemini-2.5-flash-preview-tts, gemini-2.5-pro-preview-tts)",
+                    },
+                    "tts_voice": {
+                        "type": "string",
+                        "description": "Override TTS voice for voice step (e.g., Kore, Puck, Charon, Fenrir, Aoede, Leda, Orus, Zephyr)",
+                    },
                 },
                 "required": ["episode_id", "step_name"],
             },

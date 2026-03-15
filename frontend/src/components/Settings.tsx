@@ -2,6 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { ModelPricing, Pronunciation, PromptSummary, PromptHistory } from "../types";
+import {
+  GEMINI_TTS_MODEL_VALUES,
+  GEMINI_TTS_MODEL_LABELS,
+  GEMINI_TTS_VOICE_VALUES,
+  GEMINI_TTS_VOICE_LABELS,
+} from "../constants/tts";
 
 type SettingsTab = "config" | "pricing" | "prompts" | "dictionary";
 
@@ -153,8 +159,8 @@ function ConfigSection() {
         { key: "openai_tts_voice", label: t("settings.config.fields.openai_tts_voice"), type: "select", options: ["alloy", "echo", "fable", "onyx", "nova", "shimmer"], showWhen: { key: "pipeline_voice_provider", value: "openai" } },
         { key: "google_tts_voice", label: t("settings.config.fields.google_tts_voice"), type: "text", showWhen: { key: "pipeline_voice_provider", value: "google" } },
         { key: "google_tts_language_code", label: t("settings.config.fields.google_tts_language_code"), type: "text", showWhen: { key: "pipeline_voice_provider", value: "google" } },
-        { key: "gemini_tts_model", label: t("settings.config.fields.gemini_tts_model"), type: "select", options: ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"], optionLabels: { "gemini-2.5-flash-preview-tts": "Flash (Fast/Low cost)", "gemini-2.5-pro-preview-tts": "Pro (High quality)" }, showWhen: { key: "pipeline_voice_provider", value: "gemini" } },
-        { key: "gemini_tts_voice", label: t("settings.config.fields.gemini_tts_voice"), type: "select", options: ["Kore", "Puck", "Charon", "Fenrir", "Leda", "Orus", "Aoede", "Zephyr", "Achernar", "Gacrux", "Sulafat"], optionLabels: { Kore: "Kore (Firm)", Puck: "Puck (Upbeat)", Charon: "Charon (Informative)", Fenrir: "Fenrir (Excitable)", Leda: "Leda (Youthful)", Orus: "Orus (Firm)", Aoede: "Aoede (Breezy)", Zephyr: "Zephyr (Bright)", Achernar: "Achernar (Soft)", Gacrux: "Gacrux (Mature)", Sulafat: "Sulafat (Warm)" }, showWhen: { key: "pipeline_voice_provider", value: "gemini" } },
+        { key: "gemini_tts_model", label: t("settings.config.fields.gemini_tts_model"), type: "select", options: GEMINI_TTS_MODEL_VALUES, optionLabels: GEMINI_TTS_MODEL_LABELS, showWhen: { key: "pipeline_voice_provider", value: "gemini" } },
+        { key: "gemini_tts_voice", label: t("settings.config.fields.gemini_tts_voice"), type: "select", options: GEMINI_TTS_VOICE_VALUES, optionLabels: GEMINI_TTS_VOICE_LABELS, showWhen: { key: "pipeline_voice_provider", value: "gemini" } },
         { key: "gemini_tts_instructions", label: t("settings.config.fields.gemini_tts_instructions"), type: "text", wide: true, showWhen: { key: "pipeline_voice_provider", value: "gemini" } },
       ],
     },
@@ -162,6 +168,8 @@ function ConfigSection() {
       title: t("settings.config.visual"),
       fields: [
         { key: "visual_provider", label: t("settings.config.fields.visual_provider"), type: "select", options: ["static", "google"] },
+        { key: "visual_imagen_model", label: t("settings.config.fields.visual_imagen_model"), type: "select", options: ["imagen-4.0-fast-generate-001", "imagen-4.0-generate-001", "imagen-4.0-ultra-generate-001", "imagen-3.0-generate-002"], optionLabels: { "imagen-4.0-fast-generate-001": "Imagen 4 Fast (速い/低コスト)", "imagen-4.0-generate-001": "Imagen 4 Standard (高品質)", "imagen-4.0-ultra-generate-001": "Imagen 4 Ultra (最高品質)", "imagen-3.0-generate-002": "Imagen 3" }, showWhen: { key: "visual_provider", value: "google" } },
+        { key: "visual_veo_model", label: t("settings.config.fields.visual_veo_model"), type: "select", options: ["veo-2.0-generate-001", "veo-3.0-generate-preview", "veo-3.0-fast-generate-preview", "veo-3.1-generate-preview", "veo-3.1-fast-generate-preview"], optionLabels: { "veo-2.0-generate-001": "Veo 2.0 (安定版)", "veo-3.0-generate-preview": "Veo 3.0 (プレビュー)", "veo-3.0-fast-generate-preview": "Veo 3.0 Fast (プレビュー)", "veo-3.1-generate-preview": "Veo 3.1 4K (プレビュー)", "veo-3.1-fast-generate-preview": "Veo 3.1 Fast (プレビュー)" }, showWhen: { key: "visual_provider", value: "google" } },
       ],
     },
     {

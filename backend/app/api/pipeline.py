@@ -110,6 +110,11 @@ async def run_step(
     kwargs = {}
     if body and body.queries and step_enum == StepName.COLLECTION:
         kwargs["queries"] = body.queries
+    if body and step_enum == StepName.VOICE:
+        if body.tts_model:
+            kwargs["tts_model"] = body.tts_model
+        if body.tts_voice:
+            kwargs["tts_voice"] = body.tts_voice
     task = asyncio.create_task(_run_step_background(episode_id, step_enum, **kwargs))
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)

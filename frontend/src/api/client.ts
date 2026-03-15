@@ -33,7 +33,7 @@ export const api = {
     client.get<NewsItem[]>(`/episodes/${episodeId}/news-items`),
   deleteEpisode: (episodeId: number) =>
     client.delete(`/episodes/${episodeId}`),
-  runStep: (episodeId: number, stepName: string, body?: { queries?: string[] }) =>
+  runStep: (episodeId: number, stepName: string, body?: { queries?: string[]; tts_model?: string; tts_voice?: string }) =>
     client.post<PipelineStep>(`/episodes/${episodeId}/steps/${stepName}/run`, body),
   getStepLogs: (episodeId: number, stepName: string) =>
     client.get<{ logs: { message: string; timestamp: string }[] }>(`/episodes/${episodeId}/steps/${stepName}/logs`),
