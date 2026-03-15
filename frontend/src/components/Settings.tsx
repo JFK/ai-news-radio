@@ -50,7 +50,9 @@ interface FieldDef {
   label: string;
   type: "text" | "password" | "number" | "select" | "checkbox" | "textarea" | "model";
   options?: string[];
+  optionLabels?: Record<string, string>;
   wide?: boolean;
+  showWhen?: { key: string; value: string };
 }
 
 interface CategoryDef {
@@ -103,68 +105,72 @@ function ConfigSection() {
     {
       title: t("settings.config.aiProvider"),
       fields: [
-        { key: "default_ai_provider", label: "Default AI Provider", type: "select", options: ["openai", "anthropic", "google"] },
-        { key: "default_ai_model", label: "Default AI Model", type: "model" },
+        { key: "default_ai_provider", label: t("settings.config.fields.default_ai_provider"), type: "select", options: ["openai", "anthropic", "google"] },
+        { key: "default_ai_model", label: t("settings.config.fields.default_ai_model"), type: "model" },
       ],
     },
     {
       title: t("settings.config.pipelineAi"),
       fields: [
-        { key: "pipeline_factcheck_provider", label: "Factcheck Provider", type: "select", options: ["openai", "anthropic", "google"] },
-        { key: "pipeline_factcheck_model", label: "Factcheck Model", type: "model" },
-        { key: "pipeline_analysis_provider", label: "Analysis Provider", type: "select", options: ["openai", "anthropic", "google"] },
-        { key: "pipeline_analysis_model", label: "Analysis Model", type: "model" },
-        { key: "pipeline_script_provider", label: "Script Provider", type: "select", options: ["openai", "anthropic", "google"] },
-        { key: "pipeline_script_model", label: "Script Model", type: "model" },
-        { key: "pipeline_export_provider", label: "Export Provider", type: "select", options: ["openai", "anthropic", "google"] },
-        { key: "pipeline_export_model", label: "Export Model", type: "model" },
+        { key: "pipeline_factcheck_provider", label: t("settings.config.fields.pipeline_factcheck_provider"), type: "select", options: ["openai", "anthropic", "google"] },
+        { key: "pipeline_factcheck_model", label: t("settings.config.fields.pipeline_factcheck_model"), type: "model" },
+        { key: "pipeline_analysis_provider", label: t("settings.config.fields.pipeline_analysis_provider"), type: "select", options: ["openai", "anthropic", "google"] },
+        { key: "pipeline_analysis_model", label: t("settings.config.fields.pipeline_analysis_model"), type: "model" },
+        { key: "pipeline_script_provider", label: t("settings.config.fields.pipeline_script_provider"), type: "select", options: ["openai", "anthropic", "google"] },
+        { key: "pipeline_script_model", label: t("settings.config.fields.pipeline_script_model"), type: "model" },
+        { key: "pipeline_export_provider", label: t("settings.config.fields.pipeline_export_provider"), type: "select", options: ["openai", "anthropic", "google"] },
+        { key: "pipeline_export_model", label: t("settings.config.fields.pipeline_export_model"), type: "model" },
       ],
     },
     {
       title: t("settings.config.apiKeys"),
       fields: [
-        { key: "anthropic_api_key", label: "Anthropic API Key", type: "password" },
-        { key: "openai_api_key", label: "OpenAI API Key", type: "password" },
-        { key: "google_api_key", label: "Google API Key", type: "password" },
-        { key: "brave_search_api_key", label: "Brave Search API Key", type: "password" },
-        { key: "elevenlabs_api_key", label: "ElevenLabs API Key", type: "password" },
+        { key: "anthropic_api_key", label: t("settings.config.fields.anthropic_api_key"), type: "password" },
+        { key: "openai_api_key", label: t("settings.config.fields.openai_api_key"), type: "password" },
+        { key: "google_api_key", label: t("settings.config.fields.google_api_key"), type: "password" },
+        { key: "brave_search_api_key", label: t("settings.config.fields.brave_search_api_key"), type: "password" },
+        { key: "elevenlabs_api_key", label: t("settings.config.fields.elevenlabs_api_key"), type: "password" },
       ],
     },
     {
       title: t("settings.config.collection"),
       fields: [
-        { key: "collection_method", label: "Collection Method", type: "text" },
-        { key: "collection_queries", label: "Collection Queries", type: "text", wide: true },
-        { key: "collection_crawl_enabled", label: "Crawl Enabled", type: "checkbox" },
-        { key: "collection_youtube_enabled", label: "YouTube Enabled", type: "checkbox" },
-        { key: "collection_document_enabled", label: "Document Enabled", type: "checkbox" },
-        { key: "collection_ai_research_enabled", label: "AI Research Enabled", type: "checkbox" },
+        { key: "collection_method", label: t("settings.config.fields.collection_method"), type: "text" },
+        { key: "collection_queries", label: t("settings.config.fields.collection_queries"), type: "text", wide: true },
+        { key: "collection_crawl_enabled", label: t("settings.config.fields.collection_crawl_enabled"), type: "checkbox" },
+        { key: "collection_youtube_enabled", label: t("settings.config.fields.collection_youtube_enabled"), type: "checkbox" },
+        { key: "collection_document_enabled", label: t("settings.config.fields.collection_document_enabled"), type: "checkbox" },
+        { key: "collection_ai_research_enabled", label: t("settings.config.fields.collection_ai_research_enabled"), type: "checkbox" },
       ],
     },
     {
       title: t("settings.config.voice"),
       fields: [
-        { key: "pipeline_voice_provider", label: "Voice Provider", type: "select", options: ["voicevox", "openai", "elevenlabs", "google", "gemini"] },
-        { key: "voicevox_host", label: "VOICEVOX Host", type: "text" },
-        { key: "voicevox_speaker_id", label: "VOICEVOX Speaker ID", type: "number" },
-        { key: "gemini_tts_model", label: "Gemini TTS Model", type: "text" },
-        { key: "gemini_tts_voice", label: "Gemini TTS Voice", type: "text" },
-        { key: "gemini_tts_instructions", label: "Gemini TTS Instructions", type: "text" },
+        { key: "pipeline_voice_provider", label: t("settings.config.fields.pipeline_voice_provider"), type: "select", options: ["voicevox", "openai", "elevenlabs", "google", "gemini"], optionLabels: { voicevox: "VOICEVOX (Local/Free)", openai: "OpenAI TTS", elevenlabs: "ElevenLabs", google: "Google Cloud TTS (Neural2)", gemini: "Gemini TTS (Recommended)" } },
+        { key: "voicevox_host", label: t("settings.config.fields.voicevox_host"), type: "text", showWhen: { key: "pipeline_voice_provider", value: "voicevox" } },
+        { key: "voicevox_speaker_id", label: t("settings.config.fields.voicevox_speaker_id"), type: "number", showWhen: { key: "pipeline_voice_provider", value: "voicevox" } },
+        { key: "openai_tts_model", label: t("settings.config.fields.openai_tts_model"), type: "select", options: ["tts-1", "tts-1-hd"], showWhen: { key: "pipeline_voice_provider", value: "openai" } },
+        { key: "openai_tts_voice", label: t("settings.config.fields.openai_tts_voice"), type: "select", options: ["alloy", "echo", "fable", "onyx", "nova", "shimmer"], showWhen: { key: "pipeline_voice_provider", value: "openai" } },
+        { key: "google_tts_voice", label: t("settings.config.fields.google_tts_voice"), type: "text", showWhen: { key: "pipeline_voice_provider", value: "google" } },
+        { key: "google_tts_language_code", label: t("settings.config.fields.google_tts_language_code"), type: "text", showWhen: { key: "pipeline_voice_provider", value: "google" } },
+        { key: "gemini_tts_model", label: t("settings.config.fields.gemini_tts_model"), type: "select", options: ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"], optionLabels: { "gemini-2.5-flash-preview-tts": "Flash (Fast/Low cost)", "gemini-2.5-pro-preview-tts": "Pro (High quality)" }, showWhen: { key: "pipeline_voice_provider", value: "gemini" } },
+        { key: "gemini_tts_voice", label: t("settings.config.fields.gemini_tts_voice"), type: "select", options: ["Kore", "Puck", "Charon", "Fenrir", "Leda", "Orus", "Aoede", "Zephyr", "Achernar", "Gacrux", "Sulafat"], optionLabels: { Kore: "Kore (Firm)", Puck: "Puck (Upbeat)", Charon: "Charon (Informative)", Fenrir: "Fenrir (Excitable)", Leda: "Leda (Youthful)", Orus: "Orus (Firm)", Aoede: "Aoede (Breezy)", Zephyr: "Zephyr (Bright)", Achernar: "Achernar (Soft)", Gacrux: "Gacrux (Mature)", Sulafat: "Sulafat (Warm)" }, showWhen: { key: "pipeline_voice_provider", value: "gemini" } },
+        { key: "gemini_tts_instructions", label: t("settings.config.fields.gemini_tts_instructions"), type: "text", wide: true, showWhen: { key: "pipeline_voice_provider", value: "gemini" } },
       ],
     },
     {
       title: t("settings.config.visual"),
       fields: [
-        { key: "visual_provider", label: "Visual Provider", type: "select", options: ["static", "google"] },
+        { key: "visual_provider", label: t("settings.config.fields.visual_provider"), type: "select", options: ["static", "google"] },
       ],
     },
     {
       title: t("settings.config.googleDrive"),
       fields: [
-        { key: "google_drive_enabled", label: t("settings.config.enabled"), type: "checkbox" },
-        { key: "google_drive_client_id", label: "OAuth Client ID", type: "password" },
-        { key: "google_drive_client_secret", label: "OAuth Client Secret", type: "password" },
-        { key: "google_drive_folder_id", label: "Google Drive Folder ID", type: "text" },
+        { key: "google_drive_enabled", label: t("settings.config.fields.google_drive_enabled"), type: "checkbox" },
+        { key: "google_drive_client_id", label: t("settings.config.fields.google_drive_client_id"), type: "password" },
+        { key: "google_drive_client_secret", label: t("settings.config.fields.google_drive_client_secret"), type: "password" },
+        { key: "google_drive_folder_id", label: t("settings.config.fields.google_drive_folder_id"), type: "text" },
       ],
       guide: t("settings.config.googleDriveGuide", { returnObjects: true }) as unknown as string[],
     },
@@ -223,6 +229,12 @@ function ConfigSection() {
   };
 
   const renderField = (field: FieldDef) => {
+    // Conditional visibility based on another field's value
+    if (field.showWhen) {
+      const depValue = settings[field.showWhen.key] ?? "";
+      if (depValue !== field.showWhen.value) return null;
+    }
+
     const value = settings[field.key] ?? "";
 
     if (field.type === "checkbox") {
@@ -250,7 +262,7 @@ function ConfigSection() {
           >
             <option value="">--</option>
             {field.options?.map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
+              <option key={opt} value={opt}>{field.optionLabels?.[opt] ?? opt}</option>
             ))}
           </select>
         </div>

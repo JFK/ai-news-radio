@@ -151,10 +151,11 @@ class TTSProvider(ABC):
 ```
 
 **Supported providers:**
-- **VOICEVOX** — Local, free, Japanese-optimized (default)
+- **Gemini TTS** — LLM-based high-quality speech via Gemini 2.5 (default)
+- **VOICEVOX** — Local, free, Japanese-optimized
 - **OpenAI** — OpenAI TTS API
 - **ElevenLabs** — ElevenLabs API
-- **Google** — Google Cloud TTS
+- **Google Cloud TTS** — Google Cloud Text-to-Speech (Neural2)
 
 ## Cost Tracking
 

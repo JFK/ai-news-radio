@@ -18,7 +18,7 @@
 - **6ステップパイプライン** — 収集 → ファクトチェック → 分析 → 台本 → 音声 → 動画
 - **承認ゲート** — 各ステップにヒューマンチェックポイント。自動で進まない安心設計
 - **マルチAIプロバイダー** — Anthropic Claude / OpenAI GPT / Google Gemini を切り替え可能
-- **マルチTTSプロバイダー** — VOICEVOX / OpenAI TTS / ElevenLabs / Google Cloud TTS
+- **マルチTTSプロバイダー** — Gemini TTS / VOICEVOX / OpenAI TTS / ElevenLabs / Google Cloud TTS
 - **Brave Search 連携** — ニュース収集・ファクトチェック用のWeb検索
 - **コスト追跡** — AIプロバイダーのトークン使用量とコストをダッシュボードで可視化
 - **Google Drive エクスポート** — 分析結果を NotebookLM 用ソーステキストとしてエクスポート
@@ -84,7 +84,7 @@ Claude Code が自動的に以下を実行します:
 | Database | PostgreSQL 16 + SQLAlchemy (async) + Alembic |
 | Queue | Celery + Redis |
 | AI | Anthropic Claude / OpenAI / Google Gemini |
-| TTS | VOICEVOX / OpenAI / ElevenLabs / Google Cloud |
+| TTS | Gemini TTS / VOICEVOX / OpenAI / ElevenLabs / Google Cloud |
 | Video | FFmpeg |
 | Search | Brave Search API |
 | Infra | Docker Compose |

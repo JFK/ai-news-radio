@@ -169,13 +169,21 @@ class VoiceStep(BaseStep):
                 "gemini": "gemini-tts",
             }
             model_name = model_map.get(provider_name, provider_name)
+
+            # Use actual token counts from Gemini TTS if available
+            input_tokens = total_chars
+            output_tokens = 0
+            if provider_name == "gemini" and hasattr(provider, "total_input_tokens"):
+                input_tokens = provider.total_input_tokens
+                output_tokens = provider.total_output_tokens
+
             await self.record_usage(
                 session=session,
                 episode_id=episode_id,
                 provider=provider_label_map.get(provider_name, provider_name),
                 model=model_name,
-                input_tokens=total_chars,
-                output_tokens=0,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
             )
 
         # Build timestamps for YouTube description
