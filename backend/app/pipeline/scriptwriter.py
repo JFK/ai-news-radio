@@ -5,6 +5,7 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models import NewsItem, StepName
 from app.pipeline.base import BaseStep
 from app.pipeline.utils import parse_json_response
@@ -153,6 +154,17 @@ class ScriptwriterStep(BaseStep):
         provider, model = get_step_provider(self.step_name.value)
         item_prompt, item_prompt_version = await get_active_prompt(session, PROMPT_KEY_ITEM)
         episode_prompt, episode_prompt_version = await get_active_prompt(session, PROMPT_KEY_EPISODE)
+
+        # Inject TTS voice style instructions into script prompts
+        tts_instructions = settings.gemini_tts_instructions
+        if tts_instructions and settings.pipeline_voice_provider == "gemini":
+            tts_hint = (
+                f"\n\n## 音声スタイルへの最適化\n"
+                f"この台本は以下の指示で音声合成されます。この話し方に合った文体・リズム・語尾で書いてください:\n"
+                f"「{tts_instructions}」"
+            )
+            item_prompt += tts_hint
+            episode_prompt += tts_hint
         item_scripts: list[dict] = []
         total_input_tokens = 0
         total_output_tokens = 0
