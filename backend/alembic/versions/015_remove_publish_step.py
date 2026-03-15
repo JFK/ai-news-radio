@@ -27,9 +27,12 @@ def upgrade() -> None:
     # Remove 'published' from episodestatus enum
     # Update any 'published' episodes to 'completed' first
     op.execute("UPDATE episodes SET status = 'completed' WHERE status = 'published'")
+    # Drop default before type swap (PostgreSQL can't auto-cast defaults)
+    op.execute("ALTER TABLE episodes ALTER COLUMN status DROP DEFAULT")
     op.execute("ALTER TYPE episodestatus RENAME TO episodestatus_old")
     op.execute("CREATE TYPE episodestatus AS ENUM ('draft', 'in_progress', 'completed')")
     op.execute("ALTER TABLE episodes ALTER COLUMN status TYPE episodestatus USING status::text::episodestatus")
+    op.execute("ALTER TABLE episodes ALTER COLUMN status SET DEFAULT 'draft'")
     op.execute("DROP TYPE episodestatus_old")
 
 
@@ -41,7 +44,9 @@ def downgrade() -> None:
     op.execute("DROP TYPE stepname_old")
 
     # Re-add 'published' to episodestatus enum
+    op.execute("ALTER TABLE episodes ALTER COLUMN status DROP DEFAULT")
     op.execute("ALTER TYPE episodestatus RENAME TO episodestatus_old")
     op.execute("CREATE TYPE episodestatus AS ENUM ('draft', 'in_progress', 'completed', 'published')")
     op.execute("ALTER TABLE episodes ALTER COLUMN status TYPE episodestatus USING status::text::episodestatus")
+    op.execute("ALTER TABLE episodes ALTER COLUMN status SET DEFAULT 'draft'")
     op.execute("DROP TYPE episodestatus_old")
