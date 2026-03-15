@@ -51,14 +51,22 @@ Ask your AI assistant to run the `health_check` tool. It should return `{"status
 |------|----------|-------------|-----------|
 | `health_check` | System | Check if the backend is running | Yes |
 | `search_news` | Research | Search for news articles via Brave Search | Yes |
-| `create_episode` | Episode | Create a new episode with 7 pipeline steps | No |
+| `create_episode` | Episode | Create a new episode with 6 pipeline steps | No |
 | `create_episode_from_articles` | Episode | Create an episode from pre-selected articles | No |
+| `delete_episode` | Episode | Delete an episode and all related data | No |
 | `list_episodes` | Episode | List all episodes with status summary | Yes |
 | `get_episode_status` | Episode | Get detailed episode status with all steps and news items | Yes |
 | `run_step` | Pipeline | Execute a pipeline step (async) | No |
 | `approve_step` | Pipeline | Approve a completed step | No |
 | `reject_step` | Pipeline | Reject a completed step with a reason | No |
 | `get_step_detail` | Pipeline | Get detailed input/output data for a step | Yes |
+| `edit_item_script` | Script | Edit script text for a single news item | No |
+| `edit_episode_script` | Script | Edit the full episode script | No |
+| `add_reading` | Dictionary | Add a pronunciation entry for TTS | No |
+| `list_readings` | Dictionary | List all pronunciation dictionary entries | Yes |
+| `delete_reading` | Dictionary | Delete a pronunciation dictionary entry | No |
+| `toggle_complete` | Episode | Toggle episode status between in_progress and completed | No |
+| `export_to_drive` | Export | Export analysis results to Google Drive for NotebookLM | No |
 | `get_cost_stats` | Observability | Get API cost statistics by provider and step | Yes |
 
 ## Workflow Example
@@ -116,7 +124,17 @@ run_step(episode_id=1, step_name="analysis")
 
 ### 7. Repeat for remaining steps
 
-Continue the `run_step` → `get_step_detail` → `approve_step` cycle for: `analysis` → `script` → `voice` → `video` → `publish`.
+Continue the `run_step` → `get_step_detail` → `approve_step` cycle for: `analysis` → `script` → `voice` → `video`.
+
+You can also mark the episode as completed at any point with `toggle_complete` (e.g., after analysis + export, without running script/voice/video).
+
+### 8. Export to Google Drive (optional)
+
+```
+export_to_drive(episode_id=1)
+```
+
+After the analysis step is approved, you can export the results to Google Drive as NotebookLM source text. Google Drive must be enabled and authenticated via Settings.
 
 ## Tips
 

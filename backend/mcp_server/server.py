@@ -71,6 +71,10 @@ async def _dispatch(name: str, args: dict) -> str:
             return await _search_news(args)
         case "get_cost_stats":
             return await _get_cost_stats(args)
+        case "toggle_complete":
+            return await _toggle_complete(args)
+        case "export_to_drive":
+            return await _export_to_drive(args)
         case _:
             return f"Unknown tool: {name}"
 
@@ -298,6 +302,20 @@ async def _search_news(args: dict) -> str:
 
     lines.append("Use create_episode_from_articles to create an episode with selected articles.")
     return "\n".join(lines)
+
+
+async def _toggle_complete(args: dict) -> str:
+    ep = await client.toggle_complete(args["episode_id"])
+    return f"Episode #{ep['id']} status changed to: {ep['status']}"
+
+
+async def _export_to_drive(args: dict) -> str:
+    result = await client.export_to_drive(args["episode_id"])
+    return (
+        f"Exported episode #{result['episode_id']} analysis to Google Drive.\n"
+        f"File URL: {result['drive_file_url']}\n"
+        f"Source text length: {result['source_text_length']} chars"
+    )
 
 
 async def _get_cost_stats(args: dict) -> str:

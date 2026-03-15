@@ -13,6 +13,7 @@ import app.pipeline.analyzer  # noqa: F401
 import app.pipeline.factchecker  # noqa: F401
 import app.pipeline.scriptwriter  # noqa: F401
 import app.pipeline.video  # noqa: F401
+import app.services.export_source_text  # noqa: F401
 from app.database import get_session
 from app.models.prompt_template import PromptTemplate
 from app.services.prompt_loader import get_all_defaults
@@ -26,6 +27,8 @@ PROMPT_NAMES: dict[str, str] = {
     "script_item": "台本生成（個別記事）",
     "script_episode": "台本生成（エピソード構成）",
     "youtube_metadata": "YouTube メタデータ",
+    "export_notebooklm": "NotebookLM エクスポート",
+    "export_notebooklm_instructions": "NotebookLM AIホスト指示",
 }
 
 

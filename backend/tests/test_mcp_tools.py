@@ -14,7 +14,7 @@ class TestToolDefinitions:
 
     def test_tool_count(self):
         tools = get_tool_definitions()
-        assert len(tools) == 17
+        assert len(tools) == 19
 
     def test_tool_names(self):
         tools = get_tool_definitions()
@@ -37,6 +37,8 @@ class TestToolDefinitions:
             "search_news",
             "get_cost_stats",
             "health_check",
+            "toggle_complete",
+            "export_to_drive",
         }
         assert names == expected
 
@@ -300,11 +302,11 @@ class TestDispatch:
 
     async def test_approve_last_step(self):
         with patch("mcp_server.server.client") as mock_client:
-            mock_client.resolve_step_id = AsyncMock(return_value=7)
+            mock_client.resolve_step_id = AsyncMock(return_value=6)
             mock_client.approve_step = AsyncMock(
-                return_value={"id": 7, "step_name": "publish", "status": "approved"}
+                return_value={"id": 6, "step_name": "video", "status": "approved"}
             )
-            result = await _dispatch("approve_step", {"episode_id": 1, "step_name": "publish"})
+            result = await _dispatch("approve_step", {"episode_id": 1, "step_name": "video"})
             assert "final step" in result
 
     async def test_reject_step(self):

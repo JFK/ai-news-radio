@@ -1,4 +1,9 @@
+from typing import TYPE_CHECKING
+
 from pydantic_settings import BaseSettings
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class Settings(BaseSettings):
@@ -67,7 +72,44 @@ class Settings(BaseSettings):
     visual_imagen_model: str = "imagen-4.0-fast-generate-001"
     visual_veo_model: str = "veo-2.0-generate-001"
 
+    # Google Drive Export (OAuth 2.0)
+    google_drive_enabled: bool = False
+    google_drive_folder_id: str = ""
+    google_drive_client_id: str = ""
+    google_drive_client_secret: str = ""
+    google_drive_refresh_token: str = ""  # Set automatically via OAuth callback
+    google_drive_redirect_base: str = ""  # e.g. http://localhost:8000
+
+    # Export AI configuration
+    pipeline_export_provider: str = ""
+    pipeline_export_model: str = ""
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
 settings = Settings()
+
+
+async def load_settings_from_db(session: "AsyncSession") -> None:
+    """Load settings from app_settings table and override in-memory settings."""
+    from sqlalchemy import select
+
+    from app.models.app_setting import AppSetting
+
+    result = await session.execute(select(AppSetting))
+    for row in result.scalars():
+        key = row.key
+        if hasattr(settings, key):
+            field_info = Settings.model_fields.get(key)
+            if field_info:
+                # Convert value to appropriate type
+                annotation = field_info.annotation
+                if annotation is bool:
+                    val: object = row.value.lower() in ("true", "1", "yes")
+                elif annotation is int:
+                    val = int(row.value) if row.value else 0
+                elif annotation is float:
+                    val = float(row.value) if row.value else 0.0
+                else:
+                    val = row.value
+                object.__setattr__(settings, key, val)

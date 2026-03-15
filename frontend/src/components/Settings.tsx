@@ -1,11 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { ModelPricing, Pronunciation, PromptSummary, PromptHistory } from "../types";
 
+type SettingsTab = "config" | "pricing" | "prompts" | "dictionary";
+
 export default function Settings() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"pricing" | "prompts" | "dictionary">("pricing");
+  const [activeTab, setActiveTab] = useState<SettingsTab>("config");
+
+  const tabs: { key: SettingsTab; label: string }[] = [
+    { key: "config", label: t("settings.config.title") },
+    { key: "pricing", label: t("settings.pricing.title") },
+    { key: "prompts", label: t("settings.prompts.title") },
+    { key: "dictionary", label: t("settings.dictionary.title") },
+  ];
 
   return (
     <div>
@@ -13,41 +22,423 @@ export default function Settings() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab("pricing")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 cursor-pointer ${
-            activeTab === "pricing"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          {t("settings.pricing.title")}
-        </button>
-        <button
-          onClick={() => setActiveTab("prompts")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 cursor-pointer ${
-            activeTab === "prompts"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          {t("settings.prompts.title")}
-        </button>
-        <button
-          onClick={() => setActiveTab("dictionary")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 cursor-pointer ${
-            activeTab === "dictionary"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          {t("settings.dictionary.title")}
-        </button>
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 cursor-pointer ${
+              activeTab === tab.key
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
+      {activeTab === "config" && <ConfigSection />}
       {activeTab === "pricing" && <PricingSection />}
       {activeTab === "prompts" && <PromptsSection />}
       {activeTab === "dictionary" && <DictionarySection />}
+    </div>
+  );
+}
+
+interface FieldDef {
+  key: string;
+  label: string;
+  type: "text" | "password" | "number" | "select" | "checkbox" | "textarea" | "model";
+  options?: string[];
+  wide?: boolean;
+}
+
+interface CategoryDef {
+  title: string;
+  fields: FieldDef[];
+  guide?: string[];
+}
+
+function ConfigSection() {
+  const { t } = useTranslation();
+  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [maskedKeys, setMaskedKeys] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const originalRef = useRef<Record<string, string>>({});
+  const [editingSecrets, setEditingSecrets] = useState<Set<string>>(new Set());
+  const [modelOptions, setModelOptions] = useState<string[]>([]);
+  const [driveAuthStatus, setDriveAuthStatus] = useState<{ authenticated: boolean; client_id_configured: boolean } | null>(null);
+
+  // Fetch model names from pricing table
+  useEffect(() => {
+    api.getPricing().then((res) => {
+      const models = [...new Set(res.data.map((p: ModelPricing) => p.model_prefix))].sort();
+      setModelOptions(models);
+    }).catch(() => {});
+  }, []);
+
+  // Fetch Google Drive auth status
+  const refreshDriveAuthStatus = useCallback(() => {
+    api.getGoogleDriveAuthStatus().then((res) => setDriveAuthStatus(res.data)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshDriveAuthStatus();
+  }, [refreshDriveAuthStatus]);
+
+  // Detect OAuth callback redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("drive_auth") === "success") {
+      setFeedback({ type: "success", message: t("settings.config.driveAuthSuccess") });
+      refreshDriveAuthStatus();
+      // Clean up URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [refreshDriveAuthStatus, t]);
+
+  const categories: CategoryDef[] = [
+    {
+      title: t("settings.config.aiProvider"),
+      fields: [
+        { key: "default_ai_provider", label: "Default AI Provider", type: "select", options: ["openai", "anthropic", "google"] },
+        { key: "default_ai_model", label: "Default AI Model", type: "model" },
+      ],
+    },
+    {
+      title: t("settings.config.pipelineAi"),
+      fields: [
+        { key: "pipeline_factcheck_provider", label: "Factcheck Provider", type: "select", options: ["openai", "anthropic", "google"] },
+        { key: "pipeline_factcheck_model", label: "Factcheck Model", type: "model" },
+        { key: "pipeline_analysis_provider", label: "Analysis Provider", type: "select", options: ["openai", "anthropic", "google"] },
+        { key: "pipeline_analysis_model", label: "Analysis Model", type: "model" },
+        { key: "pipeline_script_provider", label: "Script Provider", type: "select", options: ["openai", "anthropic", "google"] },
+        { key: "pipeline_script_model", label: "Script Model", type: "model" },
+        { key: "pipeline_export_provider", label: "Export Provider", type: "select", options: ["openai", "anthropic", "google"] },
+        { key: "pipeline_export_model", label: "Export Model", type: "model" },
+      ],
+    },
+    {
+      title: t("settings.config.apiKeys"),
+      fields: [
+        { key: "anthropic_api_key", label: "Anthropic API Key", type: "password" },
+        { key: "openai_api_key", label: "OpenAI API Key", type: "password" },
+        { key: "google_api_key", label: "Google API Key", type: "password" },
+        { key: "brave_search_api_key", label: "Brave Search API Key", type: "password" },
+        { key: "elevenlabs_api_key", label: "ElevenLabs API Key", type: "password" },
+      ],
+    },
+    {
+      title: t("settings.config.collection"),
+      fields: [
+        { key: "collection_method", label: "Collection Method", type: "text" },
+        { key: "collection_queries", label: "Collection Queries", type: "text", wide: true },
+        { key: "collection_crawl_enabled", label: "Crawl Enabled", type: "checkbox" },
+        { key: "collection_youtube_enabled", label: "YouTube Enabled", type: "checkbox" },
+        { key: "collection_document_enabled", label: "Document Enabled", type: "checkbox" },
+        { key: "collection_ai_research_enabled", label: "AI Research Enabled", type: "checkbox" },
+      ],
+    },
+    {
+      title: t("settings.config.voice"),
+      fields: [
+        { key: "pipeline_voice_provider", label: "Voice Provider", type: "select", options: ["voicevox", "openai", "elevenlabs", "google"] },
+        { key: "voicevox_host", label: "VOICEVOX Host", type: "text" },
+        { key: "voicevox_speaker_id", label: "VOICEVOX Speaker ID", type: "number" },
+      ],
+    },
+    {
+      title: t("settings.config.visual"),
+      fields: [
+        { key: "visual_provider", label: "Visual Provider", type: "select", options: ["static", "google"] },
+      ],
+    },
+    {
+      title: t("settings.config.googleDrive"),
+      fields: [
+        { key: "google_drive_enabled", label: t("settings.config.enabled"), type: "checkbox" },
+        { key: "google_drive_client_id", label: "OAuth Client ID", type: "password" },
+        { key: "google_drive_client_secret", label: "OAuth Client Secret", type: "password" },
+        { key: "google_drive_folder_id", label: "Google Drive Folder ID", type: "text" },
+      ],
+      guide: t("settings.config.googleDriveGuide", { returnObjects: true }) as unknown as string[],
+    },
+  ];
+
+  const fetchSettings = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await api.getSettings();
+      setSettings(res.data.settings);
+      setMaskedKeys(new Set(res.data.masked_keys || []));
+      originalRef.current = { ...res.data.settings };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  const handleChange = (key: string, value: string) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleCheckboxChange = (key: string, checked: boolean) => {
+    setSettings((prev) => ({ ...prev, [key]: checked ? "true" : "false" }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setFeedback(null);
+    try {
+      // Only send changed values; skip fields still showing masked values
+      const changed: Record<string, string> = {};
+      for (const [key, value] of Object.entries(settings)) {
+        if (value === originalRef.current[key]) continue; // Not changed
+        if (!editingSecrets.has(key) && maskedKeys.has(key)) continue; // Still masked
+        changed[key] = value;
+      }
+      if (Object.keys(changed).length === 0) {
+        setFeedback({ type: "success", message: t("settings.config.saved") });
+        return;
+      }
+      await api.updateSettings(changed);
+      setFeedback({ type: "success", message: t("settings.config.saved") });
+      setEditingSecrets(new Set());
+      // Refresh to get updated values
+      await fetchSettings();
+      refreshDriveAuthStatus();
+    } catch {
+      setFeedback({ type: "error", message: t("settings.config.saveFailed") });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const renderField = (field: FieldDef) => {
+    const value = settings[field.key] ?? "";
+
+    if (field.type === "checkbox") {
+      return (
+        <label key={field.key} className="flex items-center gap-2 py-1">
+          <input
+            type="checkbox"
+            checked={value.toLowerCase() === "true" || value === "1"}
+            onChange={(e) => handleCheckboxChange(field.key, e.target.checked)}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-sm text-gray-700">{field.label}</span>
+        </label>
+      );
+    }
+
+    if (field.type === "select") {
+      return (
+        <div key={field.key}>
+          <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
+          <select
+            value={value}
+            onChange={(e) => handleChange(field.key, e.target.value)}
+            className="px-2 py-1.5 border border-gray-300 rounded text-sm w-full max-w-xs bg-white"
+          >
+            <option value="">--</option>
+            {field.options?.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+
+    if (field.type === "model") {
+      return (
+        <div key={field.key}>
+          <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
+          <select
+            value={value}
+            onChange={(e) => handleChange(field.key, e.target.value)}
+            className="px-2 py-1.5 border border-gray-300 rounded text-sm w-full max-w-xs bg-white"
+          >
+            <option value="">--</option>
+            {modelOptions.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+            {value && !modelOptions.includes(value) && (
+              <option value={value}>{value}</option>
+            )}
+          </select>
+        </div>
+      );
+    }
+
+    if (field.type === "password") {
+      const isEditing = editingSecrets.has(field.key);
+      const masked = maskedKeys.has(field.key) || value === "";
+      const displayValue = value || t("settings.config.notSet");
+
+      if (!isEditing) {
+        return (
+          <div key={field.key} className={field.wide ? "col-span-2" : ""}>
+            <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
+            <div className="flex items-center gap-2">
+              <span className={`px-2 py-1.5 text-sm font-mono ${masked && value ? "text-gray-600" : "text-gray-400 italic"}`}>
+                {displayValue}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingSecrets((prev) => new Set(prev).add(field.key));
+                  handleChange(field.key, "");
+                }}
+                className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-300 rounded font-medium cursor-pointer"
+              >
+                {t("settings.config.edit")}
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div key={field.key} className={field.wide ? "col-span-2" : ""}>
+          <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={value}
+              onChange={(e) => handleChange(field.key, e.target.value)}
+              className={`px-2 py-1.5 border border-blue-300 rounded text-sm font-mono ${field.wide ? "w-full" : "w-full max-w-xs"}`}
+              placeholder={t("settings.config.enterValue")}
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setEditingSecrets((prev) => {
+                  const next = new Set(prev);
+                  next.delete(field.key);
+                  return next;
+                });
+                // Restore original masked value
+                handleChange(field.key, originalRef.current[field.key] ?? "");
+              }}
+              className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 rounded font-medium cursor-pointer whitespace-nowrap"
+            >
+              {t("settings.config.cancel")}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (field.type === "textarea") {
+      return (
+        <div key={field.key} className="col-span-2">
+          <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
+          <textarea
+            value={value}
+            onChange={(e) => handleChange(field.key, e.target.value)}
+            className="px-2 py-1.5 border border-gray-300 rounded text-sm w-full font-mono resize-y h-24"
+            placeholder="{...}"
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div key={field.key} className={field.wide ? "col-span-2" : ""}>
+        <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
+        <input
+          type={field.type}
+          value={value}
+          onChange={(e) => handleChange(field.key, e.target.value)}
+          className={`px-2 py-1.5 border border-gray-300 rounded text-sm ${field.wide ? "w-full" : "w-full max-w-xs"}`}
+        />
+      </div>
+    );
+  };
+
+  if (loading) {
+    return <p className="text-gray-500 text-sm">{t("settings.loading")}</p>;
+  }
+
+  return (
+    <div className="space-y-6">
+      {categories.map((cat) => (
+        <div key={cat.title} className="bg-white rounded-lg shadow border border-gray-200 p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">{cat.title}</h3>
+          {cat.guide && cat.guide.length > 0 && (
+            <details className="mb-3">
+              <summary className="text-xs text-blue-600 cursor-pointer hover:text-blue-800 font-medium">
+                {t("settings.config.setupGuide")}
+              </summary>
+              <div className="mt-2 text-xs text-gray-600">
+                <p className="mb-2">{cat.guide[0]}</p>
+                {cat.guide.length > 1 && (
+                  <ol className="ml-4 list-decimal space-y-1">
+                    {cat.guide.slice(1).map((step, i) => (
+                      <li key={i}>{step}</li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            </details>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {cat.fields.map((field) => renderField(field))}
+          </div>
+          {cat.title === t("settings.config.googleDrive") && driveAuthStatus && (
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={!driveAuthStatus.client_id_configured}
+                  onClick={async () => {
+                    try {
+                      const res = await api.getGoogleDriveAuthUrl();
+                      window.location.href = res.data.auth_url;
+                    } catch {
+                      setFeedback({ type: "error", message: t("settings.config.driveAuthFailed") });
+                    }
+                  }}
+                  className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md font-medium hover:bg-green-700 disabled:opacity-50 cursor-pointer"
+                >
+                  {driveAuthStatus.authenticated
+                    ? t("settings.config.driveReAuth")
+                    : t("settings.config.driveAuth")}
+                </button>
+                <span className={`text-xs font-medium ${driveAuthStatus.authenticated ? "text-green-600" : "text-gray-400"}`}>
+                  {driveAuthStatus.authenticated
+                    ? t("settings.config.driveConnected")
+                    : t("settings.config.driveNotConnected")}
+                </span>
+              </div>
+              {!driveAuthStatus.client_id_configured && (
+                <p className="text-xs text-gray-400 mt-1">{t("settings.config.driveNeedClientId")}</p>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
+        >
+          {saving ? t("settings.config.saving") : t("settings.config.save")}
+        </button>
+        {feedback && (
+          <span className={`text-sm ${feedback.type === "success" ? "text-green-600" : "text-red-600"}`}>
+            {feedback.message}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

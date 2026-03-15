@@ -40,6 +40,18 @@ export default function EpisodeDetail() {
   const [selectedStep, setSelectedStep] = useState<StepName | null>(null);
   const [runningStep, setRunningStep] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportSuccess, setExportSuccess] = useState(false);
+  const [driveEnabled, setDriveEnabled] = useState(false);
+  const [toggling, setToggling] = useState(false);
+
+  useEffect(() => {
+    api.getSettings().then((res) => {
+      const val = res.data.settings.google_drive_enabled ?? "";
+      setDriveEnabled(val.toLowerCase() === "true");
+    }).catch(() => {});
+  }, []);
 
   if (loading) return <p className="text-gray-500">{t("episode.loading")}</p>;
   if (error) return <p className="text-red-600">{error}</p>;
@@ -81,6 +93,36 @@ export default function EpisodeDetail() {
     }
   };
 
+  const handleToggleComplete = async () => {
+    try {
+      setToggling(true);
+      await api.toggleComplete(episodeId);
+      await refetch();
+    } catch {
+      await refetch();
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const analysisStep = steps.find((s) => s.step_name === "analysis");
+  const showDriveExport = driveEnabled && analysisStep && analysisStep.status === "approved";
+
+  const handleExportToDrive = async () => {
+    setExporting(true);
+    setExportError(null);
+    setExportSuccess(false);
+    try {
+      await api.exportToDrive(episodeId);
+      setExportSuccess(true);
+      await refetch();
+    } catch {
+      setExportError(t("episode.exportFailed"));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div>
       <Link to="/" className="text-blue-600 hover:text-blue-800 text-sm mb-4 inline-block">
@@ -95,13 +137,30 @@ export default function EpisodeDetail() {
             {new Date(episode.created_at).toLocaleDateString("ja-JP")}
           </p>
         </div>
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50 cursor-pointer"
-        >
-          {deleting ? t("episode.deleting") : t("episode.delete")}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleToggleComplete}
+            disabled={toggling}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium disabled:opacity-50 cursor-pointer ${
+              episode.status === "completed"
+                ? "bg-yellow-500 text-white hover:bg-yellow-600"
+                : "bg-green-600 text-white hover:bg-green-700"
+            }`}
+          >
+            {toggling
+              ? t("episode.toggling")
+              : episode.status === "completed"
+                ? t("episode.markIncomplete")
+                : t("episode.markComplete")}
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50 cursor-pointer"
+          >
+            {deleting ? t("episode.deleting") : t("episode.delete")}
+          </button>
+        </div>
       </div>
 
       {(episode.audio_path || episode.video_path) && (() => {
@@ -152,6 +211,41 @@ export default function EpisodeDetail() {
         </div>
         );
       })()}
+
+      {showDriveExport && (
+        <div className="mb-6 bg-white rounded-lg shadow p-4">
+          <h3 className="text-sm font-medium text-gray-600 mb-2">Google Drive</h3>
+          <div className="flex items-center gap-3 flex-wrap">
+            {episode.drive_file_url && (
+              <a
+                href={episode.drive_file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:underline"
+              >
+                {t("episode.driveLink")}
+              </a>
+            )}
+            <button
+              onClick={handleExportToDrive}
+              disabled={exporting}
+              className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 cursor-pointer"
+            >
+              {exporting
+                ? t("episode.exporting")
+                : episode.drive_file_url
+                  ? t("episode.reExportToDrive")
+                  : t("episode.exportToDrive")}
+            </button>
+            {exportSuccess && (
+              <span className="text-sm text-green-600">{t("episode.exportSuccess")}</span>
+            )}
+            {exportError && (
+              <span className="text-sm text-red-600">{exportError}</span>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="mb-6">
         <h3 className="text-sm font-medium text-gray-600 mb-2">{t("episode.pipeline")}</h3>

@@ -1,4 +1,5 @@
 from app.models.api_usage import ApiUsage
+from app.models.app_setting import AppSetting
 from app.models.base import Base
 from app.models.episode import Episode, EpisodeStatus
 from app.models.model_pricing import ModelPricing
@@ -9,6 +10,7 @@ from app.models.pronunciation import Pronunciation
 
 __all__ = [
     "ApiUsage",
+    "AppSetting",
     "Base",
     "Episode",
     "EpisodeStatus",

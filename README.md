@@ -13,19 +13,21 @@ A web application that automates the entire news broadcast pipeline — from col
 
 ## Features
 
-- **7-step pipeline** — Collection → Fact-check → Analysis → Script → Voice → Video → Publish
+- **6-step pipeline** — Collection → Fact-check → Analysis → Script → Voice → Video
 - **Human approval gates** — Every step requires human review before proceeding
 - **Multi AI provider** — Anthropic Claude / OpenAI GPT / Google Gemini, switchable per step
 - **Multi TTS provider** — VOICEVOX / OpenAI TTS / ElevenLabs / Google Cloud TTS
 - **Brave Search integration** — Web search for news collection and fact-checking
 - **Cost tracking** — Token usage and cost visualization on the dashboard
+- **Google Drive export** — Export analysis results as NotebookLM source text
+- **WebUI settings** — Manage all settings from the browser (API keys, providers, prompts, etc.)
 - **MCP integration** — Control the entire pipeline from AI assistants like Claude Code
 - **i18n** — English and Japanese frontend
 
 ## Architecture
 
 ```
-[1. Collect] → ✅ → [2. Fact-check] → ✅ → [3. Analyze] → ✅ → [4. Script] → ✅ → [5. Voice] → ✅ → [6. Video] → ✅ → [7. Publish]
+[1. Collect] → ✅ → [2. Fact-check] → ✅ → [3. Analyze] → ✅ → [4. Script] → ✅ → [5. Voice] → ✅ → [6. Video]
 ```
 
 Each `✅` is a human approval gate. No step proceeds without explicit approval.

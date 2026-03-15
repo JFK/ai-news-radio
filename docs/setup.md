@@ -66,6 +66,7 @@ pip install -e backend/
 2. **API キー**（選択したプロバイダー + Brave Search）
 3. **TTS プロバイダー**（voicevox / openai / google）
 4. **画像生成**（static / google）
+5. **Google Drive エクスポート**（任意、WebUI の Settings からも設定可能）
 
 プロバイダー別の推奨モデル:
 
@@ -133,6 +134,8 @@ docker compose exec backend alembic upgrade head
 | `PIPELINE_ANALYSIS_MODEL` | (default) | Model for analysis step |
 | `PIPELINE_SCRIPT_PROVIDER` | (default) | Provider for script step |
 | `PIPELINE_SCRIPT_MODEL` | (default) | Model for script step |
+| `PIPELINE_EXPORT_PROVIDER` | (default) | Provider for export text generation |
+| `PIPELINE_EXPORT_MODEL` | (default) | Model for export text generation |
 
 ### API Keys
 
@@ -162,6 +165,18 @@ docker compose exec backend alembic upgrade head
 | `ELEVENLABS_API_KEY` | | ElevenLabs API key |
 | `GOOGLE_TTS_VOICE` | `ja-JP-Neural2-B` | Google Cloud TTS voice |
 | `GOOGLE_TTS_LANGUAGE_CODE` | `ja-JP` | Google Cloud TTS language |
+
+### Google Drive Export
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GOOGLE_DRIVE_ENABLED` | `false` | Enable Google Drive export |
+| `GOOGLE_DRIVE_FOLDER_ID` | | Target folder ID in Google Drive |
+| `GOOGLE_DRIVE_CLIENT_ID` | | OAuth 2.0 client ID |
+| `GOOGLE_DRIVE_CLIENT_SECRET` | | OAuth 2.0 client secret |
+| `GOOGLE_DRIVE_REDIRECT_BASE` | | Base URL for OAuth callback (e.g. `http://localhost:8000`) |
+
+> Google Drive settings can also be configured from the WebUI Settings page. OAuth authentication is initiated from Settings → Google Drive → Connect.
 
 ### Visual / Video
 

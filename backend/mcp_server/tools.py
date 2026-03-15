@@ -11,7 +11,7 @@ def get_tool_definitions() -> list[Tool]:
         # ---- Episode Lifecycle ----
         Tool(
             name="create_episode",
-            description="Create a new episode with 7 pipeline steps initialized (all pending). Returns the episode with its pipeline steps.",
+            description="Create a new episode with 6 pipeline steps initialized (all pending). Returns the episode with its pipeline steps.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -90,7 +90,7 @@ def get_tool_definitions() -> list[Tool]:
             description=(
                 "Execute a pipeline step (runs in background). Returns immediately. "
                 "Use get_episode_status to poll for completion. "
-                "Steps must run in order: collection → factcheck → analysis → script → voice → video → publish. "
+                "Steps must run in order: collection → factcheck → analysis → script → voice → video. "
                 "Previous step must be approved before running the next."
             ),
             inputSchema={
@@ -284,5 +284,31 @@ def get_tool_definitions() -> list[Tool]:
             description="Check if the AI News Radio backend is running and responsive.",
             inputSchema={"type": "object", "properties": {}},
             annotations=ToolAnnotations(readOnlyHint=True),
+        ),
+        # ---- Episode Status ----
+        Tool(
+            name="toggle_complete",
+            description="Toggle episode status between in_progress and completed. Use this to mark an episode as done (e.g., after export) without running all pipeline steps, or to reopen a completed episode.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "episode_id": {"type": "integer", "description": "Episode ID"},
+                },
+                "required": ["episode_id"],
+            },
+            annotations=ToolAnnotations(destructiveHint=False, readOnlyHint=False),
+        ),
+        # ---- Export ----
+        Tool(
+            name="export_to_drive",
+            description="Export episode analysis results to Google Drive as NotebookLM source text. Analysis step must be approved. Google Drive must be enabled and authenticated.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "episode_id": {"type": "integer", "description": "Episode ID"},
+                },
+                "required": ["episode_id"],
+            },
+            annotations=ToolAnnotations(destructiveHint=False, readOnlyHint=False),
         ),
     ]

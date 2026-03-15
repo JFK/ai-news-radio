@@ -163,3 +163,15 @@ class AINewsRadioClient:
         if freshness:
             params["freshness"] = freshness
         return await self._request("GET", "/api/search/news", params=params)
+
+    # ---- Episode Status ----
+
+    async def toggle_complete(self, episode_id: int) -> dict:
+        """POST /api/episodes/{episode_id}/toggle-complete"""
+        return await self._request("POST", f"/api/episodes/{episode_id}/toggle-complete")
+
+    # ---- Export ----
+
+    async def export_to_drive(self, episode_id: int) -> dict:
+        """POST /api/episodes/{episode_id}/export/drive"""
+        return await self._request("POST", f"/api/episodes/{episode_id}/export/drive")
