@@ -62,6 +62,9 @@ class Settings(BaseSettings):
     elevenlabs_model_id: str = "eleven_multilingual_v2"
     google_tts_voice: str = "ja-JP-Neural2-B"  # Japanese male
     google_tts_language_code: str = "ja-JP"
+    gemini_tts_model: str = "gemini-2.5-flash-preview-tts"
+    gemini_tts_voice: str = "Kore"  # Prebuilt voice name
+    gemini_tts_instructions: str = "落ち着いたニュースキャスターのように、明瞭で聞き取りやすく話してください"
 
     # VOICEVOX
     voicevox_host: str = "http://voicevox:50021"

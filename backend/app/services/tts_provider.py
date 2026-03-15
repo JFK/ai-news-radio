@@ -48,5 +48,9 @@ def get_tts_provider() -> TTSProvider:
         from app.services.tts_google import GoogleTTSProvider
 
         return GoogleTTSProvider()
+    elif provider_name == "gemini":
+        from app.services.tts_gemini import GeminiTTSProvider
+
+        return GeminiTTSProvider()
     else:
         raise ValueError(f"Unknown TTS provider: {provider_name}")
