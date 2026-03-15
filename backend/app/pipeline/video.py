@@ -124,7 +124,7 @@ class VideoStep(BaseStep):
             await self.record_usage(
                 session=session,
                 episode_id=episode_id,
-                provider="google",
+                provider="google-imagen",
                 model=settings.visual_imagen_model,
                 input_tokens=0,
                 output_tokens=0,

@@ -167,7 +167,7 @@ class VoiceStep(BaseStep):
             await self.record_usage(
                 session=session,
                 episode_id=episode_id,
-                provider=provider_name,
+                provider=f"{provider_name}-tts" if provider_name == "google" else provider_name,
                 model=model_name,
                 input_tokens=total_chars,
                 output_tokens=0,
