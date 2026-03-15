@@ -16,7 +16,7 @@ A web application that automates the entire news broadcast pipeline — from col
 - **6-step pipeline** — Collection → Fact-check → Analysis → Script → Voice → Video
 - **Human approval gates** — Every step requires human review before proceeding
 - **Multi AI provider** — Anthropic Claude / OpenAI GPT / Google Gemini, switchable per step
-- **Multi TTS provider** — VOICEVOX / OpenAI TTS / ElevenLabs / Google Cloud TTS
+- **Multi TTS provider** — Gemini TTS / VOICEVOX / OpenAI TTS / ElevenLabs / Google Cloud TTS
 - **Brave Search integration** — Web search for news collection and fact-checking
 - **Cost tracking** — Token usage and cost visualization on the dashboard
 - **Google Drive export** — Export analysis results as NotebookLM source text
@@ -83,7 +83,7 @@ Claude Code will automatically:
 | Database | PostgreSQL 16 + SQLAlchemy (async) + Alembic |
 | Queue | Celery + Redis |
 | AI | Anthropic Claude / OpenAI / Google Gemini |
-| TTS | VOICEVOX / OpenAI / ElevenLabs / Google Cloud |
+| TTS | Gemini TTS / VOICEVOX / OpenAI / ElevenLabs / Google Cloud |
 | Video | FFmpeg |
 | Search | Brave Search API |
 | Infra | Docker Compose |

@@ -72,7 +72,7 @@ git@github.com:JFK/ai-news-radio.git
 | 2 | ファクトチェック (factcheck) | ✅ (+ web検索) | 事実確認、ソース信頼性スコア、裏取りURL取得 |
 | 3 | 分析 (analysis) | ✅ | 背景・文脈分析、複数視点抽出、データ検証、影響評価 |
 | 4 | 台本生成 (script) | ✅ | クリティカルシンキング＋わかりやすさを統合した台本 |
-| 5 | 音声生成 (voice) | - | VOICEVOX で台本→音声合成 |
+| 5 | 音声生成 (voice) | - | TTS で台本→音声合成（Gemini TTS / VOICEVOX / OpenAI / ElevenLabs / Google Cloud TTS） |
 | 6 | 動画化 (video) | ✅ (画像生成) | Imagen 4 で背景・サムネイル生成 + FFmpeg で合成→MP4 |
 
 ### 技術スタック
@@ -84,7 +84,8 @@ git@github.com:JFK/ai-news-radio.git
 - **AI**: プロバイダー抽象化（Anthropic / OpenAI / Google 対応）
   - デフォルト: Anthropic Claude (claude-sonnet-4-20250514)
   - ステップごとにモデル変更可能
-- **音声**: VOICEVOX (ローカルDockerコンテナ、CPU版)
+- **音声**: TTS プロバイダー抽象化（Gemini TTS / VOICEVOX / OpenAI / ElevenLabs / Google Cloud TTS）
+  - デフォルト: Gemini TTS (gemini-2.5-flash-preview-tts)
 - **動画**: FFmpeg + Google Imagen 4（背景・サムネイル生成、staticフォールバック可）
 - **エクスポート**: Google Drive API（NotebookLM 用ソーステキスト出力、OAuth 2.0）
 - **インフラ**: Docker Compose (Ubuntu 22.04+ 推奨)

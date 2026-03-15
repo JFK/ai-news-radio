@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     media_dir: str = "/app/media"
 
     # Voice/TTS
-    pipeline_voice_provider: str = "voicevox"  # "voicevox", "openai", "elevenlabs", "google"
+    pipeline_voice_provider: str = "gemini"  # "voicevox", "openai", "elevenlabs", "google", "gemini"
     openai_tts_model: str = "tts-1"
     openai_tts_voice: str = "alloy"
     elevenlabs_api_key: str = ""
