@@ -39,6 +39,9 @@ class GeminiTTSProvider(TTSProvider):
         self._model = settings.gemini_tts_model
         self._voice = settings.gemini_tts_voice
         self._instructions = settings.gemini_tts_instructions
+        # Accumulated token usage across synthesize() calls
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
 
     @property
     def audio_format(self) -> str:
@@ -88,10 +91,18 @@ class GeminiTTSProvider(TTSProvider):
         )
 
         pcm_data = response.candidates[0].content.parts[0].inline_data.data
+
+        # Track token usage for cost estimation
+        if response.usage_metadata:
+            self.total_input_tokens += response.usage_metadata.prompt_token_count or 0
+            self.total_output_tokens += response.usage_metadata.candidates_token_count or 0
+
         logger.debug(
-            "Gemini TTS synthesized: %d chars -> %d bytes PCM",
+            "Gemini TTS synthesized: %d chars -> %d bytes PCM (%d in / %d out tokens)",
             len(text),
             len(pcm_data),
+            response.usage_metadata.prompt_token_count or 0 if response.usage_metadata else 0,
+            response.usage_metadata.candidates_token_count or 0 if response.usage_metadata else 0,
         )
         return pcm_data
 
