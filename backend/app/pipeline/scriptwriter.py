@@ -178,13 +178,15 @@ class ScriptwriterStep(BaseStep):
             raise ValueError("No reliable news items to generate scripts for")
 
         # Phase 1: per-article scripts
-        for item in items:
+        for i, item in enumerate(items):
+            await self.log_progress(episode_id, f"[{i + 1}/{len(items)}] 「{item.title[:30]}」の台本を生成中")
             result = await self._script_item(item, provider, model, item_prompt, session, episode_id, all_items)
             item_scripts.append(result)
             total_input_tokens += result["input_tokens"]
             total_output_tokens += result["output_tokens"]
 
         # Phase 2: episode composition
+        await self.log_progress(episode_id, "エピソード全体の構成を生成中（オープニング・つなぎ・エンディング）")
         episode_script = await self._compose_episode(
             item_scripts, provider, model, episode_prompt, session, episode_id
         )

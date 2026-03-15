@@ -45,6 +45,7 @@
     "completed": "Completed",
     "rejectionReason": "Rejection Reason",
     "elapsed": "Elapsed",
+    "progressLogs": "Progress Logs",
     "media": "Media",
     "audio": "Audio",
     "video": "Video",

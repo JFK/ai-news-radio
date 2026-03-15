@@ -138,6 +138,7 @@ class AnalyzerStep(BaseStep):
             item.is_group_primary = None
 
         # Detect groups of similar articles
+        await self.log_progress(episode_id, f"{len(items)}件の記事をグループ分析中")
         groups_info = await self._detect_groups(items, provider, model, session, episode_id)
 
         # Build lookup: item_id -> NewsItem
@@ -147,11 +148,13 @@ class AnalyzerStep(BaseStep):
         grouped_ids: set[int] = set()
 
         # Analyze grouped items
-        for group in groups_info.get("groups", []):
+        for i, group in enumerate(groups_info.get("groups", [])):
             group_items = [item_by_id[mid] for mid in group["member_ids"] if mid in item_by_id]
             if not group_items:
                 continue
             grouped_ids.update(item.id for item in group_items)
+            primary = group_items[0]
+            await self.log_progress(episode_id, f"グループ「{primary.title[:30]}」({len(group_items)}件)を分析中")
             group_result = await self._analyze_group(
                 group_items, group, provider, model, session, episode_id
             )
@@ -160,9 +163,9 @@ class AnalyzerStep(BaseStep):
             total_output_tokens += group_result["output_tokens"]
 
         # Analyze ungrouped items individually
-        for item in items:
-            if item.id in grouped_ids:
-                continue
+        ungrouped = [item for item in items if item.id not in grouped_ids]
+        for i, item in enumerate(ungrouped):
+            await self.log_progress(episode_id, f"[{i + 1}/{len(ungrouped)}] 「{item.title[:30]}」を分析中")
             result = await self._analyze_item(item, provider, model, system_prompt, session, episode_id)
             results.append(result)
             total_input_tokens += result["input_tokens"]

@@ -89,7 +89,8 @@ class FactcheckerStep(BaseStep):
 
         items = await self._get_news_items(episode_id, session)
 
-        for item in items:
+        for i, item in enumerate(items):
+            await self.log_progress(episode_id, f"[{i + 1}/{len(items)}] 「{item.title[:30]}」をファクトチェック中")
             result = await self._check_item(item, provider, model, system_prompt, session, episode_id)
             results.append(result)
             total_input_tokens += result["input_tokens"]

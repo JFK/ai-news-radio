@@ -81,6 +81,7 @@ class CollectorStep(BaseStep):
         queries = kwargs.get("queries")
 
         if method == "brave":
+            await self.log_progress(episode_id, "Brave Search でニュースを検索中")
             articles = await self._collect_brave(session, episode_id, queries=queries)
         else:
             raise ValueError(f"Unknown collection method: {method}")
@@ -110,6 +111,7 @@ class CollectorStep(BaseStep):
         await session.commit()
 
         # Enrich articles with full body text (also retries items with body=None on re-run)
+        await self.log_progress(episode_id, f"{articles_saved}件の記事を保存。本文を取得中")
         enrichment_stats = await self._enrich_articles(episode_id, session)
 
         # AI multi-stage research (opt-in)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
@@ -28,6 +28,50 @@ function ElapsedTime({ startedAt }: { startedAt: string }) {
   }, [startedAt]);
 
   return <span className="font-mono">{elapsed}</span>;
+}
+
+function StepLogs({ episodeId, stepName, isRunning }: { episodeId: number; stepName: string; isRunning: boolean }) {
+  const { t } = useTranslation();
+  const [logs, setLogs] = useState<{ message: string; timestamp: string }[]>([]);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+
+  const fetchLogs = useCallback(async () => {
+    try {
+      const res = await api.getStepLogs(episodeId, stepName);
+      setLogs(res.data.logs);
+    } catch {
+      // ignore
+    }
+  }, [episodeId, stepName]);
+
+  useEffect(() => {
+    if (!isRunning) {
+      setLogs([]);
+      return;
+    }
+    fetchLogs();
+    const timer = setInterval(fetchLogs, 3000);
+    return () => clearInterval(timer);
+  }, [isRunning, fetchLogs]);
+
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [logs]);
+
+  if (!isRunning || logs.length === 0) return null;
+
+  return (
+    <div className="mt-2 mb-3 bg-gray-900 rounded-md p-3 max-h-40 overflow-y-auto">
+      <p className="text-xs text-gray-400 mb-1">{t("episode.progressLogs")}</p>
+      {logs.map((log, i) => (
+        <div key={i} className="text-xs text-green-400 font-mono leading-5">
+          <span className="text-gray-500">{new Date(log.timestamp).toLocaleTimeString("ja-JP")}</span>{" "}
+          {log.message}
+        </div>
+      ))}
+      <div ref={logsEndRef} />
+    </div>
+  );
 }
 
 export default function EpisodeDetail() {
@@ -280,6 +324,8 @@ export default function EpisodeDetail() {
               )}
             </div>
           </div>
+
+          <StepLogs episodeId={episodeId} stepName={activeStep.step_name} isRunning={activeStep.status === "running"} />
 
           <dl className="grid grid-cols-2 gap-2 text-sm mb-3">
             <div>

@@ -89,6 +89,8 @@ class VoiceStep(BaseStep):
             total_chars += len(section["text"])
 
             # Convert to SSML for natural prosody (Google TTS only)
+            await self.log_progress(episode_id, f"[{i + 1}/{len(sections)}] 「{section['label'][:30]}」を音声合成中")
+
             if use_ssml:
                 from app.services.ssml_converter import convert_to_ssml
 
