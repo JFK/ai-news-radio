@@ -11,7 +11,6 @@ class EpisodeStatus(str, enum.Enum):
     DRAFT = "draft"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
-    PUBLISHED = "published"
 
 
 class Episode(Base):
@@ -27,6 +26,8 @@ class Episode(Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     audio_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     video_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    drive_file_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    drive_file_url: Mapped[str | None] = mapped_column(String(2000), nullable=True)
 
     news_items: Mapped[list["NewsItem"]] = relationship(back_populates="episode", cascade="all, delete-orphan")
     pipeline_steps: Mapped[list["PipelineStep"]] = relationship(back_populates="episode", cascade="all, delete-orphan")

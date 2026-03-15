@@ -28,7 +28,7 @@ class PipelineEngine:
     async def _create_episode_with_steps(
         self, title: str, status: EpisodeStatus, session: AsyncSession
     ) -> tuple[Episode, dict[str, PipelineStep]]:
-        """Create an episode and all 7 pipeline steps.
+        """Create an episode and all 6 pipeline steps.
 
         Returns the episode and a dict mapping step_value -> PipelineStep.
         """
@@ -50,7 +50,7 @@ class PipelineEngine:
         return episode, steps
 
     async def create_episode(self, title: str, session: AsyncSession) -> Episode:
-        """Create a new episode with all 7 pipeline steps in PENDING status."""
+        """Create a new episode with all 6 pipeline steps in PENDING status."""
         episode, _ = await self._create_episode_with_steps(title, EpisodeStatus.DRAFT, session)
         await session.commit()
         await session.refresh(episode)

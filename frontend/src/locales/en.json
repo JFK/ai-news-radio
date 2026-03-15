@@ -52,7 +52,16 @@
     "download": "Download",
     "delete": "Delete",
     "deleting": "Deleting...",
-    "deleteConfirm": "Delete this episode? All related data (news items, steps, media files) will be permanently removed."
+    "deleteConfirm": "Delete this episode? All related data (news items, steps, media files) will be permanently removed.",
+    "exportToDrive": "Export analysis to Google Drive",
+    "reExportToDrive": "Re-export analysis",
+    "exporting": "Exporting...",
+    "exportSuccess": "Export complete",
+    "exportFailed": "Export failed",
+    "driveLink": "Open in Google Drive",
+    "markComplete": "Mark as Completed",
+    "markIncomplete": "Reopen",
+    "toggling": "Updating..."
   },
   "approval": {
     "title": "Approval Gate",
@@ -81,8 +90,7 @@
     "analysis": "Analysis",
     "script": "Script",
     "voice": "Voice",
-    "video": "Video",
-    "publish": "Publish"
+    "video": "Video"
   },
   "stepStatus": {
     "pending": "Pending",
@@ -94,8 +102,7 @@
   "episodeStatus": {
     "draft": "Draft",
     "in_progress": "In Progress",
-    "completed": "Completed",
-    "published": "Published"
+    "completed": "Completed"
   },
   "costs": {
     "title": "Cost Stats",
@@ -170,6 +177,43 @@
   "settings": {
     "title": "Settings",
     "loading": "Loading...",
+    "config": {
+      "title": "Application Settings",
+      "save": "Save",
+      "saving": "Saving...",
+      "saved": "Settings saved",
+      "saveFailed": "Failed to save settings",
+      "aiProvider": "AI Provider",
+      "pipelineAi": "Pipeline AI Settings",
+      "apiKeys": "API Keys",
+      "collection": "News Collection",
+      "voice": "Voice / TTS",
+      "visual": "Visual",
+      "googleDrive": "Google Drive Export",
+      "enabled": "Enabled",
+      "notSet": "Not set",
+      "edit": "Edit",
+      "cancel": "Cancel",
+      "enterValue": "Enter value...",
+      "setupGuide": "Setup Guide",
+      "driveAuth": "Authenticate with Google",
+      "driveReAuth": "Re-authenticate",
+      "driveConnected": "Connected",
+      "driveNotConnected": "Not connected",
+      "driveAuthSuccess": "Google Drive authentication successful",
+      "driveAuthFailed": "Failed to get auth URL. Check Client ID/Secret",
+      "driveNeedClientId": "Please set and save OAuth Client ID and Client Secret first",
+      "googleDriveGuide": [
+        "Export analysis results to Google Drive as NotebookLM source text. The export button appears on the episode detail page after approving the analysis step",
+        "Create a project in Google Cloud Console (or use an existing one)",
+        "Enable Google Drive API under \"APIs & Services\" → \"Library\"",
+        "Configure OAuth consent screen (External for testing, add your Gmail as test user)",
+        "\"Create Credentials\" → \"OAuth client ID\" → Web application → Add http://localhost:8000/api/auth/google/drive/callback as redirect URI",
+        "Enter the Client ID and Client Secret below, then save",
+        "Click \"Authenticate with Google\" and sign in with your Google account",
+        "Enter the target folder ID (from folder URL: https://drive.google.com/drive/folders/<this-is-the-ID>)"
+      ]
+    },
     "pricing": {
       "title": "Model Pricing (per 1M tokens/chars)",
       "modelPrefix": "Model",

@@ -99,6 +99,8 @@ class EpisodeResponse(BaseModel):
     published_at: datetime | None = None
     audio_path: str | None = None
     video_path: str | None = None
+    drive_file_id: str | None = None
+    drive_file_url: str | None = None
     pipeline_steps: list[StepResponse] = []
 
     model_config = {"from_attributes": True}

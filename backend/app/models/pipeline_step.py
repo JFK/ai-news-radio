@@ -15,7 +15,6 @@ class StepName(str, enum.Enum):
     SCRIPT = "script"
     VOICE = "voice"
     VIDEO = "video"
-    PUBLISH = "publish"
 
 
 class StepStatus(str, enum.Enum):

@@ -4,8 +4,7 @@ export type StepName =
   | "analysis"
   | "script"
   | "voice"
-  | "video"
-  | "publish";
+  | "video";
 
 export type StepStatus =
   | "pending"
@@ -14,7 +13,7 @@ export type StepStatus =
   | "approved"
   | "rejected";
 
-export type EpisodeStatus = "draft" | "in_progress" | "completed" | "published";
+export type EpisodeStatus = "draft" | "in_progress" | "completed";
 
 export interface PipelineStep {
   id: number;
@@ -39,6 +38,8 @@ export interface Episode {
   published_at: string | null;
   audio_path: string | null;
   video_path: string | null;
+  drive_file_id: string | null;
+  drive_file_url: string | null;
   pipeline_steps: PipelineStep[];
 }
 
@@ -159,4 +160,18 @@ export interface PromptHistory {
   default_content: string;
   active_version: number | null;
   versions: PromptTemplateVersion[];
+}
+
+export interface DriveExportResponse {
+  episode_id: number;
+  drive_file_id: string;
+  drive_file_url: string;
+  source_text_length: number;
+  input_tokens: number;
+  output_tokens: number;
+}
+
+export interface AppSettings {
+  settings: Record<string, string>;
+  masked_keys: string[];
 }

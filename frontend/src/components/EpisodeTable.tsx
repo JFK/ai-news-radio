@@ -6,7 +6,6 @@ const STATUS_STYLES: Record<EpisodeStatus, { bg: string; text: string }> = {
   draft: { bg: "bg-gray-100", text: "text-gray-700" },
   in_progress: { bg: "bg-blue-100", text: "text-blue-700" },
   completed: { bg: "bg-green-100", text: "text-green-700" },
-  published: { bg: "bg-purple-100", text: "text-purple-700" },
 };
 
 interface Props {

@@ -52,7 +52,16 @@
     "download": "ダウンロード",
     "delete": "削除",
     "deleting": "削除中...",
-    "deleteConfirm": "このエピソードを削除しますか？関連するすべてのデータ（ニュース、ステップ、メディアファイル）が削除されます。"
+    "deleteConfirm": "このエピソードを削除しますか？関連するすべてのデータ（ニュース、ステップ、メディアファイル）が削除されます。",
+    "exportToDrive": "分析結果をGoogle Driveにエクスポート",
+    "reExportToDrive": "分析結果を再エクスポート",
+    "exporting": "エクスポート中...",
+    "exportSuccess": "エクスポート完了",
+    "exportFailed": "エクスポートに失敗しました",
+    "driveLink": "Google Driveで開く",
+    "markComplete": "完了にする",
+    "markIncomplete": "進行中に戻す",
+    "toggling": "更新中..."
   },
   "approval": {
     "title": "承認ゲート",
@@ -81,8 +90,7 @@
     "analysis": "分析",
     "script": "台本生成",
     "voice": "音声生成",
-    "video": "動画化",
-    "publish": "YouTube投稿"
+    "video": "動画化"
   },
   "stepStatus": {
     "pending": "待機中",
@@ -94,8 +102,7 @@
   "episodeStatus": {
     "draft": "下書き",
     "in_progress": "進行中",
-    "completed": "完了",
-    "published": "公開済"
+    "completed": "完了"
   },
   "costs": {
     "title": "コスト統計",
@@ -170,6 +177,43 @@
   "settings": {
     "title": "設定",
     "loading": "読み込み中...",
+    "config": {
+      "title": "アプリケーション設定",
+      "save": "保存",
+      "saving": "保存中...",
+      "saved": "設定を保存しました",
+      "saveFailed": "設定の保存に失敗しました",
+      "aiProvider": "AI プロバイダー",
+      "pipelineAi": "パイプライン AI 設定",
+      "apiKeys": "API キー",
+      "collection": "ニュース収集",
+      "voice": "音声生成",
+      "visual": "ビジュアル",
+      "googleDrive": "Google Drive エクスポート",
+      "enabled": "有効",
+      "notSet": "未設定",
+      "edit": "編集",
+      "cancel": "キャンセル",
+      "enterValue": "値を入力...",
+      "setupGuide": "セットアップ手順",
+      "driveAuth": "Googleアカウント認証",
+      "driveReAuth": "再認証",
+      "driveConnected": "認証済み",
+      "driveNotConnected": "未認証",
+      "driveAuthSuccess": "Google Driveの認証が完了しました",
+      "driveAuthFailed": "認証URLの取得に失敗しました。Client ID/Secretを確認してください",
+      "driveNeedClientId": "先にOAuth Client IDとClient Secretを設定・保存してください",
+      "googleDriveGuide": [
+        "分析結果をNotebookLM用のソーステキストとしてGoogle Driveにエクスポートする機能です。分析ステップの承認後、エピソード詳細画面にエクスポートボタンが表示されます",
+        "Google Cloud Console でプロジェクトを作成（または既存を使用）",
+        "「APIとサービス」→「ライブラリ」から Google Drive API を有効化",
+        "「APIとサービス」→「認証情報」→「OAuth 同意画面」を設定（テスト用は外部・テストユーザーに自分のGmailを追加）",
+        "「認証情報を作成」→「OAuth クライアント ID」→ ウェブアプリケーション → リダイレクトURIに http://localhost:8000/api/auth/google/drive/callback を追加",
+        "作成されたClient IDとClient Secretを下の欄に入力して保存",
+        "「Googleアカウント認証」ボタンを押して、Googleアカウントでログイン",
+        "エクスポート先のフォルダIDを入力（フォルダURL: https://drive.google.com/drive/folders/<ここがID>）"
+      ]
+    },
     "pricing": {
       "title": "モデル料金テーブル（per 1M tokens/chars）",
       "modelPrefix": "モデル",

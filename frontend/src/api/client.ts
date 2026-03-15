@@ -12,6 +12,8 @@ import type {
   PromptSummary,
   PromptHistory,
   PromptTemplateVersion,
+  DriveExportResponse,
+  AppSettings,
 } from "../types";
 
 const client = axios.create({
@@ -70,6 +72,21 @@ export const api = {
   createDictionary: (data: { surface: string; reading: string; priority: number }) =>
     client.post<Pronunciation>("/dictionary", data),
   deleteDictionary: (id: number) => client.delete(`/dictionary/${id}`),
+  // Settings
+  getSettings: () => client.get<AppSettings>("/settings"),
+  updateSettings: (settings: Record<string, string>) =>
+    client.put<{ updated: string[] }>("/settings", { settings }),
+  // Toggle complete
+  toggleComplete: (episodeId: number) =>
+    client.post<Episode>(`/episodes/${episodeId}/toggle-complete`),
+  // Drive export
+  exportToDrive: (episodeId: number) =>
+    client.post<DriveExportResponse>(`/episodes/${episodeId}/export/drive`),
+  // Google Drive OAuth
+  getGoogleDriveAuthUrl: () =>
+    client.get<{ auth_url: string }>("/auth/google/drive/url"),
+  getGoogleDriveAuthStatus: () =>
+    client.get<{ authenticated: boolean; client_id_configured: boolean }>("/auth/google/drive/status"),
 };
 
 export default client;

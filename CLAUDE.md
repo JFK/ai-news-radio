@@ -60,6 +60,8 @@ git@github.com:JFK/ai-news-radio.git
 [1.収集] → ✅ → [2.ファクトチェック] → ✅ → [3.分析] → ✅ → [4.台本生成] → ✅ → [5.音声生成] → ✅ → [6.動画化]
 ```
 
+エピソードはいつでも「完了」としてマーク可能（全ステップ未完了でもOK）。分析+エクスポートのみで完了とするユースケースに対応。
+
 各ステップの状態: `pending` → `running` → `needs_approval` → `approved` / `rejected` → (次ステップへ or 差し戻し)
 
 ### 各ステップの役割
@@ -84,6 +86,7 @@ git@github.com:JFK/ai-news-radio.git
   - ステップごとにモデル変更可能
 - **音声**: VOICEVOX (ローカルDockerコンテナ、CPU版)
 - **動画**: FFmpeg + Google Imagen 4（背景・サムネイル生成、staticフォールバック可）
+- **エクスポート**: Google Drive API（NotebookLM 用ソーステキスト出力、OAuth 2.0）
 - **インフラ**: Docker Compose (Ubuntu 22.04+ 推奨)
 
 ### AI プロバイダー抽象化
@@ -114,6 +117,8 @@ PIPELINE_ANALYSIS_PROVIDER=anthropic
 PIPELINE_ANALYSIS_MODEL=claude-sonnet-4-20250514
 PIPELINE_SCRIPT_PROVIDER=anthropic
 PIPELINE_SCRIPT_MODEL=claude-sonnet-4-20250514
+PIPELINE_EXPORT_PROVIDER=anthropic
+PIPELINE_EXPORT_MODEL=claude-sonnet-4-20250514
 ```
 
 ### コスト追跡
@@ -126,7 +131,7 @@ PIPELINE_SCRIPT_MODEL=claude-sonnet-4-20250514
 ai-news-radio/
 ├── CLAUDE.md
 ├── README.md
-├── LICENSE                      # MIT
+├── LICENSE                      # Apache 2.0
 ├── docker-compose.yml
 ├── .env.example
 ├── backend/
@@ -141,11 +146,14 @@ ai-news-radio/
 │   │   │   ├── episode.py       # エピソード (1回の放送)
 │   │   │   ├── news_item.py     # 個別ニュース記事
 │   │   │   ├── pipeline_step.py # パイプラインステップ状態
-│   │   │   └── api_usage.py     # APIコスト追跡
+│   │   │   ├── api_usage.py     # APIコスト追跡
+│   │   │   └── app_setting.py   # WebUI設定永続化
 │   │   ├── api/
 │   │   │   ├── episodes.py
 │   │   │   ├── pipeline.py      # 承認/却下 API
 │   │   │   ├── stats.py         # コスト統計 API
+│   │   │   ├── settings.py      # WebUI設定 API
+│   │   │   ├── google_auth.py   # Google Drive OAuth
 │   │   │   └── health.py
 │   │   ├── pipeline/
 │   │   │   ├── base.py          # BaseStep 抽象クラス
@@ -162,7 +170,9 @@ ai-news-radio/
 │   │   │   │   ├── openai.py    # OpenAI API
 │   │   │   │   └── google.py    # Gemini API
 │   │   │   ├── voicevox.py      # VOICEVOX API wrapper
-│   │   │   └── brave_search.py  # Brave Search API
+│   │   │   ├── brave_search.py  # Brave Search API
+│   │   │   ├── google_drive.py  # Google Drive API wrapper
+│   │   │   └── export_source_text.py  # NotebookLM エクスポート
 │   │   └── tasks.py             # Celery tasks
 │   └── tests/
 ├── frontend/
@@ -190,6 +200,7 @@ ai-news-radio/
 
 ### Episode（エピソード = 1回の放送）
 - id, title, status, created_at, published_at
+- drive_file_id, drive_file_url (Google Drive エクスポート)
 - has_many: NewsItem, PipelineStep
 
 ### NewsItem（個別ニュース）
@@ -209,6 +220,11 @@ ai-news-radio/
 - id, episode_id, step_name, provider, model
 - input_tokens, output_tokens, cost_usd
 - created_at
+
+### AppSetting（設定永続化）
+- key (PK), value, updated_at
+- `.env` → DB override → WebUI の優先順位で設定を管理
+- 起動時に DB から読み込み、WebUI で変更するとリアルタイム反映
 
 ## 設計原則
 
