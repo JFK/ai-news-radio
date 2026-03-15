@@ -58,6 +58,10 @@ async def get_step_logs(episode_id: int, step_name: str) -> dict:
         return {"logs": []}
 
 
+# Hold references to background tasks so they don't get GC'd
+_background_tasks: set[asyncio.Task] = set()
+
+
 async def _run_step_background(episode_id: int, step_name: StepName, **kwargs) -> None:
     """Execute a pipeline step in the background."""
     try:
@@ -106,7 +110,9 @@ async def run_step(
     kwargs = {}
     if body and body.queries and step_enum == StepName.COLLECTION:
         kwargs["queries"] = body.queries
-    asyncio.create_task(_run_step_background(episode_id, step_enum, **kwargs))
+    task = asyncio.create_task(_run_step_background(episode_id, step_enum, **kwargs))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     # Return current step (will show RUNNING after base.run() sets it)
     await session.refresh(step)

@@ -45,24 +45,23 @@ function StepLogs({ episodeId, stepName, isRunning }: { episodeId: number; stepN
   }, [episodeId, stepName]);
 
   useEffect(() => {
-    if (!isRunning) {
-      setLogs([]);
-      return;
-    }
+    // Always fetch once to show logs (even for completed steps)
     fetchLogs();
+    if (!isRunning) return;
     const timer = setInterval(fetchLogs, 3000);
     return () => clearInterval(timer);
   }, [isRunning, fetchLogs]);
 
   useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [logs]);
+    if (isRunning) {
+      logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [logs, isRunning]);
 
-  if (!isRunning || logs.length === 0) return null;
+  if (logs.length === 0) return null;
 
-  return (
-    <div className="mt-2 mb-3 bg-gray-900 rounded-md p-3 max-h-40 overflow-y-auto">
-      <p className="text-xs text-gray-400 mb-1">{t("episode.progressLogs")}</p>
+  const logContent = (
+    <div className="bg-gray-900 rounded-md p-3 max-h-40 overflow-y-auto">
       {logs.map((log, i) => (
         <div key={i} className="text-xs text-green-400 font-mono leading-5">
           <span className="text-gray-500">{new Date(log.timestamp).toLocaleTimeString("ja-JP")}</span>{" "}
@@ -71,6 +70,24 @@ function StepLogs({ episodeId, stepName, isRunning }: { episodeId: number; stepN
       ))}
       <div ref={logsEndRef} />
     </div>
+  );
+
+  if (isRunning) {
+    return (
+      <div className="mt-2 mb-3">
+        <p className="text-xs text-gray-400 mb-1">{t("episode.progressLogs")}</p>
+        {logContent}
+      </div>
+    );
+  }
+
+  return (
+    <details className="mt-2 mb-3">
+      <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600">
+        {t("episode.progressLogs")}
+      </summary>
+      <div className="mt-1">{logContent}</div>
+    </details>
   );
 }
 
