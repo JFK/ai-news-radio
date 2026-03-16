@@ -139,3 +139,11 @@ async def upload_logo(
     await session.commit()
 
     return {"path": logo_path}
+
+
+@router.get("/settings/se-presets")
+async def list_se_presets() -> dict:
+    """List available sound effect presets per position."""
+    from app.services.sound_effects import SE_PRESETS
+
+    return {"presets": SE_PRESETS}

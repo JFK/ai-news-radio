@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     gemini_tts_voice: str = "Kore"  # Prebuilt voice name
     gemini_tts_instructions: str = "落ち着いたニュースキャスターのように、明瞭で聞き取りやすく話してください"
 
+    # Sound Effects (SE)
+    se_intro: str = "intro_chime"  # Preset name or "none"
+    se_transition: str = "transition_chime"  # Preset name or "none"
+    se_outro: str = "outro_chime"  # Preset name or "none"
+
     # VOICEVOX
     voicevox_host: str = "http://voicevox:50021"
     voicevox_speaker_id: int = 3  # ずんだもん

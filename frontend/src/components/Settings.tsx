@@ -167,6 +167,14 @@ function ConfigSection() {
       ],
     },
     {
+      title: t("settings.config.soundEffects"),
+      fields: [
+        { key: "se_intro", label: t("settings.config.fields.se_intro"), type: "select", options: ["intro_chime", "none"], optionLabels: { intro_chime: "Chime (ascending)", none: "None" } },
+        { key: "se_transition", label: t("settings.config.fields.se_transition"), type: "select", options: ["transition_chime", "transition_swoosh", "none"], optionLabels: { transition_chime: "Chime (ding)", transition_swoosh: "Swoosh (sweep)", none: "None" } },
+        { key: "se_outro", label: t("settings.config.fields.se_outro"), type: "select", options: ["outro_chime", "none"], optionLabels: { outro_chime: "Chime (descending)", none: "None" } },
+      ],
+    },
+    {
       title: t("settings.config.visual"),
       fields: [
         { key: "visual_provider", label: t("settings.config.fields.visual_provider"), type: "select", options: ["static", "google"] },
