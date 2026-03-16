@@ -79,6 +79,7 @@ function ConfigSection() {
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [driveAuthStatus, setDriveAuthStatus] = useState<{ authenticated: boolean; client_id_configured: boolean } | null>(null);
   const [sePresets, setSePresets] = useState<Record<string, { value: string; label: string }[]>>({});
+  const seUploadRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Fetch model names from pricing table
   useEffect(() => {
@@ -477,7 +478,9 @@ function ConfigSection() {
       const position = field.key.replace("se_", "");
       const presets = sePresets[position] || [];
       const isCustom = value?.startsWith("custom_");
-      const seUrl = isCustom ? `/media/se/${value}.wav` : `/static/se/${value}.wav`;
+      const showUpload = value === "__upload__";
+      const hasSelection = value && value !== "none" && value !== "__upload__";
+      const seUrl = hasSelection ? (isCustom ? `/media/se/${value}.wav` : `/static/se/${value}.wav`) : "";
 
       const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -493,8 +496,18 @@ function ConfigSection() {
           }
         } catch (err) {
           console.error("SE upload failed:", err);
+          handleChange(field.key, "none");
         }
         e.target.value = "";
+      };
+
+      const handleSelectChange = (newValue: string) => {
+        if (newValue === "__upload__") {
+          handleChange(field.key, "__upload__");
+          setTimeout(() => seUploadRefs.current[field.key]?.click(), 100);
+        } else {
+          handleChange(field.key, newValue);
+        }
       };
 
       return (
@@ -502,16 +515,18 @@ function ConfigSection() {
           <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
           <div className="flex items-center gap-2 flex-wrap">
             <select
-              value={value}
-              onChange={(e) => handleChange(field.key, e.target.value)}
+              value={showUpload ? "__upload__" : value}
+              onChange={(e) => handleSelectChange(e.target.value)}
               className="px-2 py-1.5 border border-gray-300 rounded text-sm max-w-xs bg-white"
             >
               <option value="">--</option>
               {presets.map((p) => (
                 <option key={p.value} value={p.value}>{p.label}</option>
               ))}
+              <option value="__upload__">{t("settings.config.seUpload")}...</option>
             </select>
-            {value && value !== "none" && (
+            <input ref={(el) => { seUploadRefs.current[field.key] = el; }} type="file" accept=".wav" className="hidden" onChange={handleUpload} />
+            {hasSelection && (
               <>
                 <button
                   type="button"
@@ -537,13 +552,6 @@ function ConfigSection() {
                 </a>
               </>
             )}
-            <label className="px-2 py-1 text-xs text-green-600 hover:text-green-800 border border-green-300 rounded font-medium cursor-pointer flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-              </svg>
-              {t("settings.config.seUpload")}
-              <input type="file" accept=".wav" className="hidden" onChange={handleUpload} />
-            </label>
             {isCustom && (
               <button
                 type="button"
