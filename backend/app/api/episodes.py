@@ -93,6 +93,8 @@ async def update_episode(
 
     if "title" in body:
         episode.title = body["title"]
+    if "shorts_enabled" in body:
+        episode.shorts_enabled = bool(body["shorts_enabled"])
 
     await session.commit()
     return await engine.get_episode_with_steps(episode_id, session)

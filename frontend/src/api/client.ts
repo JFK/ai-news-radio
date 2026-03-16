@@ -32,7 +32,7 @@ export const api = {
     client.get<PipelineStep[]>(`/episodes/${episodeId}/steps`),
   getNewsItems: (episodeId: number) =>
     client.get<NewsItem[]>(`/episodes/${episodeId}/news-items`),
-  updateEpisode: (episodeId: number, data: { title: string }) =>
+  updateEpisode: (episodeId: number, data: { title?: string; shorts_enabled?: boolean }) =>
     client.patch<Episode>(`/episodes/${episodeId}`, data),
   deleteEpisode: (episodeId: number) =>
     client.delete(`/episodes/${episodeId}`),

@@ -370,10 +370,35 @@ export default function EpisodeDetail() {
               </a>
             </div>
           )}
+          {/* Shorts audio (right after main audio) */}
+          {(() => {
+            const voiceStep2 = steps.find((s) => s.step_name === "voice");
+            const voiceOutput = voiceStep2?.output_data as Record<string, unknown> | null;
+            const shorts = voiceOutput?.shorts as Array<{news_item_id: number; file: string; duration_seconds: number; mode: string; caption?: string}> | undefined;
+            if (!shorts?.length) return null;
+            return (
+              <div>
+                <p className="text-xs text-gray-500 mb-1">{t("episode.voiceShorts")}</p>
+                <div className="space-y-2">
+                  {shorts.map((s, i) => (
+                    <div key={i} className="border border-orange-200 rounded-lg p-2 bg-orange-50">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-orange-700">Short #{i + 1}</span>
+                        <span className="text-xs text-gray-500">{s.duration_seconds}s</span>
+                      </div>
+                      <audio controls className="w-full h-8" src={`${MEDIA_BASE_URL}/${s.file}`} />
+                      {s.caption && <p className="text-xs text-gray-500 mt-1 italic">{s.caption}</p>}
+                      <a href={`${MEDIA_BASE_URL}/${s.file}`} download className="text-xs text-blue-600 hover:underline mt-1 inline-block">{t("episode.download")}</a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
           {episode.video_path && (
             <div>
               <p className="text-xs text-gray-500 mb-1">{t("episode.video")}</p>
-              <video controls className="w-full rounded" src={`${MEDIA_BASE_URL}/${episode.video_path}`} />
+              <video controls className="max-w-lg rounded" src={`${MEDIA_BASE_URL}/${episode.video_path}`} />
               <a
                 href={`${MEDIA_BASE_URL}/${episode.video_path}`}
                 download
@@ -475,6 +500,23 @@ export default function EpisodeDetail() {
               )}
             </div>
           </div>
+
+          {activeStep.step_name === "script" && canRunStep(activeStep) && (
+            <div className="mb-3 flex items-center gap-3">
+              <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={episode.shorts_enabled}
+                  onChange={async (e) => {
+                    await api.updateEpisode(episode.id, { shorts_enabled: e.target.checked });
+                    refetch();
+                  }}
+                  className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                />
+                {t("episode.shortsEnabled")}
+              </label>
+            </div>
+          )}
 
           {activeStep.step_name === "voice" && canRunStep(activeStep) && (
             <div className="mb-3 flex items-center gap-3 flex-wrap">
