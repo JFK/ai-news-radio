@@ -54,7 +54,7 @@ export default function Settings() {
 interface FieldDef {
   key: string;
   label: string;
-  type: "text" | "password" | "number" | "select" | "checkbox" | "textarea" | "model" | "file" | "color";
+  type: "text" | "password" | "number" | "select" | "checkbox" | "textarea" | "model" | "file" | "color" | "se_select";
   options?: string[];
   optionLabels?: Record<string, string>;
   wide?: boolean;
@@ -169,9 +169,9 @@ function ConfigSection() {
     {
       title: t("settings.config.soundEffects"),
       fields: [
-        { key: "se_intro", label: t("settings.config.fields.se_intro"), type: "select", options: ["intro_chime", "none"], optionLabels: { intro_chime: "Chime (ascending)", none: "None" } },
-        { key: "se_transition", label: t("settings.config.fields.se_transition"), type: "select", options: ["transition_chime", "transition_swoosh", "none"], optionLabels: { transition_chime: "Chime (ding)", transition_swoosh: "Swoosh (sweep)", none: "None" } },
-        { key: "se_outro", label: t("settings.config.fields.se_outro"), type: "select", options: ["outro_chime", "none"], optionLabels: { outro_chime: "Chime (descending)", none: "None" } },
+        { key: "se_intro", label: t("settings.config.fields.se_intro"), type: "se_select", options: ["intro_chime", "none"], optionLabels: { intro_chime: "Chime (ascending)", none: "None" } },
+        { key: "se_transition", label: t("settings.config.fields.se_transition"), type: "se_select", options: ["transition_chime", "transition_swoosh", "none"], optionLabels: { transition_chime: "Chime (ding)", transition_swoosh: "Swoosh (sweep)", none: "None" } },
+        { key: "se_outro", label: t("settings.config.fields.se_outro"), type: "se_select", options: ["outro_chime", "none"], optionLabels: { outro_chime: "Chime (descending)", none: "None" } },
       ],
     },
     {
@@ -456,6 +456,42 @@ function ConfigSection() {
                 className="px-2 py-1 text-xs text-red-600 hover:text-red-800 border border-red-300 rounded cursor-pointer"
               >
                 {t("settings.config.fields.removeLogo")}
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (field.type === "se_select") {
+      const seBaseUrl = "/static/se";
+      return (
+        <div key={field.key}>
+          <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
+          <div className="flex items-center gap-2">
+            <select
+              value={value}
+              onChange={(e) => handleChange(field.key, e.target.value)}
+              className="px-2 py-1.5 border border-gray-300 rounded text-sm max-w-xs bg-white"
+            >
+              <option value="">--</option>
+              {field.options?.map((opt) => (
+                <option key={opt} value={opt}>{field.optionLabels?.[opt] ?? opt}</option>
+              ))}
+            </select>
+            {value && value !== "none" && (
+              <button
+                type="button"
+                onClick={() => {
+                  const audio = new Audio(`${seBaseUrl}/${value}.wav`);
+                  audio.play().catch(() => {});
+                }}
+                className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-300 rounded font-medium cursor-pointer flex items-center gap-1"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                </svg>
+                {t("settings.config.sePreview")}
               </button>
             )}
           </div>

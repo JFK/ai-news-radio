@@ -259,6 +259,7 @@
         "google_drive_client_secret": "OAuth Client Secret",
         "google_drive_folder_id": "Google Drive Folder ID"
       },
+      "sePreview": "Preview",
       "enabled": "Enabled",
       "notSet": "Not set",
       "edit": "Edit",

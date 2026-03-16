@@ -259,6 +259,7 @@
         "google_drive_client_secret": "OAuth クライアント シークレット",
         "google_drive_folder_id": "Google Drive フォルダ ID"
       },
+      "sePreview": "試聴",
       "enabled": "有効",
       "notSet": "未設定",
       "edit": "編集",
