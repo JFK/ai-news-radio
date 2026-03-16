@@ -40,6 +40,7 @@
     "pipeline": "パイプライン",
     "selectStep": "ステップをクリックして詳細を表示してください。",
     "runStep": "ステップを実行",
+    "reRunStep": "再実行",
     "running": "実行中...",
     "started": "開始",
     "completed": "完了",

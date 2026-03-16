@@ -466,7 +466,11 @@ export default function EpisodeDetail() {
                   disabled={runningStep}
                   className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
                 >
-                  {runningStep ? t("episode.running") : t("episode.runStep")}
+                  {runningStep
+                    ? t("episode.running")
+                    : activeStep.status === "approved" || activeStep.status === "needs_approval"
+                      ? t("episode.reRunStep")
+                      : t("episode.runStep")}
                 </button>
               )}
             </div>
