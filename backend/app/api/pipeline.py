@@ -11,6 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings as app_settings
 
+from pydantic import BaseModel
+
 from app.api.schemas import (
     ApproveRequest,
     EpisodeScriptEditRequest,
@@ -232,3 +234,31 @@ async def edit_episode_script(
     await session.commit()
 
     return {"old_length": len(old_script), "new_length": len(body.episode_script)}
+
+
+class ScriptModeRequest(BaseModel):
+    """Request body for setting script mode."""
+    script_mode: str  # "explainer" | "solo" | None (auto)
+
+
+@router.patch("/episodes/{episode_id}/news-items/{news_item_id}/script-mode")
+async def set_script_mode(
+    episode_id: int,
+    news_item_id: int,
+    body: ScriptModeRequest,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Set the script mode for a news item (explainer/solo/auto)."""
+    result = await session.execute(
+        select(NewsItem).where(NewsItem.id == news_item_id, NewsItem.episode_id == episode_id)
+    )
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="News item not found")
+
+    if body.script_mode not in ("explainer", "solo", "auto"):
+        raise HTTPException(status_code=400, detail="Invalid script_mode. Must be 'explainer', 'solo', or 'auto'")
+
+    item.script_mode = None if body.script_mode == "auto" else body.script_mode
+    await session.commit()
+    return {"news_item_id": news_item_id, "script_mode": body.script_mode}

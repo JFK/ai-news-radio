@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models import Episode, Pronunciation, StepName
+from app.models.speaker_profile import SpeakerProfile
 from app.pipeline.base import BaseStep
 from app.services.sound_effects import load_se
 from app.services.tts_provider import get_tts_provider
@@ -47,6 +48,26 @@ class VoiceStep(BaseStep):
         audio_format = provider.audio_format
         use_ssml = settings.pipeline_voice_provider == "google"  # SSML only for Cloud TTS, not Gemini
 
+        # Load speaker profiles for multi-speaker synthesis
+        speakers_result = await session.execute(select(SpeakerProfile))
+        speakers_by_role: dict[str, SpeakerProfile] = {}
+        for sp in speakers_result.scalars():
+            speakers_by_role[sp.role] = sp
+
+        # Create multi-speaker provider if we have anchor + expert
+        multi_provider = None
+        anchor = speakers_by_role.get("anchor")
+        expert = speakers_by_role.get("expert")
+        if anchor and expert and settings.pipeline_voice_provider == "gemini":
+            from app.services.tts_gemini_multi import GeminiMultiSpeakerTTSProvider
+            multi_provider = GeminiMultiSpeakerTTSProvider(
+                model=tts_model_override or settings.gemini_tts_model,
+                speaker_a_voice=anchor.voice_name,
+                speaker_b_voice=expert.voice_name,
+                speaker_a_instructions=anchor.voice_instructions or "",
+                speaker_b_instructions=expert.voice_instructions or "",
+            )
+
         # Load pronunciation dictionary
         pron_result = await session.execute(
             select(Pronunciation).order_by(Pronunciation.priority.desc(), Pronunciation.id)
@@ -73,12 +94,15 @@ class VoiceStep(BaseStep):
 
         for i, item in enumerate(items):
             if item.script_text:
-                sections.append({
+                section: dict = {
                     "key": f"news_{item.id}",
                     "label": item.title,
                     "text": item.script_text,
                     "news_item_id": item.id,
-                })
+                }
+                if item.script_data and isinstance(item.script_data, dict):
+                    section["script_data"] = item.script_data
+                sections.append(section)
             if i < len(transitions) and transitions[i]:
                 sections.append({"key": f"transition_{i}", "label": f"つなぎ{i + 1}", "text": transitions[i]})
 
@@ -128,7 +152,27 @@ class VoiceStep(BaseStep):
                     episode_id, section["key"], len(tts_text),
                 )
 
-            audio_bytes = await provider.synthesize(tts_input)
+            # Use multi-speaker for dialogue sections, single-speaker otherwise
+            script_data = section.get("script_data")
+            if (
+                script_data
+                and isinstance(script_data, dict)
+                and script_data.get("mode") == "explainer"
+                and multi_provider
+            ):
+                dialogue = script_data.get("dialogue", [])
+                # Apply pronunciation to each dialogue turn
+                processed_dialogue = []
+                for turn in dialogue:
+                    processed_text = self._prepare_tts_text(turn.get("text", ""), pronunciations)
+                    processed_dialogue.append({"speaker": turn.get("speaker", "speaker_a"), "text": processed_text})
+                audio_bytes = await multi_provider.synthesize_dialogue(processed_dialogue)
+                logger.info(
+                    "Episode %d: multi-speaker synthesis for section '%s' (%d turns)",
+                    episode_id, section["key"], len(dialogue),
+                )
+            else:
+                audio_bytes = await provider.synthesize(tts_input)
 
             # Generate silence chunk matching the sample rate of the first WAV
             if silence_chunk is None and audio_format == "wav":
@@ -236,6 +280,10 @@ class VoiceStep(BaseStep):
             if provider_name == "gemini" and hasattr(provider, "total_input_tokens"):
                 input_tokens = provider.total_input_tokens
                 output_tokens = provider.total_output_tokens
+                # Include multi-speaker provider tokens
+                if multi_provider:
+                    input_tokens += multi_provider.total_input_tokens
+                    output_tokens += multi_provider.total_output_tokens
 
             await self.record_usage(
                 session=session,

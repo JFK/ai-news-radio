@@ -179,7 +179,12 @@
       "save": "保存",
       "saving": "保存中...",
       "cancel": "キャンセル",
-      "sources": "ソース"
+      "sources": "ソース",
+      "mode": "モード",
+      "modeAuto": "自動（AI推奨）",
+      "modeExplainer": "MC＋解説",
+      "modeSolo": "ソロ",
+      "modeChangeConfirm": "モードを「{{mode}}」に変更しますか？台本ステップの再実行が必要になります。"
     },
     "video": {
       "youtubeMetadata": "YouTube メタデータ",

@@ -46,6 +46,8 @@ export const api = {
     client.post<PipelineStep>(`/steps/${stepId}/reject`, { reason }),
   editItemScript: (episodeId: number, newsItemId: number, scriptText: string) =>
     client.patch(`/episodes/${episodeId}/news-items/${newsItemId}/script`, { script_text: scriptText }),
+  setScriptMode: (episodeId: number, newsItemId: number, scriptMode: string) =>
+    client.patch(`/episodes/${episodeId}/news-items/${newsItemId}/script-mode`, { script_mode: scriptMode }),
   editEpisodeScript: (episodeId: number, episodeScript: string) =>
     client.patch(`/episodes/${episodeId}/steps/script/output`, { episode_script: episodeScript }),
   getCostStats: (from?: string, to?: string) => {

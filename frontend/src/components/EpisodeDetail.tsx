@@ -335,6 +335,20 @@ export default function EpisodeDetail() {
         </div>
       </div>
 
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <h3 className="text-sm font-medium text-gray-600">{t("episode.pipeline")}</h3>
+          {!activeStep && selectedStep === null && (
+            <span className="text-xs text-gray-400">{t("episode.selectStep")}</span>
+          )}
+        </div>
+        <PipelineView
+          steps={steps}
+          selectedStep={selectedStep}
+          onSelectStep={setSelectedStep}
+        />
+      </div>
+
       {(episode.audio_path || episode.video_path) && (() => {
         const videoStep = steps.find((s) => s.step_name === "video");
         const videoOutputData = videoStep?.output_data as Record<string, unknown> | null;
@@ -432,15 +446,6 @@ export default function EpisodeDetail() {
           </div>
         </PersistentDetails>
       )}
-
-      <div className="mb-6">
-        <h3 className="text-sm font-medium text-gray-600 mb-2">{t("episode.pipeline")}</h3>
-        <PipelineView
-          steps={steps}
-          selectedStep={selectedStep}
-          onSelectStep={setSelectedStep}
-        />
-      </div>
 
       {activeStep && (
         <div className="bg-white rounded-lg shadow p-4">
@@ -557,9 +562,6 @@ export default function EpisodeDetail() {
         </div>
       )}
 
-      {!activeStep && selectedStep === null && (
-        <p className="text-gray-500 text-sm">{t("episode.selectStep")}</p>
-      )}
     </div>
   );
 }
