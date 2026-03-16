@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models import Episode, Pronunciation, StepName
 from app.pipeline.base import BaseStep
+from app.services.sound_effects import load_se
 from app.services.tts_provider import get_tts_provider
 from app.services.tts_utils import concatenate_wav, expand_reading_hints
 
@@ -100,6 +101,7 @@ class VoiceStep(BaseStep):
         all_audio_chunks: list[bytes] = []
         silence_chunk: bytes | None = None  # Generated after first section (to match sample rate)
         total_chars = 0
+        sample_rate = 24000  # Default; updated after first TTS output
 
         for i, section in enumerate(sections):
             tts_text = self._prepare_tts_text(section["text"], pronunciations)
@@ -132,6 +134,13 @@ class VoiceStep(BaseStep):
                 sample_rate = self._get_wav_sample_rate(audio_bytes)
                 silence_chunk = self._generate_silence(_silence_seconds(), audio_format, sample_rate)
 
+            # Insert intro SE before the very first section
+            if i == 0 and audio_format == "wav":
+                se_intro = load_se(settings.se_intro, sample_rate)
+                if se_intro:
+                    all_audio_chunks.append(se_intro)
+                    logger.info("Episode %d: inserted intro SE '%s'", episode_id, settings.se_intro)
+
             # Save individual section audio
             section_filename = f"{section['key']}.{audio_format}"
             section_path = os.path.join(episode_dir, section_filename)
@@ -149,9 +158,29 @@ class VoiceStep(BaseStep):
 
             all_audio_chunks.append(audio_bytes)
 
-            # Add silence between sections (not after the last one)
-            if i < len(sections) - 1 and silence_chunk:
-                all_audio_chunks.append(silence_chunk)
+            # Add silence or SE transition between sections (not after the last one)
+            if i < len(sections) - 1:
+                inserted_se = False
+                next_key = sections[i + 1]["key"]
+                cur_key = section["key"]
+                is_news_boundary = (
+                    cur_key.startswith(("news_", "transition_"))
+                    or next_key.startswith(("news_", "transition_"))
+                )
+                if is_news_boundary and audio_format == "wav":
+                    se_trans = load_se(settings.se_transition, sample_rate)
+                    if se_trans:
+                        all_audio_chunks.append(se_trans)
+                        inserted_se = True
+                if not inserted_se and silence_chunk:
+                    all_audio_chunks.append(silence_chunk)
+
+        # Insert outro SE after the last section
+        if audio_format == "wav":
+            se_outro = load_se(settings.se_outro, sample_rate)
+            if se_outro:
+                all_audio_chunks.append(se_outro)
+                logger.info("Episode %d: inserted outro SE '%s'", episode_id, settings.se_outro)
 
         # Concatenate all sections into combined audio
         combined_audio = concatenate_wav(all_audio_chunks) if audio_format == "wav" else b"".join(all_audio_chunks)

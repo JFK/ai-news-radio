@@ -54,7 +54,7 @@ export default function Settings() {
 interface FieldDef {
   key: string;
   label: string;
-  type: "text" | "password" | "number" | "select" | "checkbox" | "textarea" | "model" | "file" | "color";
+  type: "text" | "password" | "number" | "select" | "checkbox" | "textarea" | "model" | "file" | "color" | "se_select";
   options?: string[];
   optionLabels?: Record<string, string>;
   wide?: boolean;
@@ -78,6 +78,8 @@ function ConfigSection() {
   const [editingSecrets, setEditingSecrets] = useState<Set<string>>(new Set());
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [driveAuthStatus, setDriveAuthStatus] = useState<{ authenticated: boolean; client_id_configured: boolean } | null>(null);
+  const [sePresets, setSePresets] = useState<Record<string, { value: string; label: string }[]>>({});
+  const seUploadRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Fetch model names from pricing table
   useEffect(() => {
@@ -86,6 +88,14 @@ function ConfigSection() {
       setModelOptions(models);
     }).catch(() => {});
   }, []);
+
+  // Fetch SE presets
+  const refreshSePresets = useCallback(() => {
+    fetch("/api/settings/se-presets").then((r) => r.json()).then((data) => {
+      setSePresets(data.presets || {});
+    }).catch(() => {});
+  }, []);
+  useEffect(() => { refreshSePresets(); }, [refreshSePresets]);
 
   // Fetch Google Drive auth status
   const refreshDriveAuthStatus = useCallback(() => {
@@ -164,6 +174,14 @@ function ConfigSection() {
         { key: "gemini_tts_model", label: t("settings.config.fields.gemini_tts_model"), type: "select", options: GEMINI_TTS_MODEL_VALUES, optionLabels: GEMINI_TTS_MODEL_LABELS, showWhen: { key: "pipeline_voice_provider", value: "gemini" } },
         { key: "gemini_tts_voice", label: t("settings.config.fields.gemini_tts_voice"), type: "select", options: GEMINI_TTS_VOICE_VALUES, optionLabels: GEMINI_TTS_VOICE_LABELS, showWhen: { key: "pipeline_voice_provider", value: "gemini" } },
         { key: "gemini_tts_instructions", label: t("settings.config.fields.gemini_tts_instructions"), type: "text", wide: true, showWhen: { key: "pipeline_voice_provider", value: "gemini" } },
+      ],
+    },
+    {
+      title: t("settings.config.soundEffects"),
+      fields: [
+        { key: "se_intro", label: t("settings.config.fields.se_intro"), type: "se_select" },
+        { key: "se_transition", label: t("settings.config.fields.se_transition"), type: "se_select" },
+        { key: "se_outro", label: t("settings.config.fields.se_outro"), type: "se_select" },
       ],
     },
     {
@@ -448,6 +466,103 @@ function ConfigSection() {
                 className="px-2 py-1 text-xs text-red-600 hover:text-red-800 border border-red-300 rounded cursor-pointer"
               >
                 {t("settings.config.fields.removeLogo")}
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (field.type === "se_select") {
+      // Derive position from field key: se_intro -> intro, se_transition -> transition, se_outro -> outro
+      const position = field.key.replace("se_", "");
+      const presets = sePresets[position] || [];
+      const isCustom = value?.startsWith("custom_");
+      const showUpload = value === "__upload__";
+      const hasSelection = value && value !== "none" && value !== "__upload__";
+      const seUrl = hasSelection ? (isCustom ? `/media/se/${value}.wav` : `/static/se/${value}.wav`) : "";
+
+      const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append("file", file);
+        try {
+          const res = await fetch(`/api/settings/se-upload/${position}`, { method: "POST", body: formData });
+          const data = await res.json();
+          if (data.preset_name) {
+            handleChange(field.key, data.preset_name);
+            refreshSePresets();
+          }
+        } catch (err) {
+          console.error("SE upload failed:", err);
+          handleChange(field.key, "none");
+        }
+        e.target.value = "";
+      };
+
+      const handleSelectChange = (newValue: string) => {
+        if (newValue === "__upload__") {
+          handleChange(field.key, "__upload__");
+          setTimeout(() => seUploadRefs.current[field.key]?.click(), 100);
+        } else {
+          handleChange(field.key, newValue);
+        }
+      };
+
+      return (
+        <div key={field.key}>
+          <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={showUpload ? "__upload__" : value}
+              onChange={(e) => handleSelectChange(e.target.value)}
+              className="px-2 py-1.5 border border-gray-300 rounded text-sm max-w-xs bg-white"
+            >
+              <option value="">--</option>
+              {presets.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+              <option value="__upload__">{t("settings.config.seUpload")}...</option>
+            </select>
+            <input ref={(el) => { seUploadRefs.current[field.key] = el; }} type="file" accept=".wav" className="hidden" onChange={handleUpload} />
+            {hasSelection && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => { new Audio(seUrl).play().catch(() => {}); }}
+                  className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-300 rounded font-medium cursor-pointer flex items-center gap-1"
+                  title={t("settings.config.sePreview")}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                  </svg>
+                  {t("settings.config.sePreview")}
+                </button>
+                <a
+                  href={seUrl}
+                  download={`${value}.wav`}
+                  className="px-2 py-1 text-xs text-gray-600 hover:text-gray-800 border border-gray-300 rounded font-medium flex items-center gap-1"
+                  title={t("settings.config.seDownload")}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                  {t("settings.config.seDownload")}
+                </a>
+              </>
+            )}
+            {isCustom && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await fetch(`/api/settings/se/${value}`, { method: "DELETE" });
+                  handleChange(field.key, "none");
+                  refreshSePresets();
+                }}
+                className="px-2 py-1 text-xs text-red-600 hover:text-red-800 border border-red-300 rounded cursor-pointer"
+              >
+                {t("settings.config.seDelete")}
               </button>
             )}
           </div>
