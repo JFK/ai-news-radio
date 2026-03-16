@@ -29,13 +29,16 @@ class TTSProvider(ABC):
 
 
 def get_tts_provider(
-    model: str | None = None, voice: str | None = None
+    model: str | None = None,
+    voice: str | None = None,
+    instructions: str | None = None,
 ) -> TTSProvider:
     """Factory function to get a TTS provider based on settings.
 
     Args:
         model: Override TTS model (provider-specific).
         voice: Override TTS voice name.
+        instructions: Override voice style instructions (Gemini TTS only).
     """
     provider_name = settings.pipeline_voice_provider
 
@@ -58,6 +61,6 @@ def get_tts_provider(
     elif provider_name == "gemini":
         from app.services.tts_gemini import GeminiTTSProvider
 
-        return GeminiTTSProvider(model=model, voice=voice)
+        return GeminiTTSProvider(model=model, voice=voice, instructions=instructions)
     else:
         raise ValueError(f"Unknown TTS provider: {provider_name}")

@@ -76,6 +76,28 @@ function AnalysisDetail({ data }: { data: AnalysisData }) {
           <p className="text-gray-700">{data.impact}</p>
         </div>
       )}
+
+      {data.recommended_format && (
+        <div>
+          <p className="text-xs font-medium text-gray-500 mb-1">
+            {t("stepData.analysis.recommendedFormat")}
+          </p>
+          <div className="flex items-center gap-2">
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+              data.recommended_format === "explainer"
+                ? "bg-indigo-100 text-indigo-700"
+                : "bg-gray-100 text-gray-700"
+            }`}>
+              {data.recommended_format === "explainer"
+                ? t("stepData.analysis.formatExplainer")
+                : t("stepData.analysis.formatSolo")}
+            </span>
+            {data.format_reason && (
+              <span className="text-xs text-gray-500">{data.format_reason}</span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -149,6 +171,17 @@ export default function AnalysisRenderer({ newsItems }: Props) {
             {isMerged && (
               <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500">
                 {t("stepData.analysis.merged")}
+              </span>
+            )}
+            {!isMerged && data?.recommended_format && (
+              <span className={`px-2 py-0.5 rounded-full text-xs ${
+                data.recommended_format === "explainer"
+                  ? "bg-indigo-50 text-indigo-600"
+                  : "bg-gray-50 text-gray-600"
+              }`}>
+                {data.recommended_format === "explainer"
+                  ? t("stepData.analysis.formatExplainer")
+                  : t("stepData.analysis.formatSolo")}
               </span>
             )}
             {!isMerged && data?.severity && (

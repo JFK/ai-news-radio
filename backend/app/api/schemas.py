@@ -135,6 +135,8 @@ class NewsItemResponse(BaseModel):
     reference_urls: list[str] | None = None
     analysis_data: dict | None = None
     script_text: str | None = None
+    script_mode: str | None = None
+    script_data: dict | None = None
     group_id: int | None = None
     is_group_primary: bool | None = None
     excluded: bool = False

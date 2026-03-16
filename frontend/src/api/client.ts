@@ -14,6 +14,7 @@ import type {
   PromptTemplateVersion,
   DriveExportResponse,
   AppSettings,
+  SpeakerProfile,
 } from "../types";
 
 const client = axios.create({
@@ -80,6 +81,19 @@ export const api = {
   getSettings: () => client.get<AppSettings>("/settings"),
   updateSettings: (settings: Record<string, string>) =>
     client.put<{ updated: string[] }>("/settings", { settings }),
+  // Speakers
+  getSpeakers: () => client.get<SpeakerProfile[]>("/speakers"),
+  createSpeaker: (data: { name: string; role: string; voice_name?: string; voice_instructions?: string; avatar_position?: string; description?: string }) =>
+    client.post<SpeakerProfile>("/speakers", data),
+  updateSpeaker: (id: number, data: { name: string; role: string; voice_name?: string; voice_instructions?: string; avatar_position?: string; description?: string }) =>
+    client.put<SpeakerProfile>(`/speakers/${id}`, data),
+  deleteSpeaker: (id: number) => client.delete(`/speakers/${id}`),
+  uploadAvatar: (id: number, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return client.post<SpeakerProfile>(`/speakers/${id}/avatar`, form);
+  },
+  deleteAvatar: (id: number) => client.delete<SpeakerProfile>(`/speakers/${id}/avatar`),
   // Toggle complete
   toggleComplete: (episodeId: number) =>
     client.post<Episode>(`/episodes/${episodeId}/toggle-complete`),

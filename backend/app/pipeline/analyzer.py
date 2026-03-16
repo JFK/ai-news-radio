@@ -43,8 +43,14 @@ ANALYSIS_SYSTEM_PROMPT = """\
   "impact": "一般市民の生活への具体的な影響",
   "uncertainties": "不確実な点、確認できない点",
   "severity": "high または medium または low（ニュースの重要度）",
-  "topics": ["関連トピックタグ1", "関連トピックタグ2"]
-}"""
+  "topics": ["関連トピックタグ1", "関連トピックタグ2"],
+  "recommended_format": "explainer または solo（推奨される台本フォーマット）",
+  "format_reason": "推奨理由の簡潔な説明"
+}
+
+recommended_format の判定基準:
+- 専門的・技術的テーマ、背景説明が多い、複数視点あり、データ検証が必要 → "explainer"（MC＋解説者の2人対話形式）
+- 速報・シンプルなニュース、単一視点で十分、短い報告 → "solo"（1人ナレーション）"""
 
 ANALYSIS_GROUPING_SYSTEM_PROMPT = """\
 あなたはニュース記事の類似性を判定する専門家です。
@@ -103,8 +109,14 @@ ANALYSIS_GROUP_SYSTEM_PROMPT = """\
   "uncertainties": "不確実な点、確認できない点",
   "source_comparison": "各ソース間の報道の一致点・相違点",
   "severity": "high または medium または low（ニュースの重要度）",
-  "topics": ["関連トピックタグ1", "関連トピックタグ2"]
-}"""
+  "topics": ["関連トピックタグ1", "関連トピックタグ2"],
+  "recommended_format": "explainer または solo（推奨される台本フォーマット）",
+  "format_reason": "推奨理由の簡潔な説明"
+}
+
+recommended_format の判定基準:
+- 専門的・技術的テーマ、背景説明が多い、複数視点あり、ソース間の比較が必要 → "explainer"（MC＋解説者の2人対話形式）
+- 速報・シンプルなニュース、単一視点で十分、短い報告 → "solo"（1人ナレーション）"""
 
 register_default(PROMPT_KEY, ANALYSIS_SYSTEM_PROMPT)
 register_default(PROMPT_KEY_GROUPING, ANALYSIS_GROUPING_SYSTEM_PROMPT)

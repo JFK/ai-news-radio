@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
-import type { ModelPricing, Pronunciation, PromptSummary, PromptHistory } from "../types";
+import type { ModelPricing, Pronunciation, PromptSummary, PromptHistory, SpeakerProfile } from "../types";
 import {
   GEMINI_TTS_MODEL_VALUES,
   GEMINI_TTS_MODEL_LABELS,
-  GEMINI_TTS_VOICE_VALUES,
-  GEMINI_TTS_VOICE_LABELS,
+  GEMINI_TTS_VOICES,
 } from "../constants/tts";
 
-type SettingsTab = "config" | "pricing" | "prompts" | "dictionary";
+type SettingsTab = "config" | "speakers" | "pricing" | "prompts" | "dictionary";
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -17,6 +16,7 @@ export default function Settings() {
 
   const tabs: { key: SettingsTab; label: string }[] = [
     { key: "config", label: t("settings.config.title") },
+    { key: "speakers", label: t("settings.speakers.title") },
     { key: "pricing", label: t("settings.pricing.title") },
     { key: "prompts", label: t("settings.prompts.title") },
     { key: "dictionary", label: t("settings.dictionary.title") },
@@ -44,6 +44,7 @@ export default function Settings() {
       </div>
 
       {activeTab === "config" && <ConfigSection />}
+      {activeTab === "speakers" && <SpeakersSection />}
       {activeTab === "pricing" && <PricingSection />}
       {activeTab === "prompts" && <PromptsSection />}
       {activeTab === "dictionary" && <DictionarySection />}
@@ -164,16 +165,7 @@ function ConfigSection() {
       fields: [
         { key: "voice_section_silence", label: t("settings.config.fields.voice_section_silence"), type: "number" },
         { key: "srt_offset", label: t("settings.config.fields.srt_offset"), type: "number" },
-        { key: "pipeline_voice_provider", label: t("settings.config.fields.pipeline_voice_provider"), type: "select", options: ["voicevox", "openai", "elevenlabs", "google", "gemini"], optionLabels: { voicevox: "VOICEVOX (Local/Free)", openai: "OpenAI TTS", elevenlabs: "ElevenLabs", google: "Google Cloud TTS (Neural2)", gemini: "Gemini TTS (Recommended)" } },
-        { key: "voicevox_host", label: t("settings.config.fields.voicevox_host"), type: "text", showWhen: { key: "pipeline_voice_provider", value: "voicevox" } },
-        { key: "voicevox_speaker_id", label: t("settings.config.fields.voicevox_speaker_id"), type: "number", showWhen: { key: "pipeline_voice_provider", value: "voicevox" } },
-        { key: "openai_tts_model", label: t("settings.config.fields.openai_tts_model"), type: "select", options: ["tts-1", "tts-1-hd"], showWhen: { key: "pipeline_voice_provider", value: "openai" } },
-        { key: "openai_tts_voice", label: t("settings.config.fields.openai_tts_voice"), type: "select", options: ["alloy", "echo", "fable", "onyx", "nova", "shimmer"], showWhen: { key: "pipeline_voice_provider", value: "openai" } },
-        { key: "google_tts_voice", label: t("settings.config.fields.google_tts_voice"), type: "text", showWhen: { key: "pipeline_voice_provider", value: "google" } },
-        { key: "google_tts_language_code", label: t("settings.config.fields.google_tts_language_code"), type: "text", showWhen: { key: "pipeline_voice_provider", value: "google" } },
-        { key: "gemini_tts_model", label: t("settings.config.fields.gemini_tts_model"), type: "select", options: GEMINI_TTS_MODEL_VALUES, optionLabels: GEMINI_TTS_MODEL_LABELS, showWhen: { key: "pipeline_voice_provider", value: "gemini" } },
-        { key: "gemini_tts_voice", label: t("settings.config.fields.gemini_tts_voice"), type: "select", options: GEMINI_TTS_VOICE_VALUES, optionLabels: GEMINI_TTS_VOICE_LABELS, showWhen: { key: "pipeline_voice_provider", value: "gemini" } },
-        { key: "gemini_tts_instructions", label: t("settings.config.fields.gemini_tts_instructions"), type: "text", wide: true, showWhen: { key: "pipeline_voice_provider", value: "gemini" } },
+        { key: "gemini_tts_model", label: t("settings.config.fields.gemini_tts_model"), type: "select", options: GEMINI_TTS_MODEL_VALUES, optionLabels: GEMINI_TTS_MODEL_LABELS },
       ],
     },
     {
@@ -201,6 +193,13 @@ function ConfigSection() {
         { key: "youtube_cta_text", label: t("settings.config.fields.youtube_cta_text"), type: "textarea" },
         { key: "youtube_outro_enabled", label: t("settings.config.fields.youtube_outro_enabled"), type: "checkbox" },
         { key: "youtube_outro_text", label: t("settings.config.fields.youtube_outro_text"), type: "textarea" },
+      ],
+    },
+    {
+      title: t("settings.config.scriptMode"),
+      fields: [
+        { key: "script_default_mode", label: t("settings.config.fields.script_default_mode"), type: "select", options: ["auto", "explainer", "solo"], optionLabels: { auto: "自動（AI推奨）", explainer: "MC＋解説（2人）", solo: "ソロ（1人）" } },
+        { key: "shorts_max_duration_seconds", label: t("settings.config.fields.shorts_max_duration_seconds"), type: "number" },
       ],
     },
     {
@@ -659,6 +658,267 @@ function ConfigSection() {
             {feedback.message}
           </span>
         )}
+      </div>
+    </div>
+  );
+}
+
+function SpeakersSection() {
+  const { t } = useTranslation();
+  const [speakers, setSpeakers] = useState<SpeakerProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState({ name: "", role: "anchor", voice_name: "Kore", voice_instructions: "", avatar_position: "right", description: "" });
+  const [adding, setAdding] = useState(false);
+
+  const voiceOptions = GEMINI_TTS_VOICES;
+  const roleOptions = ["anchor", "expert", "narrator"];
+
+  // Role-based recommended presets
+  const rolePresets: Record<string, { voice_name: string; voice_instructions: string; avatar_position: string; description: string }> = {
+    anchor: {
+      voice_name: "Kore",
+      voice_instructions: "落ち着いたニュースキャスターのように、明瞭で聞き取りやすく話してください。テンポよく、信頼感のあるトーンで。",
+      avatar_position: "right",
+      description: "メインMC。番組の進行役として、ニュースの導入や話題の切り替えを担当。",
+    },
+    expert: {
+      voice_name: "Charon",
+      voice_instructions: "知的で分析的なトーンで話してください。専門家として自信を持ちつつも、わかりやすく丁寧に解説する口調で。",
+      avatar_position: "left",
+      description: "解説者。ニュースの背景や複数の視点を深掘りし、専門的な分析を提供。",
+    },
+    narrator: {
+      voice_name: "Aoede",
+      voice_instructions: "自然な語りのトーンで、聞きやすいペースで話してください。感情を込めすぎず、落ち着いたナレーションで。",
+      avatar_position: "right",
+      description: "ソロナレーター。1人でニュースの要点から分析まで通して伝える。",
+    },
+  };
+
+  const fetchSpeakers = useCallback(async () => {
+    try {
+      const res = await api.getSpeakers();
+      setSpeakers(res.data);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchSpeakers(); }, [fetchSpeakers]);
+
+  const resetForm = (role = "anchor") => {
+    const preset = rolePresets[role] ?? rolePresets.anchor;
+    setForm({ name: "", role, ...preset });
+  };
+
+  const handleRoleChange = (newRole: string) => {
+    // When changing role on a new speaker (not editing), apply preset
+    const preset = rolePresets[newRole] ?? rolePresets.anchor;
+    if (editingId) {
+      // Editing existing: only change role, keep other fields
+      setForm((prev) => ({ ...prev, role: newRole }));
+    } else {
+      // New speaker: apply full preset but keep name
+      setForm((prev) => ({ ...prev, role: newRole, ...preset, name: prev.name }));
+    }
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return;
+    if (editingId) {
+      await api.updateSpeaker(editingId, form);
+    } else {
+      await api.createSpeaker(form);
+    }
+    setEditingId(null);
+    setAdding(false);
+    resetForm();
+    await fetchSpeakers();
+  };
+
+  const handleEdit = (s: SpeakerProfile) => {
+    setEditingId(s.id);
+    setAdding(false);
+    setForm({ name: s.name, role: s.role, voice_name: s.voice_name, voice_instructions: s.voice_instructions, avatar_position: s.avatar_position, description: s.description });
+  };
+
+  const handleDelete = async (id: number) => {
+    await api.deleteSpeaker(id);
+    if (editingId === id) { setEditingId(null); resetForm(); }
+    await fetchSpeakers();
+  };
+
+  const handleAvatarUpload = async (id: number, file: File) => {
+    await api.uploadAvatar(id, file);
+    await fetchSpeakers();
+  };
+
+  const handleAvatarDelete = async (id: number) => {
+    await api.deleteAvatar(id);
+    await fetchSpeakers();
+  };
+
+  if (loading) return <p className="text-gray-500 text-sm">{t("settings.loading")}</p>;
+
+  const renderForm = () => (
+    <div className="bg-gray-50 border rounded-lg p-4 space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">{t("settings.speakers.name")}</label>
+          <input
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            className="px-2 py-1.5 border border-gray-300 rounded text-sm w-full"
+            placeholder="レイナ"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">{t("settings.speakers.role")}</label>
+          <select
+            value={form.role}
+            onChange={(e) => handleRoleChange(e.target.value)}
+            className="px-2 py-1.5 border border-gray-300 rounded text-sm w-full bg-white"
+          >
+            {roleOptions.map((r) => {
+              const taken = speakers.some((s) => s.role === r && s.id !== editingId);
+              return (
+                <option key={r} value={r} disabled={taken}>
+                  {t(`settings.speakers.roles.${r}`)}{taken ? ` (${t("settings.speakers.roleTaken")})` : ""}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">{t("settings.speakers.voiceName")}</label>
+          <select
+            value={form.voice_name}
+            onChange={(e) => setForm({ ...form, voice_name: e.target.value })}
+            className="px-2 py-1.5 border border-gray-300 rounded text-sm w-full bg-white"
+          >
+            {voiceOptions.map((v) => (
+              <option key={v.value} value={v.value}>{v.label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">{t("settings.speakers.avatarPosition")}</label>
+          <select
+            value={form.avatar_position}
+            onChange={(e) => setForm({ ...form, avatar_position: e.target.value })}
+            className="px-2 py-1.5 border border-gray-300 rounded text-sm w-full bg-white"
+          >
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">{t("settings.speakers.voiceInstructions")}</label>
+        <input
+          value={form.voice_instructions}
+          onChange={(e) => setForm({ ...form, voice_instructions: e.target.value })}
+          className="px-2 py-1.5 border border-gray-300 rounded text-sm w-full"
+          placeholder="落ち着いたニュースキャスターのように話してください"
+        />
+      </div>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">{t("settings.speakers.description")}</label>
+        <input
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+          className="px-2 py-1.5 border border-gray-300 rounded text-sm w-full"
+          placeholder="メインMC。冷静で分析的な進行役。"
+        />
+      </div>
+      <div className="flex gap-2">
+        <button onClick={handleSave} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 cursor-pointer">
+          {t("settings.speakers.save")}
+        </button>
+        <button onClick={() => { setEditingId(null); setAdding(false); resetForm(); }} className="px-3 py-1.5 text-gray-600 border rounded text-sm hover:bg-gray-50 cursor-pointer">
+          {t("settings.speakers.cancel")}
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-medium text-gray-800">{t("settings.speakers.title")}</h3>
+        {!adding && !editingId && (
+          <button onClick={() => {
+            const takenRoles = new Set(speakers.map((s) => s.role));
+            const availableRole = roleOptions.find((r) => !takenRoles.has(r)) ?? "anchor";
+            setAdding(true);
+            resetForm(availableRole);
+          }} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 cursor-pointer"
+            disabled={speakers.length >= roleOptions.length}>
+            {t("settings.speakers.add")}
+          </button>
+        )}
+      </div>
+
+      {adding && renderForm()}
+
+      {speakers.length === 0 && !adding && (
+        <p className="text-sm text-gray-500">{t("settings.speakers.empty")}</p>
+      )}
+
+      <div className="space-y-3">
+        {speakers.map((s) => (
+          <div key={s.id} className="border rounded-lg p-4">
+            {editingId === s.id ? renderForm() : (
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3">
+                  {s.avatar_path && (
+                    <img src={`/media/avatars/speaker_${s.id}.png`} alt={s.name} className="w-12 h-12 rounded-full object-cover" />
+                  )}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-800">{s.name}</span>
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">
+                        {t(`settings.speakers.roles.${s.role}`, s.role)}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {GEMINI_TTS_VOICES.find((v) => v.value === s.voice_name)?.label ?? s.voice_name}
+                      </span>
+                    </div>
+                    {s.description && <p className="text-sm text-gray-500 mt-1">{s.description}</p>}
+                    {s.voice_instructions && <p className="text-xs text-gray-400 mt-1">{s.voice_instructions}</p>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <label className="text-xs text-blue-600 hover:underline cursor-pointer">
+                    {t("settings.speakers.uploadAvatar")}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleAvatarUpload(s.id, file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  {s.avatar_path && (
+                    <button onClick={() => handleAvatarDelete(s.id)} className="text-xs text-red-500 hover:underline cursor-pointer">
+                      {t("settings.speakers.removeAvatar")}
+                    </button>
+                  )}
+                  <button onClick={() => handleEdit(s)} className="text-xs text-blue-600 hover:underline cursor-pointer">
+                    {t("settings.speakers.edit")}
+                  </button>
+                  <button onClick={() => handleDelete(s.id)} className="text-xs text-red-500 hover:underline cursor-pointer">
+                    {t("settings.speakers.delete")}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

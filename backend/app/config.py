@@ -114,6 +114,10 @@ class Settings(BaseSettings):
     pipeline_export_provider: str = ""
     pipeline_export_model: str = ""
 
+    # Script mode (multi-speaker)
+    script_default_mode: str = "auto"  # auto / explainer / solo
+    shorts_max_duration_seconds: int = 30
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
