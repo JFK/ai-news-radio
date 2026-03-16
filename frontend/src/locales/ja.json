@@ -74,6 +74,7 @@
     "voiceDuration": "再生時間",
     "voiceSections": "セクション",
     "voiceShorts": "ショート音声",
+    "illustrations": "解説画像",
     "totalCost": "合計コスト",
     "viewCostDetails": "コスト詳細"
   },
@@ -195,7 +196,8 @@
       "title": "タイトル",
       "description": "概要文",
       "tags": "タグ",
-      "copy": "コピー"
+      "copy": "コピー",
+      "illustrations": "解説画像"
     }
   },
   "settings": {
@@ -335,7 +337,17 @@
       },
       "uploadAvatar": "アバター画像",
       "removeAvatar": "削除",
-      "roleTaken": "設定済"
+      "roleTaken": "設定済",
+      "avatarPromptPlaceholder": "プロンプト（空欄でデフォルト: 役割+説明から自動生成）",
+      "generateAvatar": "生成",
+      "generating": "生成中...",
+      "uploadFile": "ファイル選択",
+      "showLibrary": "生成履歴 ({{count}}枚)",
+      "hideLibrary": "閉じる",
+      "libraryHint": "クリックで選択 — 選んだ画像が動画のアバターとして使用されます",
+      "selectThisAvatar": "このアバターを使用",
+      "currentAvatar": "現在のアバター",
+      "libraryEmpty": "生成済み画像がありません。「AIで生成」で作成してください"
     },
     "prompts": {
       "title": "プロンプトテンプレート",

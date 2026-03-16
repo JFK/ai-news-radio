@@ -96,6 +96,12 @@ export const api = {
     return client.post<SpeakerProfile>(`/speakers/${id}/avatar`, form);
   },
   deleteAvatar: (id: number) => client.delete<SpeakerProfile>(`/speakers/${id}/avatar`),
+  generateAvatar: (id: number, customPrompt?: string) =>
+    client.post<{ speaker: SpeakerProfile; cost_usd: number; visual_provider: string }>(`/speakers/${id}/avatar/generate`, customPrompt ? { custom_prompt: customPrompt } : {}),
+  getAvatarLibrary: (id: number) =>
+    client.get<{ images: string[] }>(`/speakers/${id}/avatar/library`),
+  selectAvatar: (id: number, imagePath: string) =>
+    client.put<SpeakerProfile>(`/speakers/${id}/avatar/select`, { image_path: imagePath }),
   // Toggle complete
   toggleComplete: (episodeId: number) =>
     client.post<Episode>(`/episodes/${episodeId}/toggle-complete`),

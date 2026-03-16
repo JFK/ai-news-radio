@@ -74,6 +74,7 @@
     "voiceDuration": "Duration",
     "voiceSections": "Sections",
     "voiceShorts": "Short Audio",
+    "illustrations": "Illustrations",
     "totalCost": "Total Cost",
     "viewCostDetails": "Cost Details"
   },
@@ -195,7 +196,8 @@
       "title": "Title",
       "description": "Description",
       "tags": "Tags",
-      "copy": "Copy"
+      "copy": "Copy",
+      "illustrations": "Illustrations"
     }
   },
   "settings": {
@@ -335,7 +337,17 @@
       },
       "uploadAvatar": "Avatar Image",
       "removeAvatar": "Remove",
-      "roleTaken": "taken"
+      "roleTaken": "taken",
+      "avatarPromptPlaceholder": "Prompt (blank for default: auto-generated from role + description)",
+      "generateAvatar": "Generate",
+      "generating": "Generating...",
+      "uploadFile": "Choose File",
+      "showLibrary": "History ({{count}})",
+      "hideLibrary": "Close",
+      "libraryHint": "Click to select — the chosen image will be used as the avatar in videos",
+      "selectThisAvatar": "Use this avatar",
+      "currentAvatar": "Current avatar",
+      "libraryEmpty": "No generated images yet. Use \"AI Generate\" to create one"
     },
     "prompts": {
       "title": "Prompt Templates",

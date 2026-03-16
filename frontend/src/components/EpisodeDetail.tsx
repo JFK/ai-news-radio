@@ -354,13 +354,16 @@ export default function EpisodeDetail() {
         const videoOutputData = videoStep?.output_data as Record<string, unknown> | null;
         const thumbnailPath = videoOutputData?.thumbnail_path as string | undefined;
         const srtPath = videoOutputData?.srt_path as string | undefined;
+        // Cache bust: use step completed_at so re-runs show fresh media
+        const mediaCacheBust = videoStep?.completed_at || steps.find((s) => s.step_name === "voice")?.completed_at || "";
+        const cb = mediaCacheBust ? `?t=${new Date(mediaCacheBust).getTime()}` : "";
         return (
         <PersistentDetails storageKey="episode-media-open" defaultOpen className="mb-6 bg-white rounded-lg shadow" summary={t("episode.media")}>
           <div className="px-4 pb-4 space-y-3">
           {episode.audio_path && (
             <div>
               <p className="text-xs text-gray-500 mb-1">{t("episode.audio")}</p>
-              <audio controls className="w-full" src={`${MEDIA_BASE_URL}/${episode.audio_path}`} />
+              <audio controls className="w-full" src={`${MEDIA_BASE_URL}/${episode.audio_path}${cb}`} />
               <a
                 href={`${MEDIA_BASE_URL}/${episode.audio_path}`}
                 download
@@ -398,7 +401,7 @@ export default function EpisodeDetail() {
           {episode.video_path && (
             <div>
               <p className="text-xs text-gray-500 mb-1">{t("episode.video")}</p>
-              <video controls className="max-w-lg rounded" src={`${MEDIA_BASE_URL}/${episode.video_path}`} />
+              <video controls className="max-w-lg rounded" src={`${MEDIA_BASE_URL}/${episode.video_path}${cb}`} />
               <a
                 href={`${MEDIA_BASE_URL}/${episode.video_path}`}
                 download
@@ -411,7 +414,7 @@ export default function EpisodeDetail() {
           {thumbnailPath && (
             <div>
               <p className="text-xs text-gray-500 mb-1">{t("episode.thumbnail")}</p>
-              <img src={`${MEDIA_BASE_URL}/${thumbnailPath}`} alt="Thumbnail" className="w-64 rounded border" />
+              <img src={`${MEDIA_BASE_URL}/${thumbnailPath}${cb}`} alt="Thumbnail" className="w-64 rounded border" />
               <a
                 href={`${MEDIA_BASE_URL}/${thumbnailPath}`}
                 download
@@ -433,6 +436,20 @@ export default function EpisodeDetail() {
               </a>
             </div>
           )}
+          {(() => {
+            const illustrationPaths = videoOutputData?.illustration_paths as string[] | undefined;
+            if (!illustrationPaths?.length) return null;
+            return (
+              <div>
+                <p className="text-xs text-gray-500 mb-1">{t("episode.illustrations")}</p>
+                <div className="flex gap-2 flex-wrap">
+                  {illustrationPaths.map((p, i) => (
+                    <img key={i} src={`${MEDIA_BASE_URL}/${p}${cb}`} alt={`illustration ${i + 1}`} className="w-32 rounded border" />
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
           </div>
         </PersistentDetails>
         );
