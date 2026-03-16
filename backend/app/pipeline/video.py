@@ -379,17 +379,28 @@ class VideoStep(BaseStep):
                 section_texts[f"transition_{i}"] = t
 
         # Build SRT entries
-        # First pass: compute raw timings using reported durations + silence gap
+        # Use precise start_at/end_at from voice step when available,
+        # fall back to cumulative calculation for backward compatibility
         silence_gap = settings.voice_section_silence
         raw_entries: list[tuple[float, float, str]] = []
-        elapsed = 0.0
+        fallback_elapsed = 0.0
 
         for sec in voice_sections:
             key = sec.get("key", "")
             duration = sec.get("duration_seconds", 0.0)
             text = section_texts.get(key, "")
 
-            if text and duration > 0:
+            # Determine section start/end: prefer precise timestamps
+            if "start_at" in sec and "end_at" in sec:
+                section_start = sec["start_at"]
+                section_end = sec["end_at"]
+                section_duration = section_end - section_start
+            else:
+                section_start = fallback_elapsed
+                section_duration = duration
+                section_end = section_start + section_duration
+
+            if text and section_duration > 0:
                 # Remove reading hints like （けんぐん） or (けんぐん) from display text
                 display = re.sub(r'[（\(][ぁ-んー]+[）\)]', '', text)
 
@@ -405,10 +416,10 @@ class VideoStep(BaseStep):
                 if total_chars == 0:
                     total_chars = 1
 
-                sub_elapsed = elapsed
+                sub_elapsed = section_start
                 for sentence in sentences:
                     ratio = len(sentence) / total_chars
-                    sub_duration = duration * ratio
+                    sub_duration = section_duration * ratio
                     # Limit subtitle length for readability
                     display_text = sentence
                     if len(display_text) > 40:
@@ -425,7 +436,7 @@ class VideoStep(BaseStep):
                     raw_entries.append((sub_elapsed, sub_elapsed + sub_duration, display_text))
                     sub_elapsed += sub_duration
 
-            elapsed += duration + silence_gap
+            fallback_elapsed += duration + silence_gap
 
         # Apply fixed offset to all SRT timestamps (positive = subtitles appear later)
         offset = settings.srt_offset
@@ -504,23 +515,24 @@ class VideoStep(BaseStep):
         )
 
         # --- Logo or "AI NEWS RADIO" badge — top-left ---
-        badge_pad = border_width + 12
-        logo_path = settings.video_logo_path
-        if logo_path and os.path.exists(logo_path):
-            # Use custom logo image
-            try:
-                logo = Image.open(logo_path).convert("RGBA")
-                # Scale logo to fit badge area (height ~10% of image)
-                logo_max_h = int(h * 0.10)
-                ratio = logo_max_h / logo.height
-                logo_w = int(logo.width * ratio)
-                logo = logo.resize((logo_w, logo_max_h), Image.Resampling.LANCZOS)
-                overlay.paste(logo, (badge_pad, badge_pad), logo)
-            except Exception as e:
-                logger.warning("Logo load failed, falling back to text badge: %s", e)
+        if settings.video_logo_enabled:
+            badge_pad = border_width + 12
+            logo_path = settings.video_logo_path
+            if logo_path and os.path.exists(logo_path):
+                # Use custom logo image
+                try:
+                    logo = Image.open(logo_path).convert("RGBA")
+                    # Scale logo to fit badge area (height ~10% of image)
+                    logo_max_h = int(h * 0.10)
+                    ratio = logo_max_h / logo.height
+                    logo_w = int(logo.width * ratio)
+                    logo = logo.resize((logo_w, logo_max_h), Image.Resampling.LANCZOS)
+                    overlay.paste(logo, (badge_pad, badge_pad), logo)
+                except Exception as e:
+                    logger.warning("Logo load failed, falling back to text badge: %s", e)
+                    self._draw_text_badge(draw_overlay, badge_pad, h, border_color_fill)
+            else:
                 self._draw_text_badge(draw_overlay, badge_pad, h, border_color_fill)
-        else:
-            self._draw_text_badge(draw_overlay, badge_pad, h, border_color_fill)
 
         img = Image.alpha_composite(img, overlay)
         draw = ImageDraw.Draw(img)

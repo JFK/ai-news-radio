@@ -85,6 +85,7 @@ class Settings(BaseSettings):
     # Video overlay styling
     video_border_color: str = "#DC1E1E"  # Hex color for thumbnail/video border
     video_logo_path: str = ""  # Path to logo image (replaces "AI NEWS RADIO" text badge)
+    video_logo_enabled: bool = True  # Show logo/text badge on thumbnail & video
 
     # YouTube CTA (Call To Action) after opening
     youtube_cta_enabled: bool = True
