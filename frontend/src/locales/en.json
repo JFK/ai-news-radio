@@ -260,6 +260,9 @@
         "google_drive_folder_id": "Google Drive Folder ID"
       },
       "sePreview": "Preview",
+      "seDownload": "DL",
+      "seUpload": "Upload",
+      "seDelete": "Delete",
       "enabled": "Enabled",
       "notSet": "Not set",
       "edit": "Edit",

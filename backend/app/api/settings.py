@@ -142,8 +142,32 @@ async def upload_logo(
 
 
 @router.get("/settings/se-presets")
-async def list_se_presets() -> dict:
+async def get_se_presets() -> dict:
     """List available sound effect presets per position."""
-    from app.services.sound_effects import SE_PRESETS
+    from app.services.sound_effects import list_se_presets as _list
 
-    return {"presets": SE_PRESETS}
+    return {"presets": _list()}
+
+
+@router.post("/settings/se-upload/{position}")
+async def upload_se(position: str, file: UploadFile) -> dict:
+    """Upload a custom SE WAV file for a given position (intro/transition/outro)."""
+    from app.services.sound_effects import save_custom_se
+
+    if position not in ("intro", "transition", "outro"):
+        return {"error": "Invalid position. Must be intro, transition, or outro."}
+    if not file.filename or not file.filename.lower().endswith(".wav"):
+        return {"error": "Only WAV files are accepted."}
+    content = await file.read()
+    preset_name = save_custom_se(position, file.filename, content)
+    return {"preset_name": preset_name}
+
+
+@router.delete("/settings/se/{preset_name}")
+async def delete_se(preset_name: str) -> dict:
+    """Delete a custom SE file."""
+    from app.services.sound_effects import delete_custom_se
+
+    if delete_custom_se(preset_name):
+        return {"deleted": True}
+    return {"error": "Cannot delete built-in presets or file not found."}

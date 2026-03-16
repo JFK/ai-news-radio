@@ -41,10 +41,15 @@ try:
 except OSError:
     pass  # media_dir not writable (e.g., in tests)
 
-# Serve SE preset files
+# Serve SE preset files (built-in)
 _se_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "se")
 if os.path.isdir(_se_dir):
     app.mount("/static/se", StaticFiles(directory=_se_dir), name="se")
+
+# Serve custom SE files (user uploads in media/se/)
+_custom_se_dir = os.path.join(settings.media_dir, "se")
+os.makedirs(_custom_se_dir, exist_ok=True)
+app.mount("/media/se", StaticFiles(directory=_custom_se_dir), name="custom_se")
 
 app.add_middleware(
     CORSMiddleware,
