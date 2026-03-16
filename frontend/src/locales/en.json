@@ -41,6 +41,7 @@
     "selectStep": "Click a step to view details.",
     "runStep": "Run Step",
     "reRunStep": "Re-run",
+    "shortsEnabled": "Also generate Shorts scripts",
     "running": "Running...",
     "started": "Started",
     "completed": "Completed",
@@ -72,6 +73,7 @@
     "voiceProvider": "Provider",
     "voiceDuration": "Duration",
     "voiceSections": "Sections",
+    "voiceShorts": "Short Audio",
     "totalCost": "Total Cost",
     "viewCostDetails": "Cost Details"
   },
@@ -185,7 +187,8 @@
       "modeAuto": "Auto (AI recommended)",
       "modeExplainer": "MC + Expert",
       "modeSolo": "Solo",
-      "modeChangeConfirm": "Change mode to \"{{mode}}\"? Script step will need to be re-run."
+      "modeChangeConfirm": "Change mode to \"{{mode}}\"? Script step will need to be re-run.",
+      "shorts": "Short Scripts"
     },
     "video": {
       "youtubeMetadata": "YouTube Metadata",

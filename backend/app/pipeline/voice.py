@@ -302,7 +302,49 @@ class VoiceStep(BaseStep):
             episode_id, relative_path, total_duration, len(section_results),
         )
 
-        return {
+        # Generate shorts audio if shorts data exists in input
+        shorts_results: list[dict] = []
+        shorts_input = input_data.get("shorts", [])
+        if shorts_input:
+            shorts_dir = os.path.join(episode_dir, "shorts")
+            os.makedirs(shorts_dir, exist_ok=True)
+
+            for i, short in enumerate(shorts_input):
+                item_id = short.get("news_item_id", i)
+                mode = short.get("mode", "solo")
+                await self.log_progress(
+                    episode_id,
+                    f"ショート音声 [{i + 1}/{len(shorts_input)}] を生成中"
+                )
+
+                if mode == "explainer" and multi_provider and short.get("dialogue"):
+                    dialogue = short["dialogue"]
+                    processed = [
+                        {"speaker": t.get("speaker", "speaker_a"), "text": self._prepare_tts_text(t.get("text", ""), pronunciations)}
+                        for t in dialogue
+                    ]
+                    short_audio = await multi_provider.synthesize_dialogue(processed)
+                else:
+                    short_text = self._prepare_tts_text(short.get("text", ""), pronunciations)
+                    short_audio = await provider.synthesize(short_text)
+
+                short_filename = f"short_{item_id}.{audio_format}"
+                short_path = os.path.join(shorts_dir, short_filename)
+                with open(short_path, "wb") as f:
+                    f.write(short_audio)
+
+                short_duration = self._get_audio_duration(short_audio, audio_format)
+                shorts_results.append({
+                    "news_item_id": item_id,
+                    "file": f"{episode_id}/shorts/{short_filename}",
+                    "duration_seconds": round(short_duration, 2),
+                    "mode": mode,
+                    "caption": short.get("caption", ""),
+                })
+
+            logger.info("Episode %d: generated %d short audio files", episode_id, len(shorts_results))
+
+        output: dict = {
             "audio_path": relative_path,
             "duration_seconds": total_duration,
             "provider": settings.pipeline_voice_provider,
@@ -312,6 +354,9 @@ class VoiceStep(BaseStep):
             "sections": section_results,
             "timestamps": timestamps,
         }
+        if shorts_results:
+            output["shorts"] = shorts_results
+        return output
 
     def _prepare_tts_text(self, text: str, pronunciations: list[Pronunciation]) -> str:
         """Expand reading hints and apply pronunciation dictionary."""

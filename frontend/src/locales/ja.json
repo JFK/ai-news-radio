@@ -41,6 +41,7 @@
     "selectStep": "ステップをクリックして詳細を表示してください。",
     "runStep": "ステップを実行",
     "reRunStep": "再実行",
+    "shortsEnabled": "ショート台本も生成",
     "running": "実行中...",
     "started": "開始",
     "completed": "完了",
@@ -72,6 +73,7 @@
     "voiceProvider": "プロバイダー",
     "voiceDuration": "再生時間",
     "voiceSections": "セクション",
+    "voiceShorts": "ショート音声",
     "totalCost": "合計コスト",
     "viewCostDetails": "コスト詳細"
   },
@@ -185,7 +187,8 @@
       "modeAuto": "自動（AI推奨）",
       "modeExplainer": "MC＋解説",
       "modeSolo": "ソロ",
-      "modeChangeConfirm": "モードを「{{mode}}」に変更しますか？台本ステップの再実行が必要になります。"
+      "modeChangeConfirm": "モードを「{{mode}}」に変更しますか？台本ステップの再実行が必要になります。",
+      "shorts": "ショート台本"
     },
     "video": {
       "youtubeMetadata": "YouTube メタデータ",

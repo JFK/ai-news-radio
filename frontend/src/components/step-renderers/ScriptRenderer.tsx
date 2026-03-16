@@ -263,6 +263,42 @@ export default function ScriptRenderer({ outputData, newsItems, episodeId, edita
           </div>
         </div>
       )}
+
+      {/* Shorts scripts */}
+      {(outputData.shorts as unknown[])?.length > 0 && (
+        <div>
+          <h4 className="text-sm font-medium text-gray-600 mb-2">
+            {t("stepData.script.shorts")}
+          </h4>
+          <div className="space-y-2">
+            {(outputData.shorts as Array<{news_item_id: number; title?: string; mode: string; text?: string; dialogue?: DialogueTurn[]; speakers?: Record<string, string>; caption?: string}>).map((short, i) => {
+              const item = newsItems.find((n) => n.id === short.news_item_id);
+              const title = short.title || item?.title || `Short ${i + 1}`;
+              return (
+                <div key={i} className="border border-orange-200 rounded-lg p-3 bg-orange-50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-semibold text-orange-700">Short</span>
+                    <span className="text-sm font-medium text-gray-700 truncate">{title}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${
+                      short.mode === "explainer" ? "bg-indigo-100 text-indigo-700" : "bg-gray-100 text-gray-600"
+                    }`}>
+                      {short.mode === "explainer" ? t("stepData.script.modeExplainer") : t("stepData.script.modeSolo")}
+                    </span>
+                  </div>
+                  {short.mode === "explainer" && short.dialogue ? (
+                    renderDialogue({ mode: "explainer", speakers: short.speakers || {}, dialogue: short.dialogue })
+                  ) : (
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{short.text}</p>
+                  )}
+                  {short.caption && (
+                    <p className="text-xs text-gray-500 mt-2 italic">{short.caption}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

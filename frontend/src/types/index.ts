@@ -40,6 +40,7 @@ export interface Episode {
   video_path: string | null;
   drive_file_id: string | null;
   drive_file_url: string | null;
+  shorts_enabled: boolean;
   pipeline_steps: PipelineStep[];
 }
 
