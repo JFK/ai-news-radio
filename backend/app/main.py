@@ -14,6 +14,7 @@ from app.api.pricing import router as pricing_router
 from app.api.prompts import router as prompts_router
 from app.api.search import router as search_router
 from app.api.settings import router as settings_router
+from app.api.speakers import router as speakers_router
 from app.api.stats import router as stats_router
 from app.config import settings
 
@@ -68,6 +69,7 @@ app.include_router(search_router, prefix="/api")
 app.include_router(prompts_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(dictionary_router, prefix="/api")
+app.include_router(speakers_router, prefix="/api")
 app.include_router(google_auth_router, prefix="/api")
 
 

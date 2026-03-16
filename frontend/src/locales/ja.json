@@ -167,7 +167,10 @@
       "merged": "統合済",
       "group": "グループ",
       "sources": "ソース",
-      "groupCount": "{{count}}件のグループが検出されました"
+      "groupCount": "{{count}}件のグループが検出されました",
+      "recommendedFormat": "推奨フォーマット",
+      "formatExplainer": "MC＋解説（2人）",
+      "formatSolo": "ソロ（1人）"
     },
     "script": {
       "fullScript": "エピソード全体台本",
@@ -203,6 +206,7 @@
       "soundEffects": "効果音",
       "visual": "ビジュアル",
       "youtube": "YouTube 設定",
+      "scriptMode": "台本モード",
       "googleDrive": "Google Drive エクスポート",
       "fields": {
         "default_ai_provider": "デフォルト AI プロバイダー",
@@ -228,16 +232,7 @@
         "collection_ai_research_enabled": "AI リサーチ有効",
         "voice_section_silence": "セクション間の無音（秒）",
         "srt_offset": "字幕オフセット（秒、+で遅延）",
-        "pipeline_voice_provider": "音声プロバイダー",
-        "voicevox_host": "VOICEVOX ホスト",
-        "voicevox_speaker_id": "VOICEVOX スピーカー ID",
-        "openai_tts_model": "OpenAI TTS モデル",
-        "openai_tts_voice": "OpenAI TTS ボイス",
-        "google_tts_voice": "Google TTS ボイス",
-        "google_tts_language_code": "Google TTS 言語",
         "gemini_tts_model": "Gemini TTS モデル",
-        "gemini_tts_voice": "Gemini TTS ボイス",
-        "gemini_tts_instructions": "Gemini TTS 話し方指示",
         "se_intro": "イントロ効果音（オープニング前）",
         "se_transition": "トランジション効果音（ニュース間）",
         "se_outro": "アウトロ効果音（エンディング後）",
@@ -257,7 +252,9 @@
         "google_drive_enabled": "有効",
         "google_drive_client_id": "OAuth クライアント ID",
         "google_drive_client_secret": "OAuth クライアント シークレット",
-        "google_drive_folder_id": "Google Drive フォルダ ID"
+        "google_drive_folder_id": "Google Drive フォルダ ID",
+        "script_default_mode": "台本デフォルトモード",
+        "shorts_max_duration_seconds": "ショート最大秒数"
       },
       "sePreview": "試聴",
       "seDownload": "DL",
@@ -308,6 +305,29 @@
       "save": "保存",
       "delete": "削除",
       "empty": "辞書エントリがありません。「追加」ボタンで読みを登録してください。"
+    },
+    "speakers": {
+      "title": "スピーカー管理",
+      "add": "追加",
+      "name": "名前",
+      "role": "役割",
+      "voiceName": "ボイス",
+      "voiceInstructions": "話し方指示",
+      "avatarPosition": "アバター位置",
+      "description": "説明",
+      "save": "保存",
+      "delete": "削除",
+      "edit": "編集",
+      "cancel": "キャンセル",
+      "empty": "スピーカーが登録されていません。「追加」ボタンで作成してください。",
+      "roles": {
+        "anchor": "MC（進行）",
+        "expert": "解説者",
+        "narrator": "ナレーター"
+      },
+      "uploadAvatar": "アバター画像",
+      "removeAvatar": "削除",
+      "roleTaken": "設定済"
     },
     "prompts": {
       "title": "プロンプトテンプレート",

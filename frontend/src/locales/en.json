@@ -167,7 +167,10 @@
       "merged": "Merged",
       "group": "Group",
       "sources": "sources",
-      "groupCount": "{{count}} group(s) detected"
+      "groupCount": "{{count}} group(s) detected",
+      "recommendedFormat": "Recommended Format",
+      "formatExplainer": "MC + Expert (2 speakers)",
+      "formatSolo": "Solo (1 speaker)"
     },
     "script": {
       "fullScript": "Full Episode Script",
@@ -203,6 +206,7 @@
       "soundEffects": "Sound Effects",
       "visual": "Visual",
       "youtube": "YouTube Settings",
+      "scriptMode": "Script Mode",
       "googleDrive": "Google Drive Export",
       "fields": {
         "default_ai_provider": "Default AI Provider",
@@ -228,16 +232,7 @@
         "collection_ai_research_enabled": "AI Research Enabled",
         "voice_section_silence": "Section Silence (seconds)",
         "srt_offset": "Subtitle Offset (sec, + = later)",
-        "pipeline_voice_provider": "Voice Provider",
-        "voicevox_host": "VOICEVOX Host",
-        "voicevox_speaker_id": "VOICEVOX Speaker ID",
-        "openai_tts_model": "OpenAI TTS Model",
-        "openai_tts_voice": "OpenAI TTS Voice",
-        "google_tts_voice": "Google TTS Voice",
-        "google_tts_language_code": "Google TTS Language",
         "gemini_tts_model": "Gemini TTS Model",
-        "gemini_tts_voice": "Gemini TTS Voice",
-        "gemini_tts_instructions": "Gemini TTS Instructions",
         "se_intro": "Intro SE (before opening)",
         "se_transition": "Transition SE (between news)",
         "se_outro": "Outro SE (after ending)",
@@ -257,7 +252,9 @@
         "google_drive_enabled": "Enabled",
         "google_drive_client_id": "OAuth Client ID",
         "google_drive_client_secret": "OAuth Client Secret",
-        "google_drive_folder_id": "Google Drive Folder ID"
+        "google_drive_folder_id": "Google Drive Folder ID",
+        "script_default_mode": "Default Script Mode",
+        "shorts_max_duration_seconds": "Shorts Max Duration (sec)"
       },
       "sePreview": "Preview",
       "seDownload": "DL",
@@ -308,6 +305,29 @@
       "save": "Save",
       "delete": "Delete",
       "empty": "No dictionary entries. Click \"Add\" to register pronunciations."
+    },
+    "speakers": {
+      "title": "Speaker Profiles",
+      "add": "Add",
+      "name": "Name",
+      "role": "Role",
+      "voiceName": "Voice",
+      "voiceInstructions": "Voice Instructions",
+      "avatarPosition": "Avatar Position",
+      "description": "Description",
+      "save": "Save",
+      "delete": "Delete",
+      "edit": "Edit",
+      "cancel": "Cancel",
+      "empty": "No speakers registered. Click \"Add\" to create one.",
+      "roles": {
+        "anchor": "Anchor (MC)",
+        "expert": "Expert",
+        "narrator": "Narrator"
+      },
+      "uploadAvatar": "Avatar Image",
+      "removeAvatar": "Remove",
+      "roleTaken": "taken"
     },
     "prompts": {
       "title": "Prompt Templates",

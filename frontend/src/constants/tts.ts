@@ -21,12 +21,8 @@ export const GEMINI_TTS_VOICES = [
 
 /** Helper: extract value arrays for Settings select fields. */
 export const GEMINI_TTS_MODEL_VALUES = GEMINI_TTS_MODELS.map((m) => m.value);
-export const GEMINI_TTS_VOICE_VALUES = GEMINI_TTS_VOICES.map((v) => v.value);
 
 /** Helper: build { value: label } maps for Settings optionLabels. */
 export const GEMINI_TTS_MODEL_LABELS = Object.fromEntries(
   GEMINI_TTS_MODELS.map((m) => [m.value, m.label]),
-);
-export const GEMINI_TTS_VOICE_LABELS = Object.fromEntries(
-  GEMINI_TTS_VOICES.map((v) => [v.value, v.label]),
 );

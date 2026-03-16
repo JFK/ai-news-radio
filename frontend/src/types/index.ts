@@ -56,6 +56,8 @@ export interface NewsItem {
   reference_urls: string[] | null;
   analysis_data: Record<string, unknown> | null;
   script_text: string | null;
+  script_mode: string | null;
+  script_data: Record<string, unknown> | null;
   group_id: number | null;
   is_group_primary: boolean | null;
   excluded: boolean;
@@ -73,6 +75,8 @@ export interface AnalysisData {
   source_comparison?: string;
   severity?: string;
   topics?: string[];
+  recommended_format?: "explainer" | "solo";
+  format_reason?: string;
 }
 
 export interface EpisodeListResponse {
@@ -169,6 +173,19 @@ export interface DriveExportResponse {
   source_text_length: number;
   input_tokens: number;
   output_tokens: number;
+}
+
+export interface SpeakerProfile {
+  id: number;
+  name: string;
+  role: string;
+  voice_name: string;
+  voice_instructions: string;
+  avatar_path: string | null;
+  avatar_position: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AppSettings {
