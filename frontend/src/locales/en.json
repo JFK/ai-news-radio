@@ -70,7 +70,9 @@
     "voiceDefault": "Default",
     "voiceProvider": "Provider",
     "voiceDuration": "Duration",
-    "voiceSections": "Sections"
+    "voiceSections": "Sections",
+    "totalCost": "Total Cost",
+    "viewCostDetails": "Cost Details"
   },
   "approval": {
     "title": "Approval Gate",

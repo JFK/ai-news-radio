@@ -144,6 +144,7 @@ export default function EpisodeDetail() {
   const [titleDraft, setTitleDraft] = useState("");
   const [ttsModel, setTtsModel] = useState("");
   const [ttsVoice, setTtsVoice] = useState("");
+  const [totalCost, setTotalCost] = useState<number | null>(null);
 
   useEffect(() => {
     api.getSettings().then((res) => {
@@ -151,6 +152,12 @@ export default function EpisodeDetail() {
       setDriveEnabled(val.toLowerCase() === "true");
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    api.getEpisodeCosts(episodeId).then((res) => {
+      setTotalCost(res.data.total_cost_usd);
+    }).catch(() => {});
+  }, [episodeId]);
 
   if (loading) return <p className="text-gray-500">{t("episode.loading")}</p>;
   if (error) return <p className="text-red-600">{error}</p>;
@@ -292,6 +299,14 @@ export default function EpisodeDetail() {
           <p className="text-sm text-gray-500 mt-1">
             {t("episode.id")}: #{episode.id} / {t("episode.status")}: {t(`episodeStatus.${episode.status}`)} / {t("episode.createdAt")}:{" "}
             {new Date(episode.created_at).toLocaleDateString("ja-JP")}
+            {totalCost !== null && totalCost > 0 && (
+              <>
+                {" / "}
+                <Link to="/costs" className="text-blue-600 hover:text-blue-800 hover:underline" title={t("episode.viewCostDetails")}>
+                  {t("episode.totalCost")}: ${totalCost.toFixed(4)}
+                </Link>
+              </>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">

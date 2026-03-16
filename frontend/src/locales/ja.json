@@ -70,7 +70,9 @@
     "voiceDefault": "デフォルト",
     "voiceProvider": "プロバイダー",
     "voiceDuration": "再生時間",
-    "voiceSections": "セクション"
+    "voiceSections": "セクション",
+    "totalCost": "合計コスト",
+    "viewCostDetails": "コスト詳細"
   },
   "approval": {
     "title": "承認ゲート",
