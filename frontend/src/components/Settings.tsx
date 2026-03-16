@@ -146,7 +146,6 @@ function ConfigSection() {
         { key: "openai_api_key", label: t("settings.config.fields.openai_api_key"), type: "password" },
         { key: "google_api_key", label: t("settings.config.fields.google_api_key"), type: "password" },
         { key: "brave_search_api_key", label: t("settings.config.fields.brave_search_api_key"), type: "password" },
-        { key: "elevenlabs_api_key", label: t("settings.config.fields.elevenlabs_api_key"), type: "password" },
       ],
     },
     {

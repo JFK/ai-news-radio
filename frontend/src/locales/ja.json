@@ -232,7 +232,6 @@
         "openai_api_key": "OpenAI API キー",
         "google_api_key": "Google API キー",
         "brave_search_api_key": "Brave Search API キー",
-        "elevenlabs_api_key": "ElevenLabs API キー",
         "collection_method": "収集方法",
         "collection_queries": "検索クエリ",
         "collection_crawl_enabled": "クロール有効",
