@@ -102,6 +102,7 @@ class VoiceStep(BaseStep):
         silence_chunk: bytes | None = None  # Generated after first section (to match sample rate)
         total_chars = 0
         sample_rate = 24000  # Default; updated after first TTS output
+        elapsed = 0.0  # Cumulative time tracking for accurate SRT timestamps
 
         for i, section in enumerate(sections):
             tts_text = self._prepare_tts_text(section["text"], pronunciations)
@@ -139,6 +140,7 @@ class VoiceStep(BaseStep):
                 se_intro = load_se(settings.se_intro, sample_rate)
                 if se_intro:
                     all_audio_chunks.append(se_intro)
+                    elapsed += self._get_audio_duration(se_intro, audio_format)
                     logger.info("Episode %d: inserted intro SE '%s'", episode_id, settings.se_intro)
 
             # Save individual section audio
@@ -148,11 +150,18 @@ class VoiceStep(BaseStep):
                 f.write(audio_bytes)
 
             duration = self._get_audio_duration(audio_bytes, audio_format)
+
+            # Record precise start/end timestamps for this section
+            section_start = elapsed
+            elapsed += duration
+
             section_results.append({
                 "key": section["key"],
                 "label": section["label"],
                 "file": f"{episode_id}/{section_filename}",
                 "duration_seconds": round(duration, 2),
+                "start_at": round(section_start, 3),
+                "end_at": round(elapsed, 3),
                 **({"news_item_id": section["news_item_id"]} if "news_item_id" in section else {}),
             })
 
@@ -171,15 +180,18 @@ class VoiceStep(BaseStep):
                     se_trans = load_se(settings.se_transition, sample_rate)
                     if se_trans:
                         all_audio_chunks.append(se_trans)
+                        elapsed += self._get_audio_duration(se_trans, audio_format)
                         inserted_se = True
                 if not inserted_se and silence_chunk:
                     all_audio_chunks.append(silence_chunk)
+                    elapsed += _silence_seconds()
 
         # Insert outro SE after the last section
         if audio_format == "wav":
             se_outro = load_se(settings.se_outro, sample_rate)
             if se_outro:
                 all_audio_chunks.append(se_outro)
+                elapsed += self._get_audio_duration(se_outro, audio_format)
                 logger.info("Episode %d: inserted outro SE '%s'", episode_id, settings.se_outro)
 
         # Concatenate all sections into combined audio
@@ -284,20 +296,25 @@ class VoiceStep(BaseStep):
     def _build_timestamps(self, section_results: list[dict]) -> str:
         """Build YouTube-style timestamps from section durations.
 
-        Accounts for silence gaps between sections.
+        Uses precise start_at timestamps when available, falls back to
+        cumulative calculation with silence gaps.
         """
         lines: list[str] = []
         elapsed = 0.0
 
         for i, section in enumerate(section_results):
+            # Use precise start_at if available, otherwise fall back to elapsed
+            pos = section.get("start_at", elapsed)
+
             # Skip transitions in timestamps (not useful for YouTube index)
             if not section["key"].startswith("transition_"):
-                minutes = int(elapsed // 60)
-                seconds = int(elapsed % 60)
+                minutes = int(pos // 60)
+                seconds = int(pos % 60)
                 timestamp = f"{minutes}:{seconds:02d}"
                 lines.append(f"{timestamp} {section['label']}")
+
+            # Update fallback elapsed (for data without start_at)
             elapsed += section["duration_seconds"]
-            # Add silence gap (except after last section)
             if i < len(section_results) - 1:
                 elapsed += _silence_seconds()
 
