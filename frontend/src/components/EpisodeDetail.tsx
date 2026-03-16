@@ -170,7 +170,7 @@ export default function EpisodeDetail() {
 
   const canRunStep = (step: PipelineStep | undefined): boolean => {
     if (!step) return false;
-    return step.status === "pending" || step.status === "rejected";
+    return step.status === "pending" || step.status === "rejected" || step.status === "approved" || step.status === "needs_approval";
   };
 
   const handleRunStep = async () => {
