@@ -61,7 +61,7 @@ def list_se_presets() -> dict[str, list[dict[str, str]]]:
                 label = f"Custom: {f.stem[len(prefix):]}"
                 if not any(p["value"] == name for p in items):
                     items.append({"value": name, "label": label})
-        items.append({"value": "none", "label": "None"})
+        items.append({"value": "none", "label": "OFF (効果音なし)"})
         result[position] = items
 
     return result
