@@ -25,6 +25,7 @@ SE_PRESETS: dict[str, list[dict[str, str]]] = {
         {"value": "intro_chime", "label": "Chime (ascending)"},
         {"value": "intro_news", "label": "News Jingle (broadcast)"},
         {"value": "intro_bright", "label": "Bright Arpeggio"},
+        {"value": "intro_pop", "label": "Pop (bouncy)"},
     ],
     "transition": [
         {"value": "transition_chime", "label": "Chime (ding)"},
@@ -32,11 +33,13 @@ SE_PRESETS: dict[str, list[dict[str, str]]] = {
         {"value": "transition_soft", "label": "Soft (double-tap)"},
         {"value": "transition_tick", "label": "Tick (percussive)"},
         {"value": "transition_bell", "label": "Bell (warm)"},
+        {"value": "transition_pop", "label": "Pop (bubble)"},
     ],
     "outro": [
         {"value": "outro_chime", "label": "Chime (descending)"},
         {"value": "outro_warm", "label": "Warm (chord resolve)"},
         {"value": "outro_fade", "label": "Fade (vibrato)"},
+        {"value": "outro_pop", "label": "Pop (playful)"},
     ],
 }
 

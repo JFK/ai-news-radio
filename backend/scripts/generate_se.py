@@ -338,6 +338,67 @@ def generate_outro_fade() -> bytes:
 
 
 # ──────────────────────────────────────────────
+# Pop presets (each position)
+# ──────────────────────────────────────────────
+
+def generate_intro_pop() -> bytes:
+    """Upbeat pop intro - bouncy rising notes with rhythm."""
+    notes = [C5, E5, G5, C6, G5, C6]
+    durations = [0.1, 0.1, 0.1, 0.15, 0.08, 0.2]
+    all_samples: list[float] = []
+    for note, dur in zip(notes, durations):
+        tone = generate_harmonics(note, dur, harmonics=[(1.0, 1.0), (2.0, 0.4), (3.0, 0.15)], volume=0.35)
+        tone = apply_exp_decay(tone, attack=0.003, decay_rate=8.0)
+        all_samples.extend(tone)
+        all_samples.extend(silence(0.03))
+    all_samples.extend(silence(0.3))
+    return samples_to_wav(all_samples)
+
+
+def generate_transition_pop() -> bytes:
+    """Pop bubble/pluck transition sound."""
+    # Rapid pitch drop (bubble pop effect)
+    duration = 0.15
+    n_samples = int(SAMPLE_RATE * duration)
+    samples = []
+    for i in range(n_samples):
+        t = i / SAMPLE_RATE
+        progress = i / n_samples
+        # Start high, drop quickly
+        freq = 1200 * math.exp(-8 * progress) + 200
+        env = math.exp(-6 * progress) * 0.4
+        samples.append(env * math.sin(2 * math.pi * freq * t))
+    # Add a softer second pop
+    pop2_dur = 0.1
+    n2 = int(SAMPLE_RATE * pop2_dur)
+    pop2 = []
+    for i in range(n2):
+        t = i / SAMPLE_RATE
+        progress = i / n2
+        freq = 900 * math.exp(-10 * progress) + 300
+        env = math.exp(-8 * progress) * 0.25
+        pop2.append(env * math.sin(2 * math.pi * freq * t))
+    pop2 = offset_samples(pop2, 0.18)
+    result = mix(samples, pop2)
+    result.extend(silence(0.15))
+    return samples_to_wav(result)
+
+
+def generate_outro_pop() -> bytes:
+    """Pop outro - playful descending bouncy notes."""
+    notes = [C6, G5, E5, C5, G4, C5]
+    durations = [0.08, 0.08, 0.1, 0.1, 0.12, 0.25]
+    all_samples: list[float] = []
+    for note, dur in zip(notes, durations):
+        tone = generate_harmonics(note, dur, harmonics=[(1.0, 1.0), (2.0, 0.3), (3.0, 0.1)], volume=0.3)
+        tone = apply_exp_decay(tone, attack=0.003, decay_rate=6.0)
+        all_samples.extend(tone)
+        all_samples.extend(silence(0.04))
+    all_samples.extend(silence(0.4))
+    return samples_to_wav(all_samples)
+
+
+# ──────────────────────────────────────────────
 
 def main() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -347,16 +408,19 @@ def main() -> None:
         "intro_chime.wav": generate_intro_chime,
         "intro_news.wav": generate_intro_news,
         "intro_bright.wav": generate_intro_bright,
+        "intro_pop.wav": generate_intro_pop,
         # Transition
         "transition_chime.wav": generate_transition_chime,
         "transition_swoosh.wav": generate_transition_swoosh,
         "transition_soft.wav": generate_transition_soft,
         "transition_tick.wav": generate_transition_tick,
         "transition_bell.wav": generate_transition_bell,
+        "transition_pop.wav": generate_transition_pop,
         # Outro
         "outro_chime.wav": generate_outro_chime,
         "outro_warm.wav": generate_outro_warm,
         "outro_fade.wav": generate_outro_fade,
+        "outro_pop.wav": generate_outro_pop,
     }
 
     for filename, gen_func in generators.items():
