@@ -22,6 +22,10 @@ class StaticVisualProvider(VisualProvider):
         """Generate a solid color background (1920x1080)."""
         return await self._generate_image(output_path, 1920, 1080)
 
+    async def generate_illustration(self, prompt: str, output_path: str) -> str:
+        """Generate a solid color illustration placeholder (720x720)."""
+        return await self._generate_image(output_path, 720, 720)
+
     async def health_check(self) -> bool:
         """Static provider is always available."""
         return True

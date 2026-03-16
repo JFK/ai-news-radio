@@ -35,6 +35,19 @@ class VisualProvider(ABC):
         ...
 
     @abstractmethod
+    async def generate_illustration(self, prompt: str, output_path: str) -> str:
+        """Generate an illustration image for a news article.
+
+        Args:
+            prompt: Description of the desired illustration.
+            output_path: Path to save the generated image (PNG).
+
+        Returns:
+            Path to the saved image file.
+        """
+        ...
+
+    @abstractmethod
     async def health_check(self) -> bool:
         """Check if the provider is available."""
         ...

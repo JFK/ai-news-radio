@@ -33,6 +33,14 @@ class GoogleVisualProvider(VisualProvider):
             aspect_ratio="16:9",
         )
 
+    async def generate_illustration(self, prompt: str, output_path: str) -> str:
+        """Generate an illustration image (1:1 square) using Imagen 4."""
+        return await self._generate_image(
+            prompt=f"{prompt}. No text, no letters, no words, no watermarks.",
+            output_path=output_path,
+            aspect_ratio="1:1",
+        )
+
     async def health_check(self) -> bool:
         """Check if Google API is accessible."""
         try:

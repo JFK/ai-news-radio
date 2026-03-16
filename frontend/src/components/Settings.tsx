@@ -669,6 +669,12 @@ function SpeakersSection() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", role: "anchor", voice_name: "Kore", voice_instructions: "", avatar_position: "right", description: "" });
   const [adding, setAdding] = useState(false);
+  const [generatingId, setGeneratingId] = useState<number | null>(null);
+  const [libraryImages, setLibraryImages] = useState<Record<number, string[]>>({});
+  const [showLibrary, setShowLibrary] = useState<number | null>(null);
+  const [selectedLibraryImage, setSelectedLibraryImage] = useState<Record<number, string>>({});
+  const [avatarCacheBust, setAvatarCacheBust] = useState(Date.now());
+  const [avatarPrompts, setAvatarPrompts] = useState<Record<number, string>>({});
 
   const voiceOptions = GEMINI_TTS_VOICES;
   const roleOptions = ["anchor", "expert", "narrator"];
@@ -699,6 +705,12 @@ function SpeakersSection() {
     try {
       const res = await api.getSpeakers();
       setSpeakers(res.data);
+      // Pre-fetch library counts for all speakers
+      for (const sp of res.data) {
+        api.getAvatarLibrary(sp.id).then((libRes) => {
+          setLibraryImages((prev) => ({ ...prev, [sp.id]: libRes.data.images }));
+        }).catch(() => {});
+      }
     } finally {
       setLoading(false);
     }
@@ -751,6 +763,7 @@ function SpeakersSection() {
   const handleAvatarUpload = async (id: number, file: File) => {
     await api.uploadAvatar(id, file);
     await fetchSpeakers();
+    setAvatarCacheBust(Date.now());
   };
 
   const handleAvatarDelete = async (id: number) => {
@@ -758,10 +771,48 @@ function SpeakersSection() {
     await fetchSpeakers();
   };
 
+  const handleGenerateAvatar = async (id: number) => {
+    setGeneratingId(id);
+    try {
+      const prompt = avatarPrompts[id]?.trim() || undefined;
+      await api.generateAvatar(id, prompt);
+      await fetchSpeakers();
+      await fetchLibrary(id);
+      setShowLibrary(id);
+      setAvatarCacheBust(Date.now());
+    } finally {
+      setGeneratingId(null);
+    }
+  };
+
+  const fetchLibrary = async (id: number) => {
+    try {
+      const res = await api.getAvatarLibrary(id);
+      setLibraryImages((prev) => ({ ...prev, [id]: res.data.images }));
+    } catch { /* ignore */ }
+  };
+
+  const handleSelectAvatar = async (speakerId: number, imagePath: string) => {
+    await api.selectAvatar(speakerId, imagePath);
+    await fetchSpeakers();
+    setSelectedLibraryImage((prev) => ({ ...prev, [speakerId]: imagePath }));
+    setAvatarCacheBust(Date.now()); // Bust browser cache for avatar images
+  };
+
   if (loading) return <p className="text-gray-500 text-sm">{t("settings.loading")}</p>;
 
-  const renderForm = () => (
+  const renderForm = () => {
+    // Find the speaker being edited for avatar preview
+    const editingSpeaker = editingId ? speakers.find((sp) => sp.id === editingId) : null;
+    return (
     <div className="bg-gray-50 border rounded-lg p-4 space-y-3">
+      {/* Avatar preview when editing */}
+      {editingSpeaker?.avatar_path && (
+        <div className="flex items-center gap-3 pb-2">
+          <img src={`/media/avatars/speaker_${editingSpeaker.id}.png?t=${avatarCacheBust}`} alt={editingSpeaker.name} className="w-16 h-16 rounded-full object-cover border-2 border-gray-200" />
+          <span className="text-xs text-gray-400">{t("settings.speakers.currentAvatar")}</span>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs text-gray-500 mb-1">{t("settings.speakers.name")}</label>
@@ -840,7 +891,8 @@ function SpeakersSection() {
         </button>
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -869,10 +921,11 @@ function SpeakersSection() {
         {speakers.map((s) => (
           <div key={s.id} className="border rounded-lg p-4">
             {editingId === s.id ? renderForm() : (
+              <>
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-3">
                   {s.avatar_path && (
-                    <img src={`/media/avatars/speaker_${s.id}.png`} alt={s.name} className="w-12 h-12 rounded-full object-cover" />
+                    <img src={`/media/avatars/speaker_${s.id}.png?t=${avatarCacheBust}`} alt={s.name} className="w-12 h-12 rounded-full object-cover" />
                   )}
                   <div>
                     <div className="flex items-center gap-2">
@@ -889,8 +942,20 @@ function SpeakersSection() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <label className="text-xs text-blue-600 hover:underline cursor-pointer">
-                    {t("settings.speakers.uploadAvatar")}
+                    <button onClick={() => handleEdit(s)} className="text-xs text-blue-600 hover:underline cursor-pointer">
+                      {t("settings.speakers.edit")}
+                    </button>
+                    <button onClick={() => handleDelete(s.id)} className="text-xs text-red-500 hover:underline cursor-pointer">
+                      {t("settings.speakers.delete")}
+                    </button>
+                  </div>
+              </div>
+              {/* Avatar management section */}
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-medium text-gray-500 shrink-0">{t("settings.speakers.uploadAvatar")}</span>
+                  <label className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 cursor-pointer shrink-0">
+                    {t("settings.speakers.uploadFile")}
                     <input
                       type="file"
                       accept="image/*"
@@ -902,19 +967,62 @@ function SpeakersSection() {
                       }}
                     />
                   </label>
+                  {(libraryImages[s.id]?.length ?? 0) > 0 && (
+                    <button
+                      onClick={() => { setShowLibrary(showLibrary === s.id ? null : s.id); if (showLibrary !== s.id) fetchLibrary(s.id); }}
+                      className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100 cursor-pointer shrink-0"
+                    >
+                      {showLibrary === s.id ? t("settings.speakers.hideLibrary") : t("settings.speakers.showLibrary", { count: libraryImages[s.id]?.length ?? 0 })}
+                    </button>
+                  )}
                   {s.avatar_path && (
-                    <button onClick={() => handleAvatarDelete(s.id)} className="text-xs text-red-500 hover:underline cursor-pointer">
+                    <button onClick={() => handleAvatarDelete(s.id)} className="px-2 py-1 text-xs text-red-500 border border-red-200 rounded hover:bg-red-50 cursor-pointer shrink-0">
                       {t("settings.speakers.removeAvatar")}
                     </button>
                   )}
-                  <button onClick={() => handleEdit(s)} className="text-xs text-blue-600 hover:underline cursor-pointer">
-                    {t("settings.speakers.edit")}
-                  </button>
-                  <button onClick={() => handleDelete(s.id)} className="text-xs text-red-500 hover:underline cursor-pointer">
-                    {t("settings.speakers.delete")}
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    value={avatarPrompts[s.id] ?? ""}
+                    onChange={(e) => setAvatarPrompts((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                    className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-xs"
+                    placeholder={t("settings.speakers.avatarPromptPlaceholder")}
+                  />
+                  <button
+                    onClick={() => handleGenerateAvatar(s.id)}
+                    disabled={generatingId === s.id}
+                    className="px-3 py-1.5 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 cursor-pointer disabled:opacity-50 shrink-0"
+                  >
+                    {generatingId === s.id ? t("settings.speakers.generating") : t("settings.speakers.generateAvatar")}
                   </button>
                 </div>
+                {showLibrary === s.id && libraryImages[s.id] && (
+                  <div>
+                    <p className="text-xs text-gray-400 mb-2">{t("settings.speakers.libraryHint")}</p>
+                    <div className="grid grid-cols-6 gap-2">
+                      {libraryImages[s.id].map((img, idx) => {
+                        const isSelected = selectedLibraryImage[s.id] === img;
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => handleSelectAvatar(s.id, img)}
+                            className={`border-2 rounded-lg overflow-hidden cursor-pointer transition-all ${
+                              isSelected ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200 hover:border-blue-300"
+                            }`}
+                            title={t("settings.speakers.selectThisAvatar")}
+                          >
+                            <img src={img} alt={`avatar ${idx + 1}`} className="w-full h-auto aspect-square object-cover" />
+                          </button>
+                        );
+                      })}
+                      {libraryImages[s.id].length === 0 && (
+                        <p className="col-span-6 text-xs text-gray-400">{t("settings.speakers.libraryEmpty")}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
+              </>
             )}
           </div>
         ))}
