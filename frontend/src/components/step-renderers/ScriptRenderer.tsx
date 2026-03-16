@@ -3,6 +3,17 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { NewsItem } from "../../types";
 
+interface DialogueTurn {
+  speaker: string;
+  text: string;
+}
+
+interface ScriptData {
+  mode: string;
+  speakers: Record<string, string>;
+  dialogue: DialogueTurn[];
+}
+
 interface Props {
   outputData: Record<string, unknown>;
   newsItems: NewsItem[];
@@ -10,6 +21,11 @@ interface Props {
   editable?: boolean;
   onUpdated?: () => void;
 }
+
+const SPEAKER_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  speaker_a: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
+  speaker_b: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
+};
 
 export default function ScriptRenderer({ outputData, newsItems, episodeId, editable, onUpdated }: Props) {
   const { t } = useTranslation();
@@ -53,6 +69,49 @@ export default function ScriptRenderer({ outputData, newsItems, episodeId, edita
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleModeChange = async (itemId: number, mode: string) => {
+    const labels: Record<string, string> = {
+      auto: t("stepData.script.modeAuto"),
+      explainer: t("stepData.script.modeExplainer"),
+      solo: t("stepData.script.modeSolo"),
+    };
+    if (!confirm(t("stepData.script.modeChangeConfirm", { mode: labels[mode] ?? mode }))) return;
+    await api.setScriptMode(episodeId, itemId, mode);
+    onUpdated?.();
+  };
+
+  const renderDialogue = (scriptData: ScriptData) => {
+    const speakers = scriptData.speakers || {};
+    return (
+      <div className="space-y-2 mt-2">
+        {scriptData.dialogue.map((turn, i) => {
+          const colors = SPEAKER_COLORS[turn.speaker] ?? SPEAKER_COLORS.speaker_a;
+          const name = speakers[turn.speaker] ?? turn.speaker;
+          return (
+            <div key={i} className={`rounded-lg p-3 border ${colors.bg} ${colors.border}`}>
+              <span className={`text-xs font-semibold ${colors.text}`}>{name}</span>
+              <p className="text-sm text-gray-800 mt-1">{turn.text}</p>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const getModeBadge = (item: NewsItem) => {
+    const mode = item.script_mode || (item.script_data as ScriptData | null)?.mode;
+    if (!mode) return null;
+    return (
+      <span className={`px-2 py-0.5 rounded-full text-xs ${
+        mode === "explainer"
+          ? "bg-indigo-100 text-indigo-700"
+          : "bg-gray-100 text-gray-600"
+      }`}>
+        {mode === "explainer" ? t("stepData.script.modeExplainer") : t("stepData.script.modeSolo")}
+      </span>
+    );
   };
 
   return (
@@ -109,73 +168,98 @@ export default function ScriptRenderer({ outputData, newsItems, episodeId, edita
             {t("stepData.script.perArticle")}
           </h4>
           <div className="space-y-2">
-            {itemsWithScript.map((item) => (
-              <div key={item.id} className="border rounded-lg">
-                <button
-                  onClick={() =>
-                    setExpandedId(expandedId === item.id ? null : item.id)
-                  }
-                  className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 cursor-pointer"
-                >
-                  <span className="text-sm font-medium text-gray-800 truncate mr-2">
-                    {item.title}
-                  </span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {item.is_group_primary && item.group_id != null &&
-                      newsItems.filter((n) => n.group_id === item.group_id).length > 1 && (
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-purple-50 text-purple-700">
-                          {newsItems.filter((n) => n.group_id === item.group_id).length} {t("stepData.script.sources")}
-                        </span>
-                      )}
-                    <span className="text-gray-400 text-xs">
-                      {expandedId === item.id ? "▲" : "▼"}
+            {itemsWithScript.map((item) => {
+              const scriptData = item.script_data as ScriptData | null;
+              const isExplainer = scriptData?.mode === "explainer";
+
+              return (
+                <div key={item.id} className="border rounded-lg">
+                  <button
+                    onClick={() =>
+                      setExpandedId(expandedId === item.id ? null : item.id)
+                    }
+                    className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 cursor-pointer"
+                  >
+                    <span className="text-sm font-medium text-gray-800 truncate mr-2">
+                      {item.title}
                     </span>
-                  </div>
-                </button>
-                {expandedId === item.id && item.script_text && (
-                  <div className="px-3 pb-3 border-t">
-                    {editingItemId === item.id ? (
-                      <div className="space-y-2 mt-2">
-                        <textarea
-                          value={editText}
-                          onChange={(e) => setEditText(e.target.value)}
-                          className="w-full h-48 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handleSaveItem}
-                            disabled={saving}
-                            className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 cursor-pointer"
-                          >
-                            {saving ? t("stepData.script.saving") : t("stepData.script.save")}
-                          </button>
-                          <button
-                            onClick={() => setEditingItemId(null)}
-                            className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-300 cursor-pointer"
-                          >
-                            {t("stepData.script.cancel")}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                          {item.script_text}
-                        </p>
-                        {editable && (
-                          <button
-                            onClick={() => handleEditItem(item)}
-                            className="text-xs text-blue-600 hover:text-blue-800 mt-2 cursor-pointer"
-                          >
-                            {t("stepData.script.edit")}
-                          </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {getModeBadge(item)}
+                      {item.is_group_primary && item.group_id != null &&
+                        newsItems.filter((n) => n.group_id === item.group_id).length > 1 && (
+                          <span className="px-2 py-0.5 rounded-full text-xs bg-purple-50 text-purple-700">
+                            {newsItems.filter((n) => n.group_id === item.group_id).length} {t("stepData.script.sources")}
+                          </span>
                         )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+                      <span className="text-gray-400 text-xs">
+                        {expandedId === item.id ? "▲" : "▼"}
+                      </span>
+                    </div>
+                  </button>
+                  {expandedId === item.id && (
+                    <div className="px-3 pb-3 border-t">
+                      {/* Mode selector */}
+                      {editable && (
+                        <div className="flex items-center gap-2 mt-2 mb-2">
+                          <span className="text-xs text-gray-500">{t("stepData.script.mode")}:</span>
+                          <select
+                            value={item.script_mode || "auto"}
+                            onChange={(e) => handleModeChange(item.id, e.target.value)}
+                            className="px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+                          >
+                            <option value="auto">{t("stepData.script.modeAuto")}</option>
+                            <option value="explainer">{t("stepData.script.modeExplainer")}</option>
+                            <option value="solo">{t("stepData.script.modeSolo")}</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Dialogue or plain text */}
+                      {isExplainer && scriptData ? (
+                        renderDialogue(scriptData)
+                      ) : editingItemId === item.id ? (
+                        <div className="space-y-2 mt-2">
+                          <textarea
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            className="w-full h-48 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={handleSaveItem}
+                              disabled={saving}
+                              className="px-3 py-1.5 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 cursor-pointer"
+                            >
+                              {saving ? t("stepData.script.saving") : t("stepData.script.save")}
+                            </button>
+                            <button
+                              onClick={() => setEditingItemId(null)}
+                              className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-300 cursor-pointer"
+                            >
+                              {t("stepData.script.cancel")}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                            {item.script_text}
+                          </p>
+                          {editable && (
+                            <button
+                              onClick={() => handleEditItem(item)}
+                              className="text-xs text-blue-600 hover:text-blue-800 mt-2 cursor-pointer"
+                            >
+                              {t("stepData.script.edit")}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

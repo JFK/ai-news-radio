@@ -170,7 +170,7 @@ export default function EpisodeDetail() {
 
   const canRunStep = (step: PipelineStep | undefined): boolean => {
     if (!step) return false;
-    return step.status === "pending" || step.status === "rejected";
+    return step.status === "pending" || step.status === "rejected" || step.status === "approved" || step.status === "needs_approval";
   };
 
   const handleRunStep = async () => {
@@ -335,6 +335,20 @@ export default function EpisodeDetail() {
         </div>
       </div>
 
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <h3 className="text-sm font-medium text-gray-600">{t("episode.pipeline")}</h3>
+          {!activeStep && selectedStep === null && (
+            <span className="text-xs text-gray-400">{t("episode.selectStep")}</span>
+          )}
+        </div>
+        <PipelineView
+          steps={steps}
+          selectedStep={selectedStep}
+          onSelectStep={setSelectedStep}
+        />
+      </div>
+
       {(episode.audio_path || episode.video_path) && (() => {
         const videoStep = steps.find((s) => s.step_name === "video");
         const videoOutputData = videoStep?.output_data as Record<string, unknown> | null;
@@ -433,15 +447,6 @@ export default function EpisodeDetail() {
         </PersistentDetails>
       )}
 
-      <div className="mb-6">
-        <h3 className="text-sm font-medium text-gray-600 mb-2">{t("episode.pipeline")}</h3>
-        <PipelineView
-          steps={steps}
-          selectedStep={selectedStep}
-          onSelectStep={setSelectedStep}
-        />
-      </div>
-
       {activeStep && (
         <div className="bg-white rounded-lg shadow p-4">
           <div className="flex items-center justify-between mb-3">
@@ -461,7 +466,11 @@ export default function EpisodeDetail() {
                   disabled={runningStep}
                   className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
                 >
-                  {runningStep ? t("episode.running") : t("episode.runStep")}
+                  {runningStep
+                    ? t("episode.running")
+                    : activeStep.status === "approved" || activeStep.status === "needs_approval"
+                      ? t("episode.reRunStep")
+                      : t("episode.runStep")}
                 </button>
               )}
             </div>
@@ -557,9 +566,6 @@ export default function EpisodeDetail() {
         </div>
       )}
 
-      {!activeStep && selectedStep === null && (
-        <p className="text-gray-500 text-sm">{t("episode.selectStep")}</p>
-      )}
     </div>
   );
 }

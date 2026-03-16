@@ -5,6 +5,7 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models import NewsItem, StepName
 from app.models.speaker_profile import SpeakerProfile
 from app.pipeline.base import BaseStep
@@ -15,6 +16,7 @@ from app.services.prompt_loader import get_active_prompt, register_default
 logger = logging.getLogger(__name__)
 
 PROMPT_KEY_ITEM = "script_item"
+PROMPT_KEY_ITEM_EXPLAINER = "script_item_explainer"
 PROMPT_KEY_EPISODE = "script_episode"
 
 SCRIPT_ITEM_SYSTEM_PROMPT = """\
@@ -136,7 +138,51 @@ SCRIPT_EPISODE_SYSTEM_PROMPT = """\
   "background_prompt": "English prompt for dark background image, no text/letters/words"
 }"""
 
+SCRIPT_ITEM_EXPLAINER_SYSTEM_PROMPT = """\
+あなたはラジオニュース番組「一緒に考えるラジオ」の台本を書くベテラン放送作家です。
+MC（進行役）と解説者（専門家）の2人が掛け合いでニュースを伝える対話形式の台本を書いてください。
+
+## キャラクター
+- **speaker_a（MC）**: 番組の進行役。リスナーの代わりに質問し、話題を展開する。親しみやすく、好奇心旺盛
+- **speaker_b（解説者）**: 専門的な分析を提供。背景知識が豊富で、複雑な話題をわかりやすく解説する
+
+## 対話の構成（自然な会話として組み立てること）
+1. **つかみ**: MCがニュースを切り出す。リスナーの注意を引く入り方で
+2. **背景・ストーリー**: 解説者が背景を説明。MCが「それってどういうことですか？」等と掘り下げる
+3. **多角的な視点**: 解説者が複数の見方を提示。MCがリスナー目線で「つまり私たちにとっては…」と翻訳する
+4. **生活への接点**: MCがリスナーの生活との関係を具体的に示す
+5. **問いかけ**: 2人でリスナーに考える材料を提供して締める
+
+## 対話のテクニック
+- **リアクション必須**: MCは解説者の発言に必ず短いリアクションを入れてからの次の展開に移る（「なるほど」「それは意外ですね」「あ、そういうことか」「ちょっと待ってください、つまり…」）。解説者もMCの質問に「いい質問ですね」「まさにそこなんですが」等で受ける
+- **相づち・うなずき**: 長めの説明の途中でも、MCが「ええ」「はい」「うんうん」と合いの手を入れる場面を作る（別ターンとして）
+- 解説者は専門用語を使ったらすぐ噛み砕く。MCに聞かれる前に言い換えるのが理想
+- 1ターンは2〜3文程度。長すぎるモノローグは避ける
+- 掛け合いのテンポを大切に。間に呼吸を感じさせる
+
+## 重要：出力形式
+以下のJSON形式で回答してください。JSON以外のテキストは含めないでください:
+{
+  "mode": "explainer",
+  "dialogue": [
+    {"speaker": "speaker_a", "text": "MCの発言テキスト"},
+    {"speaker": "speaker_b", "text": "解説者の発言テキスト"}
+  ]
+}
+
+## 禁止事項
+- セクション名・見出し・秒数指示の出力
+- 情報源不明の断定
+- 煽り・恐怖訴求
+- 一方的な立場の押し付け
+- 専門用語の説明なし使用
+
+## 読みがなルール
+- 難読固有名詞は初出時に丸カッコ内にひらがなで読みを補記する
+- 一般的な漢字は補記不要。2回目以降も補記しない"""
+
 register_default(PROMPT_KEY_ITEM, SCRIPT_ITEM_SYSTEM_PROMPT)
+register_default(PROMPT_KEY_ITEM_EXPLAINER, SCRIPT_ITEM_EXPLAINER_SYSTEM_PROMPT)
 register_default(PROMPT_KEY_EPISODE, SCRIPT_EPISODE_SYSTEM_PROMPT)
 
 
@@ -155,13 +201,17 @@ class ScriptwriterStep(BaseStep):
         """
         provider, model = get_step_provider(self.step_name.value)
         item_prompt, item_prompt_version = await get_active_prompt(session, PROMPT_KEY_ITEM)
+        explainer_prompt, _ = await get_active_prompt(session, PROMPT_KEY_ITEM_EXPLAINER)
         episode_prompt, episode_prompt_version = await get_active_prompt(session, PROMPT_KEY_EPISODE)
 
-        # Inject TTS voice style instructions from speaker profiles
-        narrator = await session.execute(
-            select(SpeakerProfile).where(SpeakerProfile.role == "narrator")
-        )
-        narrator_profile = narrator.scalar_one_or_none()
+        # Load speaker profiles for TTS hint injection and explainer mode
+        speakers_result = await session.execute(select(SpeakerProfile))
+        speakers_by_role: dict[str, SpeakerProfile] = {}
+        for sp in speakers_result.scalars():
+            speakers_by_role[sp.role] = sp
+
+        # Inject TTS voice style instructions from narrator profile
+        narrator_profile = speakers_by_role.get("narrator")
         if narrator_profile and narrator_profile.voice_instructions:
             tts_hint = (
                 f"\n\n## 音声スタイルへの最適化\n"
@@ -170,34 +220,65 @@ class ScriptwriterStep(BaseStep):
             )
             item_prompt += tts_hint
             episode_prompt += tts_hint
+
+        # Inject speaker names and voice hints into explainer prompt
+        anchor = speakers_by_role.get("anchor")
+        expert = speakers_by_role.get("expert")
+        if anchor or expert:
+            speaker_hint = "\n\n## スピーカー情報\n"
+            if anchor:
+                speaker_hint += f"- speaker_a（MC）: {anchor.name}。{anchor.description or ''}\n"
+                if anchor.voice_instructions:
+                    speaker_hint += f"  話し方: {anchor.voice_instructions}\n"
+            if expert:
+                speaker_hint += f"- speaker_b（解説者）: {expert.name}。{expert.description or ''}\n"
+                if expert.voice_instructions:
+                    speaker_hint += f"  話し方: {expert.voice_instructions}\n"
+            explainer_prompt += speaker_hint
+
         item_scripts: list[dict] = []
         total_input_tokens = 0
         total_output_tokens = 0
 
         all_items = await self._get_news_items(episode_id, session)
 
-        # Filter out items with low fact-check reliability (unverified or disputed).
-        # Items with fact_check_status=None (not yet checked) are kept.
-        # Filter out non-primary group members (they are merged into the primary).
+        # Filter out:
+        # - excluded items (user-excluded at approval)
+        # - low fact-check reliability (unverified or disputed)
+        # - non-primary group members (merged into primary)
         items = [
             item for item in all_items
-            if item.fact_check_status not in ("unverified", "disputed")
+            if not item.excluded
+            and item.fact_check_status not in ("unverified", "disputed")
             and (item.is_group_primary is True or item.group_id is None)
         ]
-        skipped = len(all_items) - len(items)
-        if skipped:
+        # Clear script data from skipped items (idempotent: re-run cleans old data)
+        skipped_items = [item for item in all_items if item not in items]
+        for item in skipped_items:
+            item.script_text = None
+            item.script_mode = None
+            item.script_data = None
+        if skipped_items:
             logger.info(
                 "Episode %d: skipped %d items (low reliability or non-primary group members)",
-                episode_id, skipped,
+                episode_id, len(skipped_items),
             )
 
         if not items:
             raise ValueError("No reliable news items to generate scripts for")
 
-        # Phase 1: per-article scripts
+        # Phase 1: per-article scripts (with mode selection)
         for i, item in enumerate(items):
-            await self.log_progress(episode_id, f"[{i + 1}/{len(items)}] 「{item.title[:30]}」の台本を生成中")
-            result = await self._script_item(item, provider, model, item_prompt, session, episode_id, all_items)
+            mode = self._determine_script_mode(item, settings.script_default_mode)
+            if mode == "explainer":
+                await self.log_progress(episode_id, f"[{i + 1}/{len(items)}] 「{item.title[:30]}」の対話台本を生成中")
+                result = await self._script_item_explainer(
+                    item, provider, model, explainer_prompt, session, episode_id,
+                    all_items, speakers_by_role,
+                )
+            else:
+                await self.log_progress(episode_id, f"[{i + 1}/{len(items)}] 「{item.title[:30]}」の台本を生成中")
+                result = await self._script_item(item, provider, model, item_prompt, session, episode_id, all_items)
             item_scripts.append(result)
             total_input_tokens += result["input_tokens"]
             total_output_tokens += result["output_tokens"]
@@ -296,6 +377,8 @@ class ScriptwriterStep(BaseStep):
 
         data = parse_json_response(response.content)
         item.script_text = data.get("script_text", "")
+        item.script_mode = "solo"
+        item.script_data = None
 
         await self.record_usage(
             session=session,
@@ -309,6 +392,130 @@ class ScriptwriterStep(BaseStep):
         return {
             "news_item_id": item.id,
             "title": item.title,
+            "mode": "solo",
+            "input_tokens": response.input_tokens,
+            "output_tokens": response.output_tokens,
+        }
+
+    def _determine_script_mode(self, item: NewsItem, default_mode: str) -> str:
+        """Determine script mode for a news item.
+
+        Priority:
+        1. news_item.script_mode (user override)
+        2. settings.script_default_mode (if not "auto")
+        3. analysis_data["recommended_format"] (AI recommendation)
+        4. Fallback: "solo"
+        """
+        if item.script_mode and item.script_mode in ("explainer", "solo"):
+            return item.script_mode
+
+        if default_mode and default_mode != "auto":
+            return default_mode
+
+        if item.analysis_data and isinstance(item.analysis_data, dict):
+            recommended = item.analysis_data.get("recommended_format")
+            if recommended in ("explainer", "solo"):
+                return recommended
+
+        return "solo"
+
+    async def _script_item_explainer(
+        self,
+        item: NewsItem,
+        provider,
+        model: str,
+        system_prompt: str,
+        session: AsyncSession,
+        episode_id: int,
+        all_items: list[NewsItem] | None = None,
+        speakers_by_role: dict[str, SpeakerProfile] | None = None,
+    ) -> dict:
+        """Generate a dialogue-style script for a news item (explainer mode)."""
+        analysis_info = ""
+        if item.analysis_data:
+            ad = item.analysis_data
+            perspectives_text = ""
+            for p in ad.get("perspectives", []):
+                perspectives_text += f"  - {p.get('standpoint', '')}: {p.get('argument', '')}\n"
+
+            analysis_info = (
+                f"\n\n分析結果:\n"
+                f"- 背景: {ad.get('background', '(なし)')}\n"
+                f"- なぜ今: {ad.get('why_now', '(なし)')}\n"
+                f"- 複数視点:\n{perspectives_text}"
+                f"- データ検証: {ad.get('data_validation', '(なし)')}\n"
+                f"- 生活への影響: {ad.get('impact', '(なし)')}\n"
+                f"- 不確実性: {ad.get('uncertainties', '(なし)')}"
+            )
+            if ad.get("source_comparison"):
+                analysis_info += f"\n- ソース間比較: {ad['source_comparison']}"
+
+        group_sources_info = ""
+        if item.is_group_primary and item.group_id is not None and all_items:
+            group_members = [
+                it for it in all_items
+                if it.group_id == item.group_id and it.id != item.id
+            ]
+            if group_members:
+                sources = [f"- {it.source_name}: {it.title} ({it.source_url})" for it in group_members]
+                group_sources_info = (
+                    f"\n\n同じニュースの他のソース（{len(group_members) + 1}社が報道）:\n"
+                    + "\n".join(sources)
+                )
+
+        prompt = (
+            f"タイトル: {item.title}\n"
+            f"ソース: {item.source_name}\n"
+            f"要約: {item.summary or '(なし)'}"
+            f"{analysis_info}"
+            f"{group_sources_info}"
+        )
+
+        response = await provider.generate(
+            prompt=prompt,
+            model=model,
+            system=system_prompt,
+        )
+
+        data = parse_json_response(response.content)
+
+        # Build speaker names from profiles
+        anchor = speakers_by_role.get("anchor") if speakers_by_role else None
+        expert = speakers_by_role.get("expert") if speakers_by_role else None
+        speaker_a_name = anchor.name if anchor else "MC"
+        speaker_b_name = expert.name if expert else "解説者"
+
+        # Save structured dialogue data
+        dialogue = data.get("dialogue", [])
+        script_data = {
+            "mode": "explainer",
+            "speakers": {"speaker_a": speaker_a_name, "speaker_b": speaker_b_name},
+            "dialogue": dialogue,
+        }
+        item.script_data = script_data
+        item.script_mode = "explainer"
+
+        # Also save flat text for backwards compatibility
+        flat_lines = []
+        for turn in dialogue:
+            speaker = turn.get("speaker", "speaker_a")
+            name = speaker_a_name if speaker == "speaker_a" else speaker_b_name
+            flat_lines.append(f"{name}: {turn.get('text', '')}")
+        item.script_text = "\n".join(flat_lines)
+
+        await self.record_usage(
+            session=session,
+            episode_id=episode_id,
+            provider=response.provider,
+            model=response.model,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+        )
+
+        return {
+            "news_item_id": item.id,
+            "title": item.title,
+            "mode": "explainer",
             "input_tokens": response.input_tokens,
             "output_tokens": response.output_tokens,
         }

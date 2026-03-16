@@ -40,6 +40,7 @@
     "pipeline": "パイプライン",
     "selectStep": "ステップをクリックして詳細を表示してください。",
     "runStep": "ステップを実行",
+    "reRunStep": "再実行",
     "running": "実行中...",
     "started": "開始",
     "completed": "完了",
@@ -179,7 +180,12 @@
       "save": "保存",
       "saving": "保存中...",
       "cancel": "キャンセル",
-      "sources": "ソース"
+      "sources": "ソース",
+      "mode": "モード",
+      "modeAuto": "自動（AI推奨）",
+      "modeExplainer": "MC＋解説",
+      "modeSolo": "ソロ",
+      "modeChangeConfirm": "モードを「{{mode}}」に変更しますか？台本ステップの再実行が必要になります。"
     },
     "video": {
       "youtubeMetadata": "YouTube メタデータ",

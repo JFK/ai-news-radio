@@ -40,6 +40,7 @@
     "pipeline": "Pipeline",
     "selectStep": "Click a step to view details.",
     "runStep": "Run Step",
+    "reRunStep": "Re-run",
     "running": "Running...",
     "started": "Started",
     "completed": "Completed",
@@ -179,7 +180,12 @@
       "save": "Save",
       "saving": "Saving...",
       "cancel": "Cancel",
-      "sources": "sources"
+      "sources": "sources",
+      "mode": "Mode",
+      "modeAuto": "Auto (AI recommended)",
+      "modeExplainer": "MC + Expert",
+      "modeSolo": "Solo",
+      "modeChangeConfirm": "Change mode to \"{{mode}}\"? Script step will need to be re-run."
     },
     "video": {
       "youtubeMetadata": "YouTube Metadata",
