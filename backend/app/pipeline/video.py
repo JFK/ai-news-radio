@@ -1703,7 +1703,7 @@ class VideoStep(BaseStep):
         reference_images: list = []
         if illust_path and os.path.exists(illust_path):
             try:
-                ref_image = types.Image.from_file(illust_path)
+                ref_image = types.Image.from_file(location=illust_path)
                 reference_images.append(
                     types.VideoGenerationReferenceImage(
                         image=ref_image,
@@ -1739,7 +1739,9 @@ class VideoStep(BaseStep):
         video_data = operation.result.generated_videos[0]
         # Save raw Veo video to temp file
         temp_video = video_path + ".veo.mp4"
-        client.files.download(file=video_data.video, download_path=temp_video)
+        video_bytes = client.files.download(file=video_data.video)
+        with open(temp_video, "wb") as f:
+            f.write(video_bytes)
 
         # Merge Veo video with audio using FFmpeg
         cmd = [
