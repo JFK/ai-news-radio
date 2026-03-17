@@ -1573,7 +1573,8 @@ class VideoStep(BaseStep):
             if isinstance(r, dict):
                 results.append(r)
             elif isinstance(r, Exception):
-                logger.warning("Short video generation failed: %s", r)
+                logger.warning("Short video generation failed: %s", r, exc_info=r)
+                await self.log_progress(episode_id, f"ショート動画生成エラー: {r}")
 
         logger.info("Episode %d: generated %d/%d short videos", episode_id, len(results), len(shorts_data))
         return results
