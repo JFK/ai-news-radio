@@ -169,6 +169,8 @@ class VideoStep(BaseStep):
         """
         # --- Parse targets ---
         targets = set(kwargs.get("targets", ["all"]))
+        if not targets:
+            raise ValueError("targets が空です。少なくとも1つ指定してください。")
         invalid = targets - self.VALID_TARGETS
         if invalid:
             raise ValueError(f"無効なターゲット: {invalid}。有効値: {', '.join(sorted(self.VALID_TARGETS))}")
@@ -281,7 +283,11 @@ class VideoStep(BaseStep):
 
         # --- Video target: stages 4-6 ---
         segment_frames: list[dict] = []
-        if run_all or "video" in targets:
+        srt_path = os.path.join(episode_dir, "subtitles.srt")
+        run_video = run_all or "video" in targets
+        run_metadata = run_all or "metadata" in targets
+
+        if run_video:
             if not os.path.exists(bg_image_path):
                 raise ValueError("背景画像がありません。先に images を実行してください。")
 
@@ -300,11 +306,39 @@ class VideoStep(BaseStep):
             )
 
             # [5/7] Generate SRT subtitles
-            srt_path = os.path.join(episode_dir, "subtitles.srt")
             self._generate_srt(script_output, voice_sections, srt_path, news_items)
             await self.log_progress(episode_id, "[5/7] 字幕SRTを生成しました")
 
-            # [6/7] FFmpeg video encode
+        # --- Video encode + Metadata (concurrent when both run) ---
+        youtube_metadata = None
+
+        if run_video and run_metadata:
+            await self.log_progress(episode_id, "[6/7] FFmpegエンコード + メタデータ同時生成中...")
+            timestamps = input_data.get("timestamps", "")
+            video_task = self._ffmpeg_encode_video(
+                audio_path=audio_full_path,
+                video_path=video_path,
+                base_image_path=bg_image_path,
+                resolution=(1280, 720),
+                segment_frames=segment_frames,
+                srt_path=srt_path,
+            )
+            metadata_task = self._generate_youtube_metadata(
+                episode=episode,
+                news_items=news_items,
+                script_text=script_text,
+                duration_seconds=duration_seconds,
+                timestamps=timestamps,
+                session=session,
+                speakers_by_role=speakers_by_role,
+            )
+            _, youtube_metadata = await asyncio.gather(video_task, metadata_task)
+
+            relative_path = f"{episode_id}/video.mp4"
+            episode.video_path = relative_path
+            await session.commit()
+        elif run_video:
+            # [6/7] FFmpeg video encode only
             await self.log_progress(episode_id, "[6/7] FFmpegで動画エンコード中...")
             await self._ffmpeg_encode_video(
                 audio_path=audio_full_path,
@@ -315,14 +349,11 @@ class VideoStep(BaseStep):
                 srt_path=srt_path,
             )
 
-            # Update episode record
             relative_path = f"{episode_id}/video.mp4"
             episode.video_path = relative_path
             await session.commit()
-
-        # --- Metadata target: stage 7a ---
-        youtube_metadata = None
-        if run_all or "metadata" in targets:
+        elif run_metadata:
+            # --- Metadata target only ---
             timestamps = input_data.get("timestamps", "")
             await self.log_progress(episode_id, "[7/7] YouTubeメタデータを生成中...")
             youtube_metadata = await self._generate_youtube_metadata(
@@ -379,12 +410,12 @@ class VideoStep(BaseStep):
                 ]
 
         if run_all or "metadata" in targets:
-            if youtube_metadata:
-                result["youtube_metadata"] = youtube_metadata
+            # Always overwrite when target was explicitly requested (even if None)
+            result["youtube_metadata"] = youtube_metadata
 
         if run_all or "shorts" in targets:
-            if shorts_results:
-                result["shorts"] = shorts_results
+            # Always overwrite when target was explicitly requested (even if empty)
+            result["shorts"] = shorts_results
 
         # Ensure duration_seconds is always present
         if "duration_seconds" not in result:

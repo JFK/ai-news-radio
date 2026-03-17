@@ -648,12 +648,8 @@ export default function EpisodeDetail() {
                         setVideoTargets((prev) => {
                           const next = new Set(prev);
                           if (target === "all") {
-                            if (e.target.checked) {
-                              return new Set(["all"]);
-                            } else {
-                              next.delete("all");
-                              return next;
-                            }
+                            // "all" is always checked - toggling it resets to full re-run
+                            return new Set(["all"]);
                           }
                           if (e.target.checked) {
                             next.add(target);
