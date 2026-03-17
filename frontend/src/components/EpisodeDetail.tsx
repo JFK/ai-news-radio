@@ -643,22 +643,22 @@ export default function EpisodeDetail() {
                     <input
                       type="checkbox"
                       checked={videoTargets.has(target)}
-                      disabled={target !== "all" && videoTargets.has("all")}
                       onChange={(e) => {
-                        setVideoTargets((prev) => {
-                          const next = new Set(prev);
+                        setVideoTargets(() => {
                           if (target === "all") {
-                            // "all" is always checked - toggling it resets to full re-run
                             return new Set(["all"]);
                           }
+                          // Clicking an individual target: start from current individual selections
+                          const prev = new Set(videoTargets);
+                          prev.delete("all");
                           if (e.target.checked) {
-                            next.add(target);
-                            next.delete("all");
+                            prev.add(target);
                           } else {
-                            next.delete(target);
-                            if (next.size === 0) next.add("all");
+                            prev.delete(target);
                           }
-                          return next;
+                          // If nothing selected or all 4 checked, revert to "all"
+                          if (prev.size === 0 || prev.size === 4) return new Set(["all"]);
+                          return prev;
                         });
                       }}
                       className="rounded border-gray-300 text-blue-500 focus:ring-blue-500"
