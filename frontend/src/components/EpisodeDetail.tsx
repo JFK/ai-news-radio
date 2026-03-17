@@ -145,6 +145,7 @@ export default function EpisodeDetail() {
   const [ttsModel, setTtsModel] = useState("");
   const [ttsVoice, setTtsVoice] = useState("");
   const [videoTargets, setVideoTargets] = useState<Set<string>>(new Set(["all"]));
+  const [mediaOpen, setMediaOpen] = useState(false);
   const [totalCost, setTotalCost] = useState<number | null>(null);
 
   useEffect(() => {
@@ -159,6 +160,25 @@ export default function EpisodeDetail() {
       setTotalCost(res.data.total_cost_usd);
     }).catch(() => {});
   }, [episodeId]);
+
+  // Auto-open media section when voice/video step completes
+  const prevStepsRef = useRef<PipelineStep[]>([]);
+  useEffect(() => {
+    if (!episode) return;
+    const prev = prevStepsRef.current;
+    const curr = episode.pipeline_steps;
+    for (const step of curr) {
+      if ((step.step_name === "voice" || step.step_name === "video") && step.status === "needs_approval") {
+        const prevStep = prev.find((s) => s.step_name === step.step_name);
+        if (prevStep && prevStep.status === "running") {
+          setMediaOpen(true);
+          localStorage.setItem("episode-media-open", "1");
+          break;
+        }
+      }
+    }
+    prevStepsRef.current = curr;
+  }, [episode]);
 
   if (loading) return <p className="text-gray-500">{t("episode.loading")}</p>;
   if (error) return <p className="text-red-600">{error}</p>;

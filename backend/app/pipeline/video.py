@@ -1762,6 +1762,12 @@ class VideoStep(BaseStep):
             await asyncio.sleep(5)
             operation = client.operations.get(operation)
 
+        if not operation.result or not operation.result.generated_videos:
+            raise RuntimeError(
+                f"Veo returned no video. "
+                f"error={getattr(operation, 'error', None)}, "
+                f"metadata={getattr(operation, 'metadata', None)}"
+            )
         video_data = operation.result.generated_videos[0]
         # Save raw Veo video to temp file
         temp_video = video_path + ".veo.mp4"
