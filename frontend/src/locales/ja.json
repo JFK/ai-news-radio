@@ -256,7 +256,7 @@
         "se_outro": "アウトロ効果音（エンディング後）",
         "visual_provider": "ビジュアル プロバイダー",
         "visual_imagen_model": "Imagen モデル",
-        "visual_veo_model": "Veo モデル（veo-3.0-generate-preview で画像→動画対応）",
+        "visual_veo_model": "Veo モデル（veo-3.0-*-001 で画像→動画対応）",
         "video_border_color": "ボーダー色（例: #DC1E1E）",
         "video_logo_path": "ロゴ画像（空欄で「AI NEWS RADIO」テキスト）",
         "uploadLogo": "ロゴをアップロード",
