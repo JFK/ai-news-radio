@@ -74,6 +74,7 @@
     "voiceDuration": "Duration",
     "voiceSections": "Sections",
     "voiceShorts": "Short Audio",
+    "shortsVideos": "Short Videos",
     "illustrations": "Illustrations",
     "totalCost": "Total Cost",
     "viewCostDetails": "Cost Details"
@@ -197,7 +198,8 @@
       "description": "Description",
       "tags": "Tags",
       "copy": "Copy",
-      "illustrations": "Illustrations"
+      "illustrations": "Illustrations",
+      "shorts": "Short Videos"
     }
   },
   "settings": {
@@ -264,7 +266,8 @@
         "google_drive_client_secret": "OAuth Client Secret",
         "google_drive_folder_id": "Google Drive Folder ID",
         "script_default_mode": "Default Script Mode",
-        "shorts_max_duration_seconds": "Shorts Max Duration (sec)"
+        "shorts_max_duration_seconds": "Shorts Max Duration (sec)",
+        "shorts_video_provider": "Shorts Video Provider"
       },
       "sePreview": "Preview",
       "seDownload": "DL",

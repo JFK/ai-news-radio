@@ -74,6 +74,7 @@
     "voiceDuration": "再生時間",
     "voiceSections": "セクション",
     "voiceShorts": "ショート音声",
+    "shortsVideos": "ショート動画",
     "illustrations": "解説画像",
     "totalCost": "合計コスト",
     "viewCostDetails": "コスト詳細"
@@ -197,7 +198,8 @@
       "description": "概要文",
       "tags": "タグ",
       "copy": "コピー",
-      "illustrations": "解説画像"
+      "illustrations": "解説画像",
+      "shorts": "ショート動画"
     }
   },
   "settings": {
@@ -264,7 +266,8 @@
         "google_drive_client_secret": "OAuth クライアント シークレット",
         "google_drive_folder_id": "Google Drive フォルダ ID",
         "script_default_mode": "台本デフォルトモード",
-        "shorts_max_duration_seconds": "ショート最大秒数"
+        "shorts_max_duration_seconds": "ショート最大秒数",
+        "shorts_video_provider": "ショート動画 プロバイダー"
       },
       "sePreview": "試聴",
       "seDownload": "DL",

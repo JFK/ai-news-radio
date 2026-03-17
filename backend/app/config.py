@@ -118,6 +118,9 @@ class Settings(BaseSettings):
     script_default_mode: str = "auto"  # auto / explainer / solo
     shorts_max_duration_seconds: int = 30
 
+    # Shorts video
+    shorts_video_provider: str = "ffmpeg"  # "ffmpeg" or "veo"
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
