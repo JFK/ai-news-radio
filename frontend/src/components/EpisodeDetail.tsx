@@ -145,7 +145,6 @@ export default function EpisodeDetail() {
   const [ttsModel, setTtsModel] = useState("");
   const [ttsVoice, setTtsVoice] = useState("");
   const [videoTargets, setVideoTargets] = useState<Set<string>>(new Set(["all"]));
-  const [mediaOpen, setMediaOpen] = useState(false);
   const [totalCost, setTotalCost] = useState<number | null>(null);
 
   useEffect(() => {
@@ -171,7 +170,6 @@ export default function EpisodeDetail() {
       if ((step.step_name === "voice" || step.step_name === "video") && step.status === "needs_approval") {
         const prevStep = prev.find((s) => s.step_name === step.step_name);
         if (prevStep && prevStep.status === "running") {
-          setMediaOpen(true);
           localStorage.setItem("episode-media-open", "1");
           break;
         }
