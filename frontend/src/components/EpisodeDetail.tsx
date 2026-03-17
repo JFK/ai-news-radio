@@ -353,9 +353,10 @@ export default function EpisodeDetail() {
         />
       </div>
 
-      {(episode.audio_path || episode.video_path) && (() => {
+      {(() => {
         const videoStep = steps.find((s) => s.step_name === "video");
         const videoOutputData = videoStep?.output_data as Record<string, unknown> | null;
+        if (!episode.audio_path && !episode.video_path && !videoOutputData) return null;
         const thumbnailPath = videoOutputData?.thumbnail_path as string | undefined;
         const srtPath = videoOutputData?.srt_path as string | undefined;
         // Cache bust: use step completed_at so re-runs show fresh media
