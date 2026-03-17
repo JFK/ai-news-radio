@@ -1724,13 +1724,15 @@ class VideoStep(BaseStep):
         brand_info = f"\n番組名: {brand}"
         brand_info += f"\nブランドカラー: {border_color}"
 
+        no_text_rule = "\n重要: 映像内にテキスト・文字・字幕を一切含めないでください。映像のみで表現してください。"
+
         if image_param:
             prompt = (
                 f"この画像を元に、ニュース解説のショート動画を作成してください。"
                 f"画像の内容を活かしつつ、緩やかなカメラワークやズームで動きをつけてください。"
                 f"テーマ: {caption}。"
                 f"プロフェッショナルなニュース番組のスタイルで。"
-                f"{speakers_info}{brand_info}"
+                f"{speakers_info}{brand_info}{no_text_rule}"
             )
         else:
             prompt = (
@@ -1739,7 +1741,7 @@ class VideoStep(BaseStep):
                 f"プロフェッショナルなニュース番組風の映像で、"
                 f"テーマに関連するビジュアルやグラフィックを使用してください。"
                 f"人物は含めず、情報を視覚的に伝える映像にしてください。"
-                f"{speakers_info}{brand_info}"
+                f"{speakers_info}{brand_info}{no_text_rule}"
             )
 
         config = types.GenerateVideosConfig(
