@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useEpisode } from "../hooks/useEpisode";
 import { useNewsItems } from "../hooks/useNewsItems";
-import type { StepName, PipelineStep } from "../types";
+import type { StepName, PipelineStep, ShortsVideo } from "../types";
 import { GEMINI_TTS_MODELS, GEMINI_TTS_VOICES } from "../constants/tts";
 import PipelineView from "./PipelineView";
 import ApprovalGate from "./ApprovalGate";
@@ -411,6 +411,70 @@ export default function EpisodeDetail() {
               </a>
             </div>
           )}
+          {/* Shorts videos */}
+          {(() => {
+            const shortsVideos = videoOutputData?.shorts as ShortsVideo[] | undefined;
+            if (!shortsVideos?.length) return null;
+            return (
+              <div>
+                <p className="text-xs text-gray-500 mb-1">{t("episode.shortsVideos")}</p>
+                <div className="space-y-3">
+                  {shortsVideos.map((sv, i) => (
+                    <div key={i} className="border border-purple-200 rounded-lg p-3 bg-purple-50">
+                      <div className="flex items-start gap-3">
+                        <video
+                          controls
+                          className="rounded border"
+                          style={{ aspectRatio: "9/16", maxHeight: "400px" }}
+                          src={`${MEDIA_BASE_URL}/${sv.video_path}${cb}`}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium text-purple-700">Short #{i + 1}</span>
+                            <span className="text-xs text-gray-500">{sv.duration_seconds.toFixed(1)}s / {sv.provider}</span>
+                          </div>
+                          {sv.metadata && (
+                            <div className="space-y-1">
+                              {sv.metadata.title && (
+                                <div className="flex items-center gap-1">
+                                  <p className="text-sm font-medium text-gray-800 truncate">{sv.metadata.title}</p>
+                                  <button
+                                    onClick={() => navigator.clipboard.writeText(sv.metadata?.title ?? "")}
+                                    className="text-xs text-blue-600 hover:text-blue-800 cursor-pointer shrink-0"
+                                  >{t("stepData.video.copy")}</button>
+                                </div>
+                              )}
+                              {sv.metadata.description && (
+                                <div className="flex items-center gap-1">
+                                  <p className="text-xs text-gray-600 line-clamp-2">{sv.metadata.description}</p>
+                                  <button
+                                    onClick={() => navigator.clipboard.writeText(sv.metadata?.description ?? "")}
+                                    className="text-xs text-blue-600 hover:text-blue-800 cursor-pointer shrink-0"
+                                  >{t("stepData.video.copy")}</button>
+                                </div>
+                              )}
+                              {sv.metadata.hashtags && sv.metadata.hashtags.length > 0 && (
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {sv.metadata.hashtags.map((tag, j) => (
+                                    <span key={j} className="px-1.5 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700">{tag}</span>
+                                  ))}
+                                  <button
+                                    onClick={() => navigator.clipboard.writeText(sv.metadata?.hashtags?.join(" ") ?? "")}
+                                    className="text-xs text-blue-600 hover:text-blue-800 cursor-pointer"
+                                  >{t("stepData.video.copy")}</button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <a href={`${MEDIA_BASE_URL}/${sv.video_path}`} download className="text-xs text-blue-600 hover:underline mt-1 inline-block">{t("episode.download")}</a>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
           {thumbnailPath && (
             <div>
               <p className="text-xs text-gray-500 mb-1">{t("episode.thumbnail")}</p>

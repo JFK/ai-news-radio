@@ -189,6 +189,21 @@ export interface SpeakerProfile {
   updated_at: string;
 }
 
+export interface ShortsVideoMetadata {
+  title?: string;
+  description?: string;
+  hashtags?: string[];
+}
+
+export interface ShortsVideo {
+  news_item_id: number;
+  video_path: string;
+  duration_seconds: number;
+  mode: string;
+  provider: string;
+  metadata?: ShortsVideoMetadata;
+}
+
 export interface AppSettings {
   settings: Record<string, string>;
   masked_keys: string[];

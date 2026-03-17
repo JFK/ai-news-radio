@@ -109,10 +109,6 @@ class TestVideoStep:
         second_call_args = mock_subprocess.call_args_list[1][0]
         assert second_call_args[0] == "ffmpeg"
 
-    def test_escape_drawtext(self, video_step: VideoStep):
-        """Test FFmpeg drawtext text escaping."""
-        text = "Hello: World's\nTest"
-        escaped = video_step._escape_drawtext(text)
-        assert "\\:" in escaped
-        assert "\\n" in escaped
-        assert "\\'" in escaped
+    def test_load_avatars_empty(self, video_step: VideoStep):
+        """_load_avatars returns empty dict when no speakers have avatars."""
+        assert video_step._load_avatars({}) == {}

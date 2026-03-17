@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import textwrap
+from dataclasses import dataclass
 
 from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy import select
@@ -27,6 +28,33 @@ FONT_PATH = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 FONT_PATH_BOLD = "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"
 
 PROMPT_KEY = "youtube_metadata"
+SHORTS_PROMPT_KEY = "shorts_youtube_metadata"
+
+SHORTS_YOUTUBE_METADATA_SYSTEM_PROMPT = """\
+あなたはYouTube Shortsの最適化の専門家です。
+ニュースショート動画に最適なメタデータを生成してください。
+
+## ルール
+
+### title（40文字以内）
+- 短く、インパクトのある一言
+- #Shorts に最適化（ハッシュタグは別途tagsに）
+
+### description（200文字以内）
+- 要点を簡潔に
+- 本編動画への誘導を含める
+
+### hashtags（配列、5-8個）
+- 関連するハッシュタグ
+- #Shorts を必ず含める
+- 日本語タグ中心
+
+以下のJSON形式で回答してください。JSON以外のテキストは含めないでください:
+{
+  "title": "ショートタイトル",
+  "description": "短い説明文",
+  "hashtags": ["#Shorts", "#ニュース", ...]
+}"""
 
 YOUTUBE_METADATA_SYSTEM_PROMPT = """\
 あなたはYouTubeのSEO・アルゴリズム最適化の専門家です。
@@ -60,6 +88,58 @@ YOUTUBE_METADATA_SYSTEM_PROMPT = """\
 }"""
 
 register_default(PROMPT_KEY, YOUTUBE_METADATA_SYSTEM_PROMPT)
+register_default(SHORTS_PROMPT_KEY, SHORTS_YOUTUBE_METADATA_SYSTEM_PROMPT)
+
+
+@dataclass(frozen=True)
+class FrameLayout:
+    """Layout constants for frame composition (landscape or portrait)."""
+
+    width: int
+    height: int
+    logo_y: int
+    logo_centered: bool  # False=top-left, True=center
+    illust_y: int
+    illust_w: int
+    illust_h: int
+    illust_centered: bool  # True=horizontally centered, False=use illust_x
+    illust_x: int  # used when illust_centered=False
+    avatar_y: int
+    avatar_explainer_size: int
+    avatar_explainer_gap: int
+    avatar_solo_size: int
+    avatar_centered: bool  # True=horizontally centered, False=use avatar_base_x
+    avatar_base_x: int  # used when avatar_centered=False
+    name_fontsize: int
+    topic_fontsize: int  # 0=hidden
+    topic_y: int
+    subtitle_fontsize: int  # 0=hidden
+    subtitle_y: int
+    subtitle_wrap_width: int
+    dark_alpha: int  # background darkening alpha
+
+
+LANDSCAPE = FrameLayout(
+    width=1280, height=720,
+    logo_y=12, logo_centered=False,
+    illust_y=80, illust_w=460, illust_h=345, illust_centered=False, illust_x=80,
+    avatar_y=140, avatar_explainer_size=180, avatar_explainer_gap=50,
+    avatar_solo_size=220, avatar_centered=False, avatar_base_x=600,
+    name_fontsize=16, topic_fontsize=24, topic_y=15,
+    subtitle_fontsize=0, subtitle_y=0, subtitle_wrap_width=0,
+    dark_alpha=120,
+)
+
+PORTRAIT = FrameLayout(
+    width=1080, height=1920,
+    logo_y=30, logo_centered=True,
+    illust_y=150, illust_w=800, illust_h=400, illust_centered=True, illust_x=0,
+    avatar_y=620, avatar_explainer_size=250, avatar_explainer_gap=60,
+    avatar_solo_size=320, avatar_centered=True, avatar_base_x=0,
+    name_fontsize=20, topic_fontsize=0, topic_y=0,
+    subtitle_fontsize=38, subtitle_y=1300, subtitle_wrap_width=16,
+    dark_alpha=140,
+)
 
 
 class VideoStep(BaseStep):
@@ -180,12 +260,13 @@ class VideoStep(BaseStep):
 
         # [6/7] FFmpeg video encode + [7/7] YouTube metadata (concurrent)
         await self.log_progress(episode_id, "[6/7] FFmpegで動画エンコード中...")
-        video_task = self._generate_video(
+        video_task = self._ffmpeg_encode_video(
             audio_path=audio_full_path,
             video_path=video_path,
-            bg_image_path=bg_image_path,
-            srt_path=srt_path,
+            base_image_path=bg_image_path,
+            resolution=(1280, 720),
             segment_frames=segment_frames,
+            srt_path=srt_path,
         )
         timestamps = input_data.get("timestamps", "")
 
@@ -227,6 +308,24 @@ class VideoStep(BaseStep):
             ]
         if youtube_metadata:
             result["youtube_metadata"] = youtube_metadata
+
+        # --- Shorts video generation ---
+        shorts_data = input_data.get("shorts", [])
+        if shorts_data:
+            await self.log_progress(episode_id, "ショート動画を生成中...")
+            shorts_results = await self._generate_shorts_videos(
+                episode_id=episode_id,
+                shorts_data=shorts_data,
+                news_items=news_items,
+                illustration_paths=illustration_paths,
+                bg_image_path=bg_image_path,
+                speakers_by_role=speakers_by_role,
+                session=session,
+                episode_dir=episode_dir,
+            )
+            if shorts_results:
+                result["shorts"] = shorts_results
+            await self.log_progress(episode_id, f"ショート動画 {len(shorts_results)}本 生成完了")
 
         return result
 
@@ -320,15 +419,7 @@ class VideoStep(BaseStep):
         logo_img = self._load_logo()
 
         # Preload avatar images
-        avatars: dict[str, Image.Image] = {}
-        for role, sp in speakers_by_role.items():
-            if sp.avatar_path and os.path.exists(sp.avatar_path):
-                try:
-                    av = Image.open(sp.avatar_path).convert("RGBA")
-                    av = av.resize((280, 280), Image.Resampling.LANCZOS)
-                    avatars[role] = av
-                except Exception as e:
-                    logger.warning("Failed to load avatar for %s: %s", role, e)
+        avatars = self._load_avatars(speakers_by_role)
 
         segment_frames: list[dict] = []
         frame_idx = 0
@@ -389,9 +480,10 @@ class VideoStep(BaseStep):
                     active = "anchor" if speaker == "speaker_a" else "expert"
 
                     frame_path = os.path.join(frames_dir, f"seg_{frame_idx:03d}.png")
-                    self._composite_segment_frame(
+                    self._composite_frame(
                         bg_img=bg_img,
                         output_path=frame_path,
+                        layout=LANDSCAPE,
                         illustration_path=illust_path,
                         avatars=avatars,
                         mode=mode,
@@ -410,9 +502,10 @@ class VideoStep(BaseStep):
             else:
                 # Solo mode or no dialogue: single frame for entire section
                 frame_path = os.path.join(frames_dir, f"seg_{frame_idx:03d}.png")
-                self._composite_segment_frame(
+                self._composite_frame(
                     bg_img=bg_img,
                     output_path=frame_path,
+                    layout=LANDSCAPE,
                     illustration_path=illust_path,
                     avatars=avatars,
                     mode=mode,
@@ -430,104 +523,118 @@ class VideoStep(BaseStep):
         logger.info("Generated %d segment frames in %s", len(segment_frames), frames_dir)
         return segment_frames
 
-    def _composite_segment_frame(
+    @staticmethod
+    def _load_avatars(speakers_by_role: dict[str, "SpeakerProfile"]) -> dict[str, Image.Image]:
+        """Load avatar images from speaker profiles without resizing."""
+        avatars: dict[str, Image.Image] = {}
+        for role, sp in speakers_by_role.items():
+            if sp.avatar_path and os.path.exists(sp.avatar_path):
+                try:
+                    avatars[role] = Image.open(sp.avatar_path).convert("RGBA")
+                except Exception as e:
+                    logger.warning("Failed to load avatar for %s: %s", role, e)
+        return avatars
+
+    def _composite_frame(
         self,
         bg_img: Image.Image,
         output_path: str,
-        illustration_path: str | None,
-        avatars: dict[str, Image.Image],
-        mode: str,
-        speakers_by_role: dict[str, "SpeakerProfile"],
-        logo_img: Image.Image | None,
-        topic_text: str,
+        layout: FrameLayout,
+        illustration_path: str | None = None,
+        avatars: dict[str, Image.Image] | None = None,
+        mode: str = "solo",
+        speakers_by_role: dict[str, "SpeakerProfile"] | None = None,
+        logo_img: Image.Image | None = None,
+        topic_text: str = "",
+        subtitle_text: str = "",
         active_speaker: str | None = None,
     ) -> None:
-        """Compose a single 1280x720 segment frame.
+        """Compose a single frame using the given layout (landscape or portrait).
 
-        Layout:
-        - Base: darkened background
-        - Top-left: logo
-        - Top-center: topic text (article title)
-        - Left (~40, 120): illustration image (~480x360)
-        - Right (~740, 120): avatar(s) (~280x280)
-
-        Args:
-            active_speaker: "anchor" or "expert" — highlights the active speaker,
-                dims the other. None = show all equally.
+        Renders: background darkening, logo, topic text, illustration,
+        avatar(s) with active-speaker highlighting, speaker names, and subtitle.
         """
+        W, H = layout.width, layout.height
         canvas = bg_img.copy()
-        w, h = canvas.size  # 1280 x 720
+        canvas = canvas.resize((W, H), Image.Resampling.LANCZOS)
 
-        # Darken background for content overlay
-        dark = Image.new("RGBA", (w, h), (0, 0, 0, 120))
+        # Darken background
+        dark = Image.new("RGBA", (W, H), (0, 0, 0, layout.dark_alpha))
         canvas = Image.alpha_composite(canvas, dark)
 
-        # --- Logo top-left ---
+        if avatars is None:
+            avatars = {}
+        if speakers_by_role is None:
+            speakers_by_role = {}
+
+        # --- Logo ---
         if logo_img:
-            canvas.paste(logo_img, (20, 12), logo_img if logo_img.mode == "RGBA" else None)
+            if layout.logo_centered:
+                logo_x = (W - logo_img.width) // 2
+            else:
+                logo_x = 20
+            canvas.paste(logo_img, (logo_x, layout.logo_y), logo_img if logo_img.mode == "RGBA" else None)
 
-        # --- Topic text top-center ---
-        overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(overlay)
+        # --- Topic text (if enabled) ---
+        if layout.topic_fontsize > 0 and topic_text:
+            overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+            try:
+                topic_font = ImageFont.truetype(FONT_PATH_BOLD, layout.topic_fontsize)
+            except OSError:
+                topic_font = ImageFont.load_default()
 
-        topic_fontsize = 24
-        try:
-            topic_font = ImageFont.truetype(FONT_PATH_BOLD, topic_fontsize)
-        except OSError:
-            topic_font = ImageFont.load_default()
+            display_topic = topic_text[:40] + "..." if len(topic_text) > 40 else topic_text
+            topic_bbox = draw.textbbox((0, 0), display_topic, font=topic_font)
+            topic_tw = topic_bbox[2] - topic_bbox[0]
+            topic_th = topic_bbox[3] - topic_bbox[1]
+            topic_x = (W - topic_tw) // 2
+            bar_pad = 12
+            draw.rounded_rectangle(
+                [(topic_x - bar_pad, layout.topic_y - 4),
+                 (topic_x + topic_tw + bar_pad, layout.topic_y + topic_th + 8)],
+                radius=6, fill=(0, 0, 0, 180),
+            )
+            draw.text((topic_x, layout.topic_y), display_topic, font=topic_font, fill="white")
+            canvas = Image.alpha_composite(canvas, overlay)
 
-        # Truncate long titles
-        display_topic = topic_text[:40] + "..." if len(topic_text) > 40 else topic_text
-
-        # Draw topic text with background bar
-        topic_bbox = draw.textbbox((0, 0), display_topic, font=topic_font)
-        topic_tw = topic_bbox[2] - topic_bbox[0]
-        topic_th = topic_bbox[3] - topic_bbox[1]
-        topic_x = (w - topic_tw) // 2
-        topic_y = 15
-
-        # Semi-transparent bar behind topic
-        bar_pad = 12
-        draw.rounded_rectangle(
-            [(topic_x - bar_pad, topic_y - 4), (topic_x + topic_tw + bar_pad, topic_y + topic_th + 8)],
-            radius=6,
-            fill=(0, 0, 0, 180),
-        )
-        draw.text((topic_x, topic_y), display_topic, font=topic_font, fill="white")
-        canvas = Image.alpha_composite(canvas, overlay)
-
-        # --- Illustration image (left-center) ---
-        illust_x, illust_y = 80, 80
-        illust_w, illust_h = 460, 345
+        # --- Illustration image ---
         if illustration_path and os.path.exists(illustration_path):
             try:
                 illust = Image.open(illustration_path).convert("RGBA")
-                illust = illust.resize((illust_w, illust_h), Image.Resampling.LANCZOS)
-                # Add rounded border effect
-                border_overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+                illust = illust.resize((layout.illust_w, layout.illust_h), Image.Resampling.LANCZOS)
+                if layout.illust_centered:
+                    ix = (W - layout.illust_w) // 2
+                else:
+                    ix = layout.illust_x
+                # White border effect
+                border_overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
                 border_draw = ImageDraw.Draw(border_overlay)
                 border_draw.rounded_rectangle(
-                    [(illust_x - 3, illust_y - 3), (illust_x + illust_w + 3, illust_y + illust_h + 3)],
-                    radius=10,
-                    fill=(255, 255, 255, 200),
+                    [(ix - 3, layout.illust_y - 3),
+                     (ix + layout.illust_w + 3, layout.illust_y + layout.illust_h + 3)],
+                    radius=10, fill=(255, 255, 255, 200),
                 )
                 canvas = Image.alpha_composite(canvas, border_overlay)
-                canvas.paste(illust, (illust_x, illust_y))
+                canvas.paste(illust, (ix, layout.illust_y))
             except Exception as e:
                 logger.warning("Failed to composite illustration: %s", e)
 
-        # --- Avatar(s) (right side, horizontal layout for explainer) ---
-        avatar_base_x = 600
-        avatar_y = 140
+        # --- Avatar(s) ---
+        av_size = layout.avatar_explainer_size
+        gap = layout.avatar_explainer_gap
         if mode == "explainer":
             anchor_av = avatars.get("anchor")
             expert_av = avatars.get("expert")
             if anchor_av and expert_av:
-                # Horizontal: MC | Expert side by side
-                av_size = 180
-                gap = 50
-                anchor_x = avatar_base_x
-                expert_x = avatar_base_x + av_size + gap
+                if layout.avatar_centered:
+                    total_w = av_size * 2 + gap
+                    start_x = (W - total_w) // 2
+                    anchor_x = start_x
+                    expert_x = start_x + av_size + gap
+                else:
+                    anchor_x = layout.avatar_base_x
+                    expert_x = layout.avatar_base_x + av_size + gap
 
                 anchor_resized = anchor_av.resize((av_size, av_size), Image.Resampling.LANCZOS)
                 expert_resized = expert_av.resize((av_size, av_size), Image.Resampling.LANCZOS)
@@ -541,28 +648,30 @@ class VideoStep(BaseStep):
                     expert_resized = Image.alpha_composite(expert_resized, dim)
 
                 # Active speaker border ring
-                av_overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+                av_overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
                 av_draw = ImageDraw.Draw(av_overlay)
                 if active_speaker == "anchor":
                     av_draw.rounded_rectangle(
-                        [(anchor_x - 4, avatar_y - 4), (anchor_x + av_size + 4, avatar_y + av_size + 4)],
+                        [(anchor_x - 4, layout.avatar_y - 4),
+                         (anchor_x + av_size + 4, layout.avatar_y + av_size + 4)],
                         radius=8, outline=(100, 200, 255, 255), width=3,
                     )
                 elif active_speaker == "expert":
                     av_draw.rounded_rectangle(
-                        [(expert_x - 4, avatar_y - 4), (expert_x + av_size + 4, avatar_y + av_size + 4)],
+                        [(expert_x - 4, layout.avatar_y - 4),
+                         (expert_x + av_size + 4, layout.avatar_y + av_size + 4)],
                         radius=8, outline=(100, 200, 255, 255), width=3,
                     )
                 canvas = Image.alpha_composite(canvas, av_overlay)
 
-                canvas.paste(anchor_resized, (anchor_x, avatar_y), anchor_resized)
-                canvas.paste(expert_resized, (expert_x, avatar_y), expert_resized)
+                canvas.paste(anchor_resized, (anchor_x, layout.avatar_y), anchor_resized)
+                canvas.paste(expert_resized, (expert_x, layout.avatar_y), expert_resized)
 
                 # Speaker names below each avatar
-                name_overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+                name_overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
                 name_draw = ImageDraw.Draw(name_overlay)
                 try:
-                    name_font = ImageFont.truetype(FONT_PATH, 16)
+                    name_font = ImageFont.truetype(FONT_PATH, layout.name_fontsize)
                 except OSError:
                     name_font = ImageFont.load_default()
                 anchor_sp = speakers_by_role.get("anchor")
@@ -573,44 +682,88 @@ class VideoStep(BaseStep):
                     name_bbox = name_draw.textbbox((0, 0), anchor_sp.name, font=name_font)
                     name_w = name_bbox[2] - name_bbox[0]
                     name_draw.text(
-                        (anchor_x + (av_size - name_w) // 2, avatar_y + av_size + 4),
+                        (anchor_x + (av_size - name_w) // 2, layout.avatar_y + av_size + 4),
                         anchor_sp.name, font=name_font, fill=anchor_color,
                     )
                 if expert_sp:
                     name_bbox = name_draw.textbbox((0, 0), expert_sp.name, font=name_font)
                     name_w = name_bbox[2] - name_bbox[0]
                     name_draw.text(
-                        (expert_x + (av_size - name_w) // 2, avatar_y + av_size + 4),
+                        (expert_x + (av_size - name_w) // 2, layout.avatar_y + av_size + 4),
                         expert_sp.name, font=name_font, fill=expert_color,
                     )
                 canvas = Image.alpha_composite(canvas, name_overlay)
             elif anchor_av:
-                canvas.paste(anchor_av, (avatar_base_x, avatar_y), anchor_av)
+                resized = anchor_av.resize((av_size, av_size), Image.Resampling.LANCZOS)
+                if layout.avatar_centered:
+                    ax = (W - av_size) // 2
+                else:
+                    ax = layout.avatar_base_x
+                canvas.paste(resized, (ax, layout.avatar_y), resized)
             elif expert_av:
-                canvas.paste(expert_av, (avatar_base_x, avatar_y), expert_av)
+                resized = expert_av.resize((av_size, av_size), Image.Resampling.LANCZOS)
+                if layout.avatar_centered:
+                    ax = (W - av_size) // 2
+                else:
+                    ax = layout.avatar_base_x
+                canvas.paste(resized, (ax, layout.avatar_y), resized)
         else:
-            # Solo mode: show narrator or anchor avatar (centered in right area)
-            solo_av_size = 220
-            solo_x = avatar_base_x + (w - avatar_base_x - solo_av_size) // 2
+            # Solo mode: narrator or anchor avatar
+            solo_size = layout.avatar_solo_size
             narrator_av = avatars.get("narrator") or avatars.get("anchor")
             if narrator_av:
-                resized = narrator_av.resize((solo_av_size, solo_av_size), Image.Resampling.LANCZOS)
-                canvas.paste(resized, (solo_x, avatar_y), resized)
+                resized = narrator_av.resize((solo_size, solo_size), Image.Resampling.LANCZOS)
+                if layout.avatar_centered:
+                    solo_x = (W - solo_size) // 2
+                else:
+                    solo_x = layout.avatar_base_x + (W - layout.avatar_base_x - solo_size) // 2
+                canvas.paste(resized, (solo_x, layout.avatar_y), resized)
                 sp = speakers_by_role.get("narrator") or speakers_by_role.get("anchor")
                 if sp:
-                    name_overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+                    name_overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
                     name_draw = ImageDraw.Draw(name_overlay)
                     try:
-                        name_font = ImageFont.truetype(FONT_PATH, 16)
+                        name_font = ImageFont.truetype(FONT_PATH, layout.name_fontsize)
                     except OSError:
                         name_font = ImageFont.load_default()
                     name_bbox = name_draw.textbbox((0, 0), sp.name, font=name_font)
                     name_w = name_bbox[2] - name_bbox[0]
                     name_draw.text(
-                        (solo_x + (solo_av_size - name_w) // 2, avatar_y + solo_av_size + 4),
+                        (solo_x + (solo_size - name_w) // 2, layout.avatar_y + solo_size + 4),
                         sp.name, font=name_font, fill=(255, 255, 200),
                     )
                     canvas = Image.alpha_composite(canvas, name_overlay)
+
+        # --- Subtitle text (if enabled) ---
+        if layout.subtitle_fontsize > 0 and subtitle_text:
+            display = re.sub(r'[（\(][ぁ-んー]+[）\)]', '', subtitle_text)
+            try:
+                sub_font = ImageFont.truetype(FONT_PATH_BOLD, layout.subtitle_fontsize)
+            except OSError:
+                sub_font = ImageFont.load_default()
+
+            wrapped = textwrap.fill(display, width=layout.subtitle_wrap_width)
+            lines = wrapped.split("\n")
+
+            sub_overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            sub_draw = ImageDraw.Draw(sub_overlay)
+
+            line_height = layout.subtitle_fontsize + 14
+            total_h = len(lines) * line_height
+            pad_y = 15
+            sub_draw.rounded_rectangle(
+                [(40, layout.subtitle_y - pad_y), (W - 40, layout.subtitle_y + total_h + pad_y)],
+                radius=12, fill=(0, 0, 0, 180),
+            )
+            for i, line in enumerate(lines):
+                lb = sub_draw.textbbox((0, 0), line, font=sub_font)
+                lw = lb[2] - lb[0]
+                lx = (W - lw) // 2
+                ly = layout.subtitle_y + i * line_height
+                sub_draw.text((lx, ly), line, font=sub_font, fill="white",
+                              stroke_width=2, stroke_fill=(20, 20, 20))
+
+            canvas = Image.alpha_composite(canvas, sub_overlay)
 
         # Save as RGB (FFmpeg needs no alpha)
         canvas.convert("RGB").save(output_path)
@@ -729,6 +882,32 @@ class VideoStep(BaseStep):
         badge_draw.text((10, 8), "AI NEWS RADIO", font=badge_font, fill="white")
         return badge_img
 
+    async def _generate_ai_metadata(
+        self,
+        prompt_key: str,
+        user_prompt: str,
+        session: AsyncSession,
+        episode_id: int,
+    ) -> dict | None:
+        """Generate metadata via AI. Common provider/prompt/usage handling."""
+        try:
+            provider, model = get_step_provider("script")
+            system_prompt, _ = await get_active_prompt(session, prompt_key)
+            response = await provider.generate(prompt=user_prompt, model=model, system=system_prompt)
+            data = parse_json_response(response.content)
+            await self.record_usage(
+                session=session,
+                episode_id=episode_id,
+                provider=response.provider,
+                model=response.model,
+                input_tokens=response.input_tokens,
+                output_tokens=response.output_tokens,
+            )
+            return data
+        except Exception as e:
+            logger.warning("Metadata generation failed (%s): %s", prompt_key, e)
+            return None
+
     async def _generate_youtube_metadata(
         self,
         episode: Episode,
@@ -740,61 +919,44 @@ class VideoStep(BaseStep):
         speakers_by_role: dict[str, "SpeakerProfile"] | None = None,
     ) -> dict | None:
         """Generate YouTube metadata (title, description, tags) using AI."""
-        try:
-            provider, model = get_step_provider("script")  # Reuse script step's AI config
-            system_prompt, _prompt_version = await get_active_prompt(session, PROMPT_KEY)
+        news_summary = "\n".join(f"- {item.title}" for item in news_items)
+        duration_min = int(duration_seconds // 60)
+        duration_sec = int(duration_seconds % 60)
 
-            news_summary = "\n".join(f"- {item.title}" for item in news_items)
-            duration_min = int(duration_seconds // 60)
-            duration_sec = int(duration_seconds % 60)
+        timestamps_info = f"\n\nタイムスタンプ（正確な値）:\n{timestamps}" if timestamps else ""
 
-            timestamps_info = f"\n\nタイムスタンプ（正確な値）:\n{timestamps}" if timestamps else ""
+        speakers_info = ""
+        if speakers_by_role:
+            speakers_lines = []
+            role_labels = {"anchor": "MC", "expert": "解説", "narrator": "ナレーター"}
+            for role in ["anchor", "expert", "narrator"]:
+                sp = speakers_by_role.get(role)
+                if sp:
+                    label = role_labels.get(role, role)
+                    desc = f"（{sp.description}）" if sp.description else ""
+                    speakers_lines.append(f"- {sp.name}（{label}）{desc}")
+            if speakers_lines:
+                speakers_info = "\n\n出演者:\n" + "\n".join(speakers_lines)
 
-            # Build speaker info for description
-            speakers_info = ""
-            if speakers_by_role:
-                speakers_lines = []
-                role_labels = {"anchor": "MC", "expert": "解説", "narrator": "ナレーター"}
-                for role in ["anchor", "expert", "narrator"]:
-                    sp = speakers_by_role.get(role)
-                    if sp:
-                        label = role_labels.get(role, role)
-                        desc = f"（{sp.description}）" if sp.description else ""
-                        speakers_lines.append(f"- {sp.name}（{label}）{desc}")
-                if speakers_lines:
-                    speakers_info = "\n\n出演者:\n" + "\n".join(speakers_lines)
+        prompt = (
+            f"番組タイトル: {episode.title}\n"
+            f"ニュース一覧:\n{news_summary}\n"
+            f"動画の長さ: {duration_min}分{duration_sec}秒\n\n"
+            f"台本の冒頭300文字:\n{script_text[:300]}"
+            f"{timestamps_info}"
+            f"{speakers_info}"
+        )
 
-            prompt = (
-                f"番組タイトル: {episode.title}\n"
-                f"ニュース一覧:\n{news_summary}\n"
-                f"動画の長さ: {duration_min}分{duration_sec}秒\n\n"
-                f"台本の冒頭300文字:\n{script_text[:300]}"
-                f"{timestamps_info}"
-                f"{speakers_info}"
-            )
-
-            response = await provider.generate(prompt=prompt, model=model, system=system_prompt)
-            data = parse_json_response(response.content)
-
-            await self.record_usage(
-                session=session,
-                episode_id=episode.id,
-                provider=response.provider,
-                model=response.model,
-                input_tokens=response.input_tokens,
-                output_tokens=response.output_tokens,
-            )
-
-            logger.info("Episode %d: YouTube metadata generated", episode.id)
-            return {
-                "title": data.get("title", ""),
-                "description": data.get("description", ""),
-                "tags": data.get("tags", []),
-            }
-
-        except Exception as e:
-            logger.warning("YouTube metadata generation failed: %s", e)
+        data = await self._generate_ai_metadata(PROMPT_KEY, prompt, session, episode.id)
+        if not data:
             return None
+
+        logger.info("Episode %d: YouTube metadata generated", episode.id)
+        return {
+            "title": data.get("title", ""),
+            "description": data.get("description", ""),
+            "tags": data.get("tags", []),
+        }
 
     async def _get_script_step_output(self, episode_id: int, session: AsyncSession) -> dict:
         """Get the script pipeline step's output_data."""
@@ -825,45 +987,43 @@ class VideoStep(BaseStep):
         data = json.loads(stdout.decode())
         return float(data["format"]["duration"])
 
-    async def _generate_video(
+    async def _ffmpeg_encode_video(
         self,
         audio_path: str,
         video_path: str,
-        bg_image_path: str,
-        srt_path: str | None = None,
+        base_image_path: str,
+        resolution: tuple[int, int],
         segment_frames: list[dict] | None = None,
+        srt_path: str | None = None,
     ) -> None:
-        """Generate MP4 video: background + segment frame overlays + audio + subtitles.
+        """Generate MP4 video: base image + segment frame overlays + audio + optional subtitles.
 
-        If segment_frames are provided, each frame image is overlaid at its
-        time range using FFmpeg's overlay filter with enable=between().
+        Args:
+            resolution: (width, height) for the output video.
+            srt_path: If provided, burn in SRT subtitles.
         """
-        # Build input list: [0] background, [1] audio, [2..N] segment frames
-        inputs = ["-i", bg_image_path, "-i", audio_path]
+        inputs = ["-i", base_image_path, "-i", audio_path]
         frames = segment_frames or []
         for frame in frames:
             inputs.extend(["-i", frame["path"]])
 
-        # Build filter chain
-        # Step 1: Loop background image to create video stream
+        w, h = resolution
         filter_parts = [
-            "[0:v]loop=loop=-1:size=1:start=0,"
-            "setpts=N/FRAME_RATE/TB,scale=1280:720,setsar=1[base]"
+            f"[0:v]loop=loop=-1:size=1:start=0,"
+            f"setpts=N/FRAME_RATE/TB,scale={w}:{h},setsar=1[base]"
         ]
 
-        # Step 2: Overlay segment frames at their time ranges
         prev_label = "base"
         for i, frame in enumerate(frames):
             s = frame["start_at"]
             e = frame["end_at"]
-            input_idx = i + 2  # First two inputs are bg and audio
+            input_idx = i + 2
             out_label = f"seg{i}"
             filter_parts.append(
                 f"[{prev_label}][{input_idx}:v]overlay=0:0:enable='between(t,{s:.3f},{e:.3f})'[{out_label}]"
             )
             prev_label = out_label
 
-        # Step 3: Burn in subtitles
         if srt_path and os.path.exists(srt_path):
             escaped_srt = srt_path.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
             subtitle_marginv = 50 if frames else 30
@@ -877,14 +1037,12 @@ class VideoStep(BaseStep):
                 f"[v]"
             )
         else:
-            # No subtitles, just rename the last label
             filter_parts.append(f"[{prev_label}]null[v]")
 
         filter_complex = ";".join(filter_parts)
 
         cmd = [
-            "ffmpeg",
-            "-y",
+            "ffmpeg", "-y",
             *inputs,
             "-filter_complex", filter_complex,
             "-map", "[v]",
@@ -1209,6 +1367,333 @@ class VideoStep(BaseStep):
         # Save as RGB
         img.convert("RGB").save(output_path)
         logger.info("News-style title overlay applied: %s", output_path)
+
+    # ------------------------------------------------------------------
+    # Shorts video generation
+    # ------------------------------------------------------------------
+
+    async def _generate_shorts_videos(
+        self,
+        episode_id: int,
+        shorts_data: list[dict],
+        news_items: list[NewsItem],
+        illustration_paths: dict[int, str],
+        bg_image_path: str,
+        speakers_by_role: dict[str, "SpeakerProfile"],
+        session: AsyncSession,
+        episode_dir: str,
+    ) -> list[dict]:
+        """Generate short videos (vertical 9:16) for all shorts."""
+        shorts_dir = os.path.join(episode_dir, "shorts")
+        os.makedirs(shorts_dir, exist_ok=True)
+
+        items_by_id: dict[int, NewsItem] = {item.id: item for item in news_items}
+        results: list[dict] = []
+        sem = asyncio.Semaphore(2)
+
+        async def _gen_one(short: dict) -> dict | None:
+            async with sem:
+                news_item_id = short.get("news_item_id")
+                if not news_item_id:
+                    return None
+
+                audio_file = short.get("file", "")
+                if not audio_file:
+                    return None
+
+                audio_full = os.path.join(settings.media_dir, audio_file)
+                if not os.path.exists(audio_full):
+                    logger.warning("Short audio not found: %s", audio_full)
+                    return None
+
+                mode = short.get("mode", "solo")
+                duration = short.get("duration_seconds", 0.0)
+                caption = short.get("caption", "")
+                dialogue = short.get("dialogue", [])
+
+                item = items_by_id.get(news_item_id)
+                illust_path = illustration_paths.get(news_item_id)
+
+                video_filename = f"short_{news_item_id}.mp4"
+                video_path = os.path.join(shorts_dir, video_filename)
+
+                if settings.shorts_video_provider == "veo":
+                    await self._generate_short_video_veo(
+                        caption=caption,
+                        audio_path=audio_full,
+                        video_path=video_path,
+                        illust_path=illust_path,
+                        session=session,
+                        episode_id=episode_id,
+                    )
+                else:
+                    await self._generate_short_video_ffmpeg(
+                        audio_path=audio_full,
+                        video_path=video_path,
+                        bg_image_path=bg_image_path,
+                        illust_path=illust_path,
+                        mode=mode,
+                        dialogue=dialogue,
+                        caption=caption,
+                        speakers_by_role=speakers_by_role,
+                        item=item,
+                        duration=duration,
+                    )
+
+                # Generate metadata
+                metadata = await self._generate_shorts_metadata(
+                    caption=caption,
+                    item=item,
+                    session=session,
+                    episode_id=episode_id,
+                )
+
+                return {
+                    "news_item_id": news_item_id,
+                    "video_path": f"{episode_id}/shorts/{video_filename}",
+                    "duration_seconds": duration,
+                    "mode": mode,
+                    "provider": settings.shorts_video_provider,
+                    "metadata": metadata,
+                }
+
+        tasks = [_gen_one(s) for s in shorts_data]
+        gen_results = await asyncio.gather(*tasks, return_exceptions=True)
+        for r in gen_results:
+            if isinstance(r, dict):
+                results.append(r)
+            elif isinstance(r, Exception):
+                logger.warning("Short video generation failed: %s", r)
+
+        logger.info("Episode %d: generated %d/%d short videos", episode_id, len(results), len(shorts_data))
+        return results
+
+    async def _generate_short_video_ffmpeg(
+        self,
+        audio_path: str,
+        video_path: str,
+        bg_image_path: str,
+        illust_path: str | None,
+        mode: str,
+        dialogue: list[dict],
+        caption: str,
+        speakers_by_role: dict[str, "SpeakerProfile"],
+        item: NewsItem | None,
+        duration: float,
+    ) -> None:
+        """Generate a short video (1080x1920) using Pillow frames + FFmpeg."""
+        # Load background
+        try:
+            bg_img = Image.open(bg_image_path).convert("RGBA")
+        except Exception:
+            bg_img = Image.new("RGBA", (1080, 1920), (26, 26, 46, 255))
+
+        logo_img = self._load_logo()
+        avatars = self._load_avatars(speakers_by_role)
+
+        frames_dir = os.path.dirname(video_path)
+        os.makedirs(frames_dir, exist_ok=True)
+
+        segment_frames: list[dict] = []
+        frame_idx = 0
+
+        if mode == "explainer" and dialogue:
+            total_chars = sum(len(t.get("text", "")) for t in dialogue)
+            if total_chars == 0:
+                total_chars = 1
+            elapsed = 0.0
+
+            for turn in dialogue:
+                text = turn.get("text", "")
+                speaker = turn.get("speaker", "speaker_a")
+                turn_duration = duration * (len(text) / total_chars)
+                turn_end = elapsed + turn_duration
+                active = "anchor" if speaker == "speaker_a" else "expert"
+
+                frame_path = os.path.join(frames_dir, f"short_frame_{frame_idx:03d}.png")
+                self._composite_frame(
+                    bg_img=bg_img,
+                    output_path=frame_path,
+                    layout=PORTRAIT,
+                    illustration_path=illust_path,
+                    avatars=avatars,
+                    mode=mode,
+                    speakers_by_role=speakers_by_role,
+                    logo_img=logo_img,
+                    subtitle_text=text,
+                    active_speaker=active,
+                )
+                segment_frames.append({
+                    "path": frame_path,
+                    "start_at": elapsed,
+                    "end_at": turn_end,
+                })
+                frame_idx += 1
+                elapsed = turn_end
+        else:
+            subtitle = caption or (item.title if item else "")
+            frame_path = os.path.join(frames_dir, f"short_frame_{frame_idx:03d}.png")
+            self._composite_frame(
+                bg_img=bg_img,
+                output_path=frame_path,
+                layout=PORTRAIT,
+                illustration_path=illust_path,
+                avatars=avatars,
+                mode=mode,
+                speakers_by_role=speakers_by_role,
+                logo_img=logo_img,
+                subtitle_text=subtitle,
+            )
+            segment_frames.append({
+                "path": frame_path,
+                "start_at": 0.0,
+                "end_at": duration,
+            })
+
+        # FFmpeg encode
+        await self._ffmpeg_encode_video(
+            audio_path=audio_path,
+            video_path=video_path,
+            base_image_path=segment_frames[0]["path"],
+            resolution=(1080, 1920),
+            segment_frames=segment_frames,
+        )
+
+    async def _generate_short_video_veo(
+        self,
+        caption: str,
+        audio_path: str,
+        video_path: str,
+        illust_path: str | None,
+        session: AsyncSession,
+        episode_id: int,
+    ) -> None:
+        """Generate short video using Veo image-to-video API, then merge audio.
+
+        If an illustration image is available, it is passed as a reference image
+        (asset type) so Veo generates a video that incorporates the illustration's
+        content. This produces more visually relevant shorts than text-only prompts.
+        """
+        try:
+            from google import genai
+            from google.genai import types
+        except ImportError:
+            raise RuntimeError("google-genai package required for Veo provider")
+
+        client = genai.Client(api_key=settings.google_api_key)
+        prompt = (
+            f"この画像を元に、ニュース解説の短い動画を作成してください。"
+            f"画像の内容を活かしつつ、緩やかなカメラワークやズームで動きをつけてください。"
+            f"テーマ: {caption}。"
+            f"プロフェッショナルなニュース番組のスタイルで。"
+        )
+
+        # Build reference images from illustration
+        reference_images: list = []
+        if illust_path and os.path.exists(illust_path):
+            try:
+                ref_image = types.Image.from_file(illust_path)
+                reference_images.append(
+                    types.VideoGenerationReferenceImage(
+                        image=ref_image,
+                        reference_type="asset",
+                    )
+                )
+                logger.info("Veo: using illustration as reference image: %s", illust_path)
+            except Exception as e:
+                logger.warning("Failed to load reference image for Veo: %s", e)
+
+        config = types.GenerateVideosConfig(
+            aspect_ratio="9:16",
+            number_of_videos=1,
+        )
+        # Reference images require Veo 3.0+; skip for Veo 2.x
+        if reference_images and "veo-2" not in settings.visual_veo_model:
+            config.reference_images = reference_images
+        elif reference_images:
+            logger.warning("Veo 2.x does not support reference images; falling back to text-only. "
+                           "Set visual_veo_model to veo-3.0+ for image-to-video.")
+
+        operation = client.models.generate_videos(
+            model=settings.visual_veo_model,
+            prompt=prompt,
+            config=config,
+        )
+
+        # Poll for completion
+        while not operation.done:
+            await asyncio.sleep(5)
+            operation = client.operations.get(operation)
+
+        video_data = operation.result.generated_videos[0]
+        # Save raw Veo video to temp file
+        temp_video = video_path + ".veo.mp4"
+        client.files.download(file=video_data.video, download_path=temp_video)
+
+        # Merge Veo video with audio using FFmpeg
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", temp_video,
+            "-i", audio_path,
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-shortest",
+            video_path,
+        ]
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            raise RuntimeError(f"FFmpeg Veo merge failed: {stderr.decode()}")
+
+        # Clean up temp file
+        try:
+            os.remove(temp_video)
+        except OSError:
+            pass
+
+        # Record cost (Veo pricing)
+        await self.record_usage(
+            session=session,
+            episode_id=episode_id,
+            provider="google-veo",
+            model=settings.visual_veo_model,
+            input_tokens=0,
+            output_tokens=0,
+            cost_usd=0.35,  # Approximate per-video cost
+        )
+
+        logger.info("Veo short video generated: %s", video_path)
+
+    async def _generate_shorts_metadata(
+        self,
+        caption: str,
+        item: NewsItem | None,
+        session: AsyncSession,
+        episode_id: int,
+    ) -> dict | None:
+        """Generate YouTube Shorts metadata (title, description, hashtags) using AI."""
+        title = item.title if item else caption
+        summary = caption or (item.script_text[:200] if item and item.script_text else "")
+
+        prompt = (
+            f"ニュースタイトル: {title}\n"
+            f"要約: {summary}\n"
+        )
+
+        data = await self._generate_ai_metadata(SHORTS_PROMPT_KEY, prompt, session, episode_id)
+        if not data:
+            return None
+
+        return {
+            "title": data.get("title", ""),
+            "description": data.get("description", ""),
+            "hashtags": data.get("hashtags", []),
+        }
 
     @staticmethod
     def _draw_text_badge(

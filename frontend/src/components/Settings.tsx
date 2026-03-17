@@ -181,6 +181,7 @@ function ConfigSection() {
         { key: "visual_provider", label: t("settings.config.fields.visual_provider"), type: "select", options: ["static", "google"] },
         { key: "visual_imagen_model", label: t("settings.config.fields.visual_imagen_model"), type: "select", options: ["imagen-4.0-fast-generate-001", "imagen-4.0-generate-001", "imagen-4.0-ultra-generate-001", "imagen-3.0-generate-002"], optionLabels: { "imagen-4.0-fast-generate-001": "Imagen 4 Fast (速い/低コスト)", "imagen-4.0-generate-001": "Imagen 4 Standard (高品質)", "imagen-4.0-ultra-generate-001": "Imagen 4 Ultra (最高品質)", "imagen-3.0-generate-002": "Imagen 3" }, showWhen: { key: "visual_provider", value: "google" } },
         { key: "visual_veo_model", label: t("settings.config.fields.visual_veo_model"), type: "select", options: ["veo-2.0-generate-001", "veo-3.0-generate-preview", "veo-3.0-fast-generate-preview", "veo-3.1-generate-preview", "veo-3.1-fast-generate-preview"], optionLabels: { "veo-2.0-generate-001": "Veo 2.0 (安定版)", "veo-3.0-generate-preview": "Veo 3.0 (プレビュー)", "veo-3.0-fast-generate-preview": "Veo 3.0 Fast (プレビュー)", "veo-3.1-generate-preview": "Veo 3.1 4K (プレビュー)", "veo-3.1-fast-generate-preview": "Veo 3.1 Fast (プレビュー)" }, showWhen: { key: "visual_provider", value: "google" } },
+        { key: "shorts_video_provider", label: t("settings.config.fields.shorts_video_provider"), type: "select", options: ["ffmpeg", "veo"], optionLabels: { "ffmpeg": "FFmpeg (無料)", "veo": "Veo (API課金)" } },
         { key: "video_border_color", label: t("settings.config.fields.video_border_color"), type: "color" },
         { key: "video_logo_path", label: t("settings.config.fields.video_logo_path"), type: "file" },
       ],
@@ -904,7 +905,7 @@ function SpeakersSection() {
             const availableRole = roleOptions.find((r) => !takenRoles.has(r)) ?? "anchor";
             setAdding(true);
             resetForm(availableRole);
-          }} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 cursor-pointer"
+          }} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={speakers.length >= roleOptions.length}>
             {t("settings.speakers.add")}
           </button>

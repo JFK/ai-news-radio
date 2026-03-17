@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { ShortsVideo } from "../../types";
 
 interface YouTubeMetadata {
   title?: string;
@@ -34,8 +35,9 @@ export default function VideoRenderer({ outputData }: Props) {
   const { t } = useTranslation();
   const metadata = outputData.youtube_metadata as YouTubeMetadata | undefined;
   const illustrationPaths = outputData.illustration_paths as string[] | undefined;
+  const shorts = outputData.shorts as ShortsVideo[] | undefined;
 
-  if (!metadata && (!illustrationPaths || illustrationPaths.length === 0)) return null;
+  if (!metadata && (!illustrationPaths || illustrationPaths.length === 0) && (!shorts || shorts.length === 0)) return null;
 
   return (
     <div className="space-y-4">
@@ -109,6 +111,26 @@ export default function VideoRenderer({ outputData }: Props) {
                 alt={`illustration ${i + 1}`}
                 className="rounded border w-full h-auto"
               />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {shorts && shorts.length > 0 && (
+        <div className="space-y-2 mt-4">
+          <h4 className="text-sm font-medium text-gray-600">
+            {t("stepData.video.shorts")}
+          </h4>
+          <div className="grid grid-cols-3 gap-3">
+            {shorts.map((s, i) => (
+              <div key={i} className="border rounded-lg p-2 bg-purple-50 border-purple-200">
+                <span className="text-xs font-medium text-purple-700">Short #{i + 1}</span>
+                <span className="text-xs text-gray-500 ml-2">{s.duration_seconds?.toFixed(1)}s</span>
+                {s.metadata?.title && (
+                  <p className="text-xs text-gray-700 mt-1 truncate">{s.metadata.title}</p>
+                )}
+                <span className="text-xs text-gray-400">{s.provider}</span>
+              </div>
             ))}
           </div>
         </div>
