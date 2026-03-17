@@ -144,6 +144,7 @@ export default function EpisodeDetail() {
   const [titleDraft, setTitleDraft] = useState("");
   const [ttsModel, setTtsModel] = useState("");
   const [ttsVoice, setTtsVoice] = useState("");
+  const [videoTargets, setVideoTargets] = useState<Set<string>>(new Set(["all"]));
   const [totalCost, setTotalCost] = useState<number | null>(null);
 
   useEffect(() => {
@@ -177,10 +178,13 @@ export default function EpisodeDetail() {
     if (!selectedStep) return;
     setRunningStep(true);
     try {
-      const body: { tts_model?: string; tts_voice?: string } = {};
+      const body: { tts_model?: string; tts_voice?: string; video_targets?: string[] } = {};
       if (selectedStep === "voice") {
         if (ttsModel) body.tts_model = ttsModel;
         if (ttsVoice) body.tts_voice = ttsVoice;
+      }
+      if (selectedStep === "video" && !videoTargets.has("all") && videoTargets.size > 0) {
+        body.video_targets = Array.from(videoTargets);
       }
       await api.runStep(episodeId, selectedStep, Object.keys(body).length > 0 ? body : undefined);
       // Backend launches background task and returns immediately.
@@ -627,6 +631,46 @@ export default function EpisodeDetail() {
                   ))}
                 </select>
               </label>
+            </div>
+          )}
+
+          {activeStep.step_name === "video" && canRunStep(activeStep) && activeStep.output_data && (
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-1.5">{t("episode.videoTargets")}</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                {(["all", "images", "video", "metadata", "shorts"] as const).map((target) => (
+                  <label key={target} className="flex items-center gap-1 text-sm text-gray-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={videoTargets.has(target)}
+                      disabled={target !== "all" && videoTargets.has("all")}
+                      onChange={(e) => {
+                        setVideoTargets((prev) => {
+                          const next = new Set(prev);
+                          if (target === "all") {
+                            if (e.target.checked) {
+                              return new Set(["all"]);
+                            } else {
+                              next.delete("all");
+                              return next;
+                            }
+                          }
+                          if (e.target.checked) {
+                            next.add(target);
+                            next.delete("all");
+                          } else {
+                            next.delete(target);
+                            if (next.size === 0) next.add("all");
+                          }
+                          return next;
+                        });
+                      }}
+                      className="rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                    />
+                    {t(`episode.videoTarget_${target}`)}
+                  </label>
+                ))}
+              </div>
             </div>
           )}
 

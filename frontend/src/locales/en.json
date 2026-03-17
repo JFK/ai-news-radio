@@ -77,7 +77,13 @@
     "shortsVideos": "Short Videos",
     "illustrations": "Illustrations",
     "totalCost": "Total Cost",
-    "viewCostDetails": "Cost Details"
+    "viewCostDetails": "Cost Details",
+    "videoTargets": "Re-run Targets",
+    "videoTarget_all": "All (full re-run)",
+    "videoTarget_images": "Images (background, thumbnail, illustrations)",
+    "videoTarget_video": "Main video (frames + subtitles + encode)",
+    "videoTarget_metadata": "YouTube metadata",
+    "videoTarget_shorts": "Short videos"
   },
   "approval": {
     "title": "Approval Gate",

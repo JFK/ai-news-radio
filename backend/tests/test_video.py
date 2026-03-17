@@ -67,10 +67,20 @@ class TestVideoStep:
         mock_settings.media_dir = str(tmp_path)
         mock_settings.visual_provider = "static"
 
-        # Mock visual provider
+        # Mock visual provider - create actual files so downstream checks pass
+        async def _fake_bg(prompt, path):
+            from PIL import Image
+            Image.new("RGBA", (1280, 720), (0, 0, 0)).save(path)
+            return path
+
+        async def _fake_thumb(prompt, path):
+            from PIL import Image
+            Image.new("RGBA", (1280, 720), (0, 0, 0)).save(path)
+            return path
+
         mock_provider = AsyncMock()
-        mock_provider.generate_background_image = AsyncMock(return_value=str(audio_dir / "background.png"))
-        mock_provider.generate_thumbnail = AsyncMock(return_value=str(audio_dir / "thumbnail.png"))
+        mock_provider.generate_background_image = AsyncMock(side_effect=_fake_bg)
+        mock_provider.generate_thumbnail = AsyncMock(side_effect=_fake_thumb)
         mock_get_visual.return_value = mock_provider
 
         # Mock ffprobe (first call), background image ffmpeg (from static provider is mocked),

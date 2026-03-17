@@ -35,6 +35,7 @@ class RunStepRequest(BaseModel):
     queries: list[str] | None = None  # Override collection queries
     tts_model: str | None = None  # Override TTS model for voice step
     tts_voice: str | None = None  # Override TTS voice for voice step
+    video_targets: list[str] | None = None  # Partial re-run targets for video step
 
 
 class ApproveRequest(BaseModel):

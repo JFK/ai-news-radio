@@ -149,6 +149,9 @@ class VideoStep(BaseStep):
     def step_name(self) -> StepName:
         return StepName.VIDEO
 
+    # Valid targets for partial re-run
+    VALID_TARGETS = frozenset({"all", "images", "video", "metadata", "shorts"})
+
     async def execute(self, episode_id: int, input_data: dict, session: AsyncSession, **kwargs) -> dict:
         """Generate an MP4 video with news-style layout.
 
@@ -159,8 +162,36 @@ class VideoStep(BaseStep):
         4. Compose segment frames (Pillow: bg + illustration + avatar + logo + topic)
         5. Generate SRT subtitles
         6. FFmpeg video encode (segment frames overlaid by time)
-        7. YouTube metadata generation
+        7. YouTube metadata + Shorts generation
+
+        Supports partial re-run via `targets` kwarg (list of target names).
+        Valid targets: all, images, video, metadata, shorts.
         """
+        # --- Parse targets ---
+        targets = set(kwargs.get("targets", ["all"]))
+        invalid = targets - self.VALID_TARGETS
+        if invalid:
+            raise ValueError(f"無効なターゲット: {invalid}。有効値: {', '.join(sorted(self.VALID_TARGETS))}")
+        run_all = "all" in targets
+
+        # Partial re-run: load existing output_data for merging
+        existing_output: dict = {}
+        if not run_all:
+            step_result = await session.execute(
+                select(PipelineStep).where(
+                    PipelineStep.episode_id == episode_id,
+                    PipelineStep.step_name == StepName.VIDEO,
+                )
+            )
+            step_record = step_result.scalar_one()
+            existing_output = step_record.output_data or {}
+            if not existing_output:
+                raise ValueError("初回はフル実行が必要です (targets=['all'])")
+            await self.log_progress(
+                episode_id,
+                f"部分再実行: {', '.join(sorted(targets))}",
+            )
+
         audio_path = input_data.get("audio_path", "")
         if not audio_path:
             raise ValueError("No audio_path in input data")
@@ -187,52 +218,8 @@ class VideoStep(BaseStep):
         ep_result = await session.execute(select(Episode).where(Episode.id == episode_id))
         episode = ep_result.scalar_one()
 
-        # Use AI-generated prompts from scriptwriter, fallback to episode title
-        visual_provider = get_visual_provider()
-        bg_prompt = script_output.get("background_prompt") or episode.title
-        thumb_prompt = script_output.get("thumbnail_prompt") or episode.title
-
-        images_generated = 0
-        await self.log_progress(episode_id, "[1/7] 背景画像を生成中...")
-        try:
-            await visual_provider.generate_background_image(bg_prompt, bg_image_path)
-            images_generated += 1
-        except Exception as e:
-            logger.warning("Background image generation failed, using static fallback: %s", e)
-            from app.services.visual_static import StaticVisualProvider
-            await StaticVisualProvider().generate_background_image(bg_prompt, bg_image_path)
-
-        await self.log_progress(episode_id, "[2/7] サムネイル画像を生成中...")
-        try:
-            await visual_provider.generate_thumbnail(thumb_prompt, thumbnail_path)
-            self._overlay_title_on_thumbnail(thumbnail_path, episode.title)
-            thumbnail_relative = f"{episode_id}/thumbnail.png"
-            images_generated += 1
-        except Exception as e:
-            logger.warning("Thumbnail generation failed: %s", e)
-            thumbnail_relative = None
-
-        # Get news items (needed for illustrations, SRT, metadata)
+        # Get news items (needed for illustrations, SRT, metadata, shorts)
         news_items = await self._get_news_items(episode_id, session)
-
-        # [3/7] Generate illustration images per news article
-        await self.log_progress(episode_id, "[3/7] 解説画像を生成中...")
-        illustration_paths = await self._generate_illustrations(
-            episode_id, news_items, visual_provider, episode_dir,
-        )
-        images_generated += len(illustration_paths)
-
-        # Record Imagen cost if images were generated via Google
-        if images_generated > 0 and settings.visual_provider == "google":
-            await self.record_usage(
-                session=session,
-                episode_id=episode_id,
-                provider="google-imagen",
-                model=settings.visual_imagen_model,
-                input_tokens=0,
-                output_tokens=0,
-                cost_usd=0.04 * images_generated,
-            )
 
         # Load speaker profiles for avatar overlays
         speakers_result = await session.execute(select(SpeakerProfile))
@@ -240,78 +227,120 @@ class VideoStep(BaseStep):
         for sp in speakers_result.scalars():
             speakers_by_role[sp.role] = sp
 
-        # [4/7] Compose segment frames (Pillow)
-        voice_sections = input_data.get("sections", [])
-        await self.log_progress(episode_id, "[4/7] セグメントフレームを合成中...")
-        segment_frames = self._generate_segment_frames(
-            episode_dir=episode_dir,
-            bg_image_path=bg_image_path,
-            news_items=news_items,
-            voice_sections=voice_sections,
-            speakers_by_role=speakers_by_role,
-            illustration_paths=illustration_paths,
-            episode_title=episode.title,
-        )
+        # --- Images target: stages 1-3 ---
+        thumbnail_relative: str | None = None
+        illustration_paths: dict[int, str] = {}
 
-        # [5/7] Generate SRT subtitles
-        srt_path = os.path.join(episode_dir, "subtitles.srt")
-        self._generate_srt(script_output, voice_sections, srt_path, news_items)
-        await self.log_progress(episode_id, "[5/7] 字幕SRTを生成しました")
+        if run_all or "images" in targets:
+            visual_provider = get_visual_provider()
+            bg_prompt = script_output.get("background_prompt") or episode.title
+            thumb_prompt = script_output.get("thumbnail_prompt") or episode.title
 
-        # [6/7] FFmpeg video encode + [7/7] YouTube metadata (concurrent)
-        await self.log_progress(episode_id, "[6/7] FFmpegで動画エンコード中...")
-        video_task = self._ffmpeg_encode_video(
-            audio_path=audio_full_path,
-            video_path=video_path,
-            base_image_path=bg_image_path,
-            resolution=(1280, 720),
-            segment_frames=segment_frames,
-            srt_path=srt_path,
-        )
-        timestamps = input_data.get("timestamps", "")
+            images_generated = 0
+            await self.log_progress(episode_id, "[1/7] 背景画像を生成中...")
+            try:
+                await visual_provider.generate_background_image(bg_prompt, bg_image_path)
+                images_generated += 1
+            except Exception as e:
+                logger.warning("Background image generation failed, using static fallback: %s", e)
+                from app.services.visual_static import StaticVisualProvider
+                await StaticVisualProvider().generate_background_image(bg_prompt, bg_image_path)
 
-        await self.log_progress(episode_id, "[7/7] YouTubeメタデータを同時生成中...")
-        metadata_task = self._generate_youtube_metadata(
-            episode=episode,
-            news_items=news_items,
-            script_text=script_text,
-            duration_seconds=duration_seconds,
-            timestamps=timestamps,
-            session=session,
-            speakers_by_role=speakers_by_role,
-        )
+            await self.log_progress(episode_id, "[2/7] サムネイル画像を生成中...")
+            try:
+                await visual_provider.generate_thumbnail(thumb_prompt, thumbnail_path)
+                self._overlay_title_on_thumbnail(thumbnail_path, episode.title)
+                thumbnail_relative = f"{episode_id}/thumbnail.png"
+                images_generated += 1
+            except Exception as e:
+                logger.warning("Thumbnail generation failed: %s", e)
 
-        _, youtube_metadata = await asyncio.gather(video_task, metadata_task)
-        await self.log_progress(episode_id, "動画生成完了")
+            # [3/7] Generate illustration images per news article
+            await self.log_progress(episode_id, "[3/7] 解説画像を生成中...")
+            illustration_paths = await self._generate_illustrations(
+                episode_id, news_items, visual_provider, episode_dir,
+            )
+            images_generated += len(illustration_paths)
 
-        # Update episode record
-        relative_path = f"{episode_id}/video.mp4"
-        episode.video_path = relative_path
-        await session.commit()
+            # Record Imagen cost if images were generated via Google
+            if images_generated > 0 and settings.visual_provider == "google":
+                await self.record_usage(
+                    session=session,
+                    episode_id=episode_id,
+                    provider="google-imagen",
+                    model=settings.visual_imagen_model,
+                    input_tokens=0,
+                    output_tokens=0,
+                    cost_usd=0.04 * images_generated,
+                )
+        else:
+            # Discover existing illustrations from disk
+            illustration_paths = self._discover_existing_illustrations(episode_dir, news_items)
+            if os.path.exists(thumbnail_path):
+                thumbnail_relative = f"{episode_id}/thumbnail.png"
 
-        logger.info("Episode %d: video saved to %s (%.1fs)", episode_id, relative_path, duration_seconds)
+        # --- Video target: stages 4-6 ---
+        segment_frames: list[dict] = []
+        if run_all or "video" in targets:
+            if not os.path.exists(bg_image_path):
+                raise ValueError("背景画像がありません。先に images を実行してください。")
 
-        srt_relative = f"{episode_id}/subtitles.srt"
-        result: dict = {
-            "video_path": relative_path,
-            "srt_path": srt_relative,
-            "duration_seconds": duration_seconds,
-            "visual_provider": settings.visual_provider,
-            "segment_count": len(segment_frames),
-        }
-        if thumbnail_relative:
-            result["thumbnail_path"] = thumbnail_relative
-        if illustration_paths:
-            result["illustration_paths"] = [
-                f"{episode_id}/illustrations/{os.path.basename(p)}"
-                for p in illustration_paths.values()
-            ]
-        if youtube_metadata:
-            result["youtube_metadata"] = youtube_metadata
+            voice_sections = input_data.get("sections", [])
 
-        # --- Shorts video generation ---
+            # [4/7] Compose segment frames (Pillow)
+            await self.log_progress(episode_id, "[4/7] セグメントフレームを合成中...")
+            segment_frames = self._generate_segment_frames(
+                episode_dir=episode_dir,
+                bg_image_path=bg_image_path,
+                news_items=news_items,
+                voice_sections=voice_sections,
+                speakers_by_role=speakers_by_role,
+                illustration_paths=illustration_paths,
+                episode_title=episode.title,
+            )
+
+            # [5/7] Generate SRT subtitles
+            srt_path = os.path.join(episode_dir, "subtitles.srt")
+            self._generate_srt(script_output, voice_sections, srt_path, news_items)
+            await self.log_progress(episode_id, "[5/7] 字幕SRTを生成しました")
+
+            # [6/7] FFmpeg video encode
+            await self.log_progress(episode_id, "[6/7] FFmpegで動画エンコード中...")
+            await self._ffmpeg_encode_video(
+                audio_path=audio_full_path,
+                video_path=video_path,
+                base_image_path=bg_image_path,
+                resolution=(1280, 720),
+                segment_frames=segment_frames,
+                srt_path=srt_path,
+            )
+
+            # Update episode record
+            relative_path = f"{episode_id}/video.mp4"
+            episode.video_path = relative_path
+            await session.commit()
+
+        # --- Metadata target: stage 7a ---
+        youtube_metadata = None
+        if run_all or "metadata" in targets:
+            timestamps = input_data.get("timestamps", "")
+            await self.log_progress(episode_id, "[7/7] YouTubeメタデータを生成中...")
+            youtube_metadata = await self._generate_youtube_metadata(
+                episode=episode,
+                news_items=news_items,
+                script_text=script_text,
+                duration_seconds=duration_seconds,
+                timestamps=timestamps,
+                session=session,
+                speakers_by_role=speakers_by_role,
+            )
+
+        # --- Shorts target: stage 7b ---
+        shorts_results: list[dict] = []
         shorts_data = input_data.get("shorts", [])
-        if shorts_data:
+        if shorts_data and (run_all or "shorts" in targets):
+            if not os.path.exists(bg_image_path):
+                raise ValueError("背景画像がありません。先に images を実行してください。")
             await self.log_progress(episode_id, "ショート動画を生成中...")
             shorts_results = await self._generate_shorts_videos(
                 episode_id=episode_id,
@@ -323,10 +352,45 @@ class VideoStep(BaseStep):
                 session=session,
                 episode_dir=episode_dir,
             )
-            if shorts_results:
-                result["shorts"] = shorts_results
             await self.log_progress(episode_id, f"ショート動画 {len(shorts_results)}本 生成完了")
 
+        await self.log_progress(episode_id, "動画生成完了")
+
+        # --- Build result, merging with existing output for partial re-runs ---
+        result: dict = {**existing_output}
+
+        if run_all or "video" in targets:
+            relative_path = f"{episode_id}/video.mp4"
+            srt_relative = f"{episode_id}/subtitles.srt"
+            result["video_path"] = relative_path
+            result["srt_path"] = srt_relative
+            result["duration_seconds"] = duration_seconds
+            result["visual_provider"] = settings.visual_provider
+            result["segment_count"] = len(segment_frames)
+
+        if run_all or "images" in targets:
+            result["visual_provider"] = settings.visual_provider
+            if thumbnail_relative:
+                result["thumbnail_path"] = thumbnail_relative
+            if illustration_paths:
+                result["illustration_paths"] = [
+                    f"{episode_id}/illustrations/{os.path.basename(p)}"
+                    for p in illustration_paths.values()
+                ]
+
+        if run_all or "metadata" in targets:
+            if youtube_metadata:
+                result["youtube_metadata"] = youtube_metadata
+
+        if run_all or "shorts" in targets:
+            if shorts_results:
+                result["shorts"] = shorts_results
+
+        # Ensure duration_seconds is always present
+        if "duration_seconds" not in result:
+            result["duration_seconds"] = duration_seconds
+
+        logger.info("Episode %d: video step completed (targets=%s)", episode_id, targets)
         return result
 
     # ------------------------------------------------------------------
@@ -381,6 +445,21 @@ class VideoStep(BaseStep):
 
         await asyncio.gather(*[_gen(item, prompt) for item, prompt in items_with_prompt])
         logger.info("Episode %d: generated %d/%d illustrations", episode_id, len(results), len(items_with_prompt))
+        return results
+
+    @staticmethod
+    def _discover_existing_illustrations(
+        episode_dir: str, news_items: list[NewsItem]
+    ) -> dict[int, str]:
+        """Discover existing illustration images on disk for partial re-runs."""
+        illust_dir = os.path.join(episode_dir, "illustrations")
+        if not os.path.isdir(illust_dir):
+            return {}
+        results: dict[int, str] = {}
+        for item in news_items:
+            path = os.path.join(illust_dir, f"news_{item.id}.png")
+            if os.path.exists(path):
+                results[item.id] = path
         return results
 
     # ------------------------------------------------------------------

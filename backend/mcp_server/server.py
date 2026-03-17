@@ -171,8 +171,12 @@ async def _run_step(args: dict) -> str:
     queries = args.get("queries")
     tts_model = args.get("tts_model")
     tts_voice = args.get("tts_voice")
+    video_targets = args.get("video_targets")
 
-    step = await client.run_step(episode_id, step_name, queries, tts_model=tts_model, tts_voice=tts_voice)
+    step = await client.run_step(
+        episode_id, step_name, queries,
+        tts_model=tts_model, tts_voice=tts_voice, video_targets=video_targets,
+    )
 
     lines = [
         f"Step '{step_name}' started for episode #{episode_id}.",

@@ -36,7 +36,7 @@ export const api = {
     client.patch<Episode>(`/episodes/${episodeId}`, data),
   deleteEpisode: (episodeId: number) =>
     client.delete(`/episodes/${episodeId}`),
-  runStep: (episodeId: number, stepName: string, body?: { queries?: string[]; tts_model?: string; tts_voice?: string }) =>
+  runStep: (episodeId: number, stepName: string, body?: { queries?: string[]; tts_model?: string; tts_voice?: string; video_targets?: string[] }) =>
     client.post<PipelineStep>(`/episodes/${episodeId}/steps/${stepName}/run`, body),
   getStepLogs: (episodeId: number, stepName: string) =>
     client.get<{ logs: { message: string; timestamp: string }[] }>(`/episodes/${episodeId}/steps/${stepName}/logs`),
