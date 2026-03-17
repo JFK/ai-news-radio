@@ -1745,7 +1745,6 @@ class VideoStep(BaseStep):
         config = types.GenerateVideosConfig(
             aspect_ratio="9:16",
             number_of_videos=1,
-            person_generation="allow_all" if is_veo3 else None,
         )
 
         generate_kwargs: dict = {
