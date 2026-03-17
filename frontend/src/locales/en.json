@@ -256,7 +256,7 @@
         "se_outro": "Outro SE (after ending)",
         "visual_provider": "Visual Provider",
         "visual_imagen_model": "Imagen Model",
-        "visual_veo_model": "Veo Model",
+        "visual_veo_model": "Veo Model (veo-3.0-generate-preview for image-to-video)",
         "video_border_color": "Border Color (e.g. #DC1E1E)",
         "video_logo_path": "Logo Image (blank for 'AI NEWS RADIO' text)",
         "uploadLogo": "Upload Logo",

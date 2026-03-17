@@ -1535,6 +1535,7 @@ class VideoStep(BaseStep):
                         illust_path=illust_path,
                         session=session,
                         episode_id=episode_id,
+                        speakers_by_role=speakers_by_role,
                     )
                 else:
                     await self._generate_short_video_ffmpeg(
@@ -1678,12 +1679,12 @@ class VideoStep(BaseStep):
         illust_path: str | None,
         session: AsyncSession,
         episode_id: int,
+        speakers_by_role: dict[str, "SpeakerProfile"] | None = None,
     ) -> None:
-        """Generate short video using Veo image-to-video API, then merge audio.
+        """Generate short video using Veo API, then merge audio.
 
-        If an illustration image is available, it is passed as a reference image
-        (asset type) so Veo generates a video that incorporates the illustration's
-        content. This produces more visually relevant shorts than text-only prompts.
+        Veo 3.0+: passes illustration as image parameter for image-to-video.
+        Veo 2.x: text prompt only (no image support).
         """
         try:
             from google import genai
@@ -1692,44 +1693,70 @@ class VideoStep(BaseStep):
             raise RuntimeError("google-genai package required for Veo provider")
 
         client = genai.Client(api_key=settings.google_api_key)
-        prompt = (
-            f"この画像を元に、ニュース解説の短い動画を作成してください。"
-            f"画像の内容を活かしつつ、緩やかなカメラワークやズームで動きをつけてください。"
-            f"テーマ: {caption}。"
-            f"プロフェッショナルなニュース番組のスタイルで。"
-        )
+        is_veo3 = "veo-3" in settings.visual_veo_model
 
-        # Build reference images from illustration
-        reference_images: list = []
-        if illust_path and os.path.exists(illust_path):
+        # Build speaker info for prompt
+        speakers_info = ""
+        if speakers_by_role:
+            parts = []
+            role_labels = {"anchor": "MC", "expert": "解説者", "narrator": "ナレーター"}
+            for role in ["anchor", "expert", "narrator"]:
+                sp = speakers_by_role.get(role)
+                if sp:
+                    label = role_labels.get(role, role)
+                    desc = f"（{sp.description}）" if sp.description else ""
+                    parts.append(f"{sp.name}（{label}）{desc}")
+            if parts:
+                speakers_info = f"\n出演者: {', '.join(parts)}"
+
+        # Build prompt based on whether illustration is available
+        image_param = None
+        if illust_path and os.path.exists(illust_path) and is_veo3:
             try:
-                ref_image = types.Image.from_file(location=illust_path)
-                reference_images.append(
-                    types.VideoGenerationReferenceImage(
-                        image=ref_image,
-                        reference_type="asset",
-                    )
-                )
-                logger.info("Veo: using illustration as reference image: %s", illust_path)
+                image_param = types.Image.from_file(location=illust_path)
+                logger.info("Veo 3: using illustration as image-to-video source: %s", illust_path)
             except Exception as e:
-                logger.warning("Failed to load reference image for Veo: %s", e)
+                logger.warning("Failed to load illustration for Veo: %s", e)
+
+        # Brand info
+        brand = "AI News Radio"
+        border_color = settings.video_border_color or "#DC1E1E"
+        brand_info = f"\n番組名: {brand}"
+        brand_info += f"\nブランドカラー: {border_color}"
+
+        if image_param:
+            prompt = (
+                f"この画像を元に、ニュース解説のショート動画を作成してください。"
+                f"画像の内容を活かしつつ、緩やかなカメラワークやズームで動きをつけてください。"
+                f"テーマ: {caption}。"
+                f"プロフェッショナルなニュース番組のスタイルで。"
+                f"{speakers_info}{brand_info}"
+            )
+        else:
+            prompt = (
+                f"ニュース解説のショート動画を作成してください。"
+                f"テーマ: {caption}。"
+                f"プロフェッショナルなニュース番組風の映像で、"
+                f"テーマに関連するビジュアルやグラフィックを使用してください。"
+                f"人物は含めず、情報を視覚的に伝える映像にしてください。"
+                f"{speakers_info}{brand_info}"
+            )
 
         config = types.GenerateVideosConfig(
             aspect_ratio="9:16",
             number_of_videos=1,
+            person_generation="allow_all" if is_veo3 else None,
         )
-        # Reference images require Veo 3.0+; skip for Veo 2.x
-        if reference_images and "veo-2" not in settings.visual_veo_model:
-            config.reference_images = reference_images
-        elif reference_images:
-            logger.warning("Veo 2.x does not support reference images; falling back to text-only. "
-                           "Set visual_veo_model to veo-3.0+ for image-to-video.")
 
-        operation = client.models.generate_videos(
-            model=settings.visual_veo_model,
-            prompt=prompt,
-            config=config,
-        )
+        generate_kwargs: dict = {
+            "model": settings.visual_veo_model,
+            "prompt": prompt,
+            "config": config,
+        }
+        if image_param:
+            generate_kwargs["image"] = image_param
+
+        operation = client.models.generate_videos(**generate_kwargs)
 
         # Poll for completion
         while not operation.done:
@@ -1769,7 +1796,8 @@ class VideoStep(BaseStep):
         except OSError:
             pass
 
-        # Record cost (Veo pricing)
+        # Record cost (Veo pricing: 3.0 is more expensive)
+        cost = 0.50 if is_veo3 else 0.35
         await self.record_usage(
             session=session,
             episode_id=episode_id,
@@ -1777,7 +1805,7 @@ class VideoStep(BaseStep):
             model=settings.visual_veo_model,
             input_tokens=0,
             output_tokens=0,
-            cost_usd=0.35,  # Approximate per-video cost
+            cost_usd=cost,
         )
 
         logger.info("Veo short video generated: %s", video_path)
