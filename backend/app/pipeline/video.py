@@ -87,8 +87,36 @@ YOUTUBE_METADATA_SYSTEM_PROMPT = """\
   "tags": ["タグ1", "タグ2", ...]
 }"""
 
+SHORTS_VEO_PROMPT_KEY = "shorts_veo_prompt"
+
+SHORTS_VEO_PROMPT_DEFAULT = """\
+あなたはニュース解説ショート動画の映像ディレクターです。
+
+## テーマ
+{caption}
+
+## ニュースタイトル
+{title}
+
+## 台本（抜粋）
+{script_excerpt}
+
+## 背景
+{background}
+
+## 映像の指示
+- プロフェッショナルなニュース番組のスタイルで映像を作成
+- テーマに関連するビジュアルで内容を視覚的に伝える
+- 緩やかなカメラワークやズームで動きをつける
+- 映像内にテキスト・文字・字幕を一切含めない
+- 縦型（9:16）に最適化
+
+{speakers_info}
+{brand_info}"""
+
 register_default(PROMPT_KEY, YOUTUBE_METADATA_SYSTEM_PROMPT)
 register_default(SHORTS_PROMPT_KEY, SHORTS_YOUTUBE_METADATA_SYSTEM_PROMPT)
+register_default(SHORTS_VEO_PROMPT_KEY, SHORTS_VEO_PROMPT_DEFAULT)
 
 
 @dataclass(frozen=True)
@@ -1536,6 +1564,8 @@ class VideoStep(BaseStep):
                         session=session,
                         episode_id=episode_id,
                         speakers_by_role=speakers_by_role,
+                        item=item,
+                        short_data=short,
                     )
                 else:
                     await self._generate_short_video_ffmpeg(
@@ -1680,8 +1710,13 @@ class VideoStep(BaseStep):
         session: AsyncSession,
         episode_id: int,
         speakers_by_role: dict[str, "SpeakerProfile"] | None = None,
+        item: NewsItem | None = None,
+        short_data: dict | None = None,
     ) -> None:
-        """Generate short video using Veo API, then merge audio.
+        """Generate short video using Veo API, then optionally merge audio.
+
+        When ``settings.shorts_veo_audio`` is True, Veo generates audio
+        alongside video and FFmpeg merge is skipped.
 
         Veo 3.0+: passes illustration as image parameter for image-to-video.
         Veo 2.x: text prompt only (no image support).
@@ -1694,6 +1729,7 @@ class VideoStep(BaseStep):
 
         client = genai.Client(api_key=settings.google_api_key)
         is_veo3 = "veo-3" in settings.visual_veo_model
+        use_veo_audio = settings.shorts_veo_audio and is_veo3
 
         # Build speaker info for prompt
         speakers_info = ""
@@ -1707,46 +1743,54 @@ class VideoStep(BaseStep):
                     desc = f"（{sp.description}）" if sp.description else ""
                     parts.append(f"{sp.name}（{label}）{desc}")
             if parts:
-                speakers_info = f"\n出演者: {', '.join(parts)}"
-
-        # Build prompt based on whether illustration is available
-        image_param = None
-        if illust_path and os.path.exists(illust_path) and is_veo3:
-            try:
-                image_param = types.Image.from_file(location=illust_path)
-                logger.info("Veo 3: using illustration as image-to-video source: %s", illust_path)
-            except Exception as e:
-                logger.warning("Failed to load illustration for Veo: %s", e)
+                speakers_info = f"出演者: {', '.join(parts)}"
 
         # Brand info
         brand = "AI News Radio"
         border_color = settings.video_border_color or "#DC1E1E"
-        brand_info = f"\n番組名: {brand}"
-        brand_info += f"\nブランドカラー: {border_color}"
+        brand_info = f"番組名: {brand}\nブランドカラー: {border_color}"
 
-        no_text_rule = "\n重要: 映像内にテキスト・文字・字幕を一切含めないでください。映像のみで表現してください。"
+        # Extract rich context from item and short_data
+        title = (item.title if item else "") or caption
+        script_excerpt = ""
+        if item and item.script_text:
+            script_excerpt = item.script_text[:300]
+        elif short_data and short_data.get("text"):
+            script_excerpt = short_data["text"][:300]
 
-        if image_param:
-            prompt = (
-                f"この画像を元に、ニュース解説のショート動画を作成してください。"
-                f"画像の内容を活かしつつ、緩やかなカメラワークやズームで動きをつけてください。"
-                f"テーマ: {caption}。"
-                f"プロフェッショナルなニュース番組のスタイルで。"
-                f"{speakers_info}{brand_info}{no_text_rule}"
-            )
-        else:
-            prompt = (
-                f"ニュース解説のショート動画を作成してください。"
-                f"テーマ: {caption}。"
-                f"プロフェッショナルなニュース番組風の映像で、"
-                f"テーマに関連するビジュアルやグラフィックを使用してください。"
-                f"人物は含めず、情報を視覚的に伝える映像にしてください。"
-                f"{speakers_info}{brand_info}{no_text_rule}"
-            )
+        background = ""
+        if item and item.analysis_data and isinstance(item.analysis_data, dict):
+            background = (item.analysis_data.get("background") or "")[:200]
+
+        # Build prompt from template
+        prompt_template, _ = await get_active_prompt(session, SHORTS_VEO_PROMPT_KEY)
+        prompt = prompt_template.format(
+            caption=caption,
+            title=title,
+            script_excerpt=script_excerpt or "（なし）",
+            background=background or "（なし）",
+            speakers_info=speakers_info or "（指定なし）",
+            brand_info=brand_info,
+        )
+
+        # For image-to-video, prepend instruction
+        image_param = None
+        if illust_path and os.path.exists(illust_path) and is_veo3:
+            try:
+                image_param = types.Image.from_file(location=illust_path)
+                prompt = (
+                    "この画像を元に動画を作成してください。"
+                    "画像の内容を活かしつつ、以下の指示に従ってください。\n\n"
+                    + prompt
+                )
+                logger.info("Veo 3: using illustration as image-to-video source: %s", illust_path)
+            except Exception as e:
+                logger.warning("Failed to load illustration for Veo: %s", e)
 
         config = types.GenerateVideosConfig(
             aspect_ratio="9:16",
             number_of_videos=1,
+            generate_audio=use_veo_audio,
         )
 
         generate_kwargs: dict = {
@@ -1777,31 +1821,38 @@ class VideoStep(BaseStep):
         with open(temp_video, "wb") as f:
             f.write(video_bytes)
 
-        # Merge Veo video with audio using FFmpeg
-        cmd = [
-            "ffmpeg", "-y",
-            "-i", temp_video,
-            "-i", audio_path,
-            "-c:v", "copy",
-            "-c:a", "aac",
-            "-b:a", "128k",
-            "-shortest",
-            video_path,
-        ]
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        _, stderr = await proc.communicate()
-        if proc.returncode != 0:
-            raise RuntimeError(f"FFmpeg Veo merge failed: {stderr.decode()}")
+        if use_veo_audio:
+            # Veo generated audio — use video directly (no FFmpeg merge)
+            os.rename(temp_video, video_path)
+            logger.info("Veo short video (with audio) saved: %s", video_path)
+        else:
+            # Merge Veo video with TTS audio using FFmpeg
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", temp_video,
+                "-i", audio_path,
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-shortest",
+                video_path,
+            ]
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                raise RuntimeError(f"FFmpeg Veo merge failed: {stderr.decode()}")
 
-        # Clean up temp file
-        try:
-            os.remove(temp_video)
-        except OSError:
-            pass
+            # Clean up temp file
+            try:
+                os.remove(temp_video)
+            except OSError:
+                pass
+
+            logger.info("Veo short video (TTS merge) generated: %s", video_path)
 
         # Record cost (Veo pricing: 3.0 is more expensive)
         cost = 0.50 if is_veo3 else 0.35
@@ -1814,8 +1865,6 @@ class VideoStep(BaseStep):
             output_tokens=0,
             cost_usd=cost,
         )
-
-        logger.info("Veo short video generated: %s", video_path)
 
     async def _generate_shorts_metadata(
         self,

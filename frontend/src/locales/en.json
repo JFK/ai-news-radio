@@ -273,7 +273,8 @@
         "google_drive_folder_id": "Google Drive Folder ID",
         "script_default_mode": "Default Script Mode",
         "shorts_max_duration_seconds": "Shorts Max Duration (sec)",
-        "shorts_video_provider": "Shorts Video Provider"
+        "shorts_video_provider": "Shorts Video Provider",
+        "shorts_veo_audio": "Veo Audio Generation (skip TTS merge)"
       },
       "sePreview": "Preview",
       "seDownload": "DL",
