@@ -144,6 +144,7 @@ export default function EpisodeDetail() {
   const [titleDraft, setTitleDraft] = useState("");
   const [ttsModel, setTtsModel] = useState("");
   const [ttsVoice, setTtsVoice] = useState("");
+  const [videoTargets, setVideoTargets] = useState<Set<string>>(new Set(["all"]));
   const [totalCost, setTotalCost] = useState<number | null>(null);
 
   useEffect(() => {
@@ -158,6 +159,24 @@ export default function EpisodeDetail() {
       setTotalCost(res.data.total_cost_usd);
     }).catch(() => {});
   }, [episodeId]);
+
+  // Auto-open media section when voice/video step completes
+  const prevStepsRef = useRef<PipelineStep[]>([]);
+  useEffect(() => {
+    if (!episode) return;
+    const prev = prevStepsRef.current;
+    const curr = episode.pipeline_steps;
+    for (const step of curr) {
+      if ((step.step_name === "voice" || step.step_name === "video") && step.status === "needs_approval") {
+        const prevStep = prev.find((s) => s.step_name === step.step_name);
+        if (prevStep && prevStep.status === "running") {
+          localStorage.setItem("episode-media-open", "1");
+          break;
+        }
+      }
+    }
+    prevStepsRef.current = curr;
+  }, [episode]);
 
   if (loading) return <p className="text-gray-500">{t("episode.loading")}</p>;
   if (error) return <p className="text-red-600">{error}</p>;
@@ -177,10 +196,13 @@ export default function EpisodeDetail() {
     if (!selectedStep) return;
     setRunningStep(true);
     try {
-      const body: { tts_model?: string; tts_voice?: string } = {};
+      const body: { tts_model?: string; tts_voice?: string; video_targets?: string[] } = {};
       if (selectedStep === "voice") {
         if (ttsModel) body.tts_model = ttsModel;
         if (ttsVoice) body.tts_voice = ttsVoice;
+      }
+      if (selectedStep === "video" && !videoTargets.has("all") && videoTargets.size > 0) {
+        body.video_targets = Array.from(videoTargets);
       }
       await api.runStep(episodeId, selectedStep, Object.keys(body).length > 0 ? body : undefined);
       // Backend launches background task and returns immediately.
@@ -349,9 +371,10 @@ export default function EpisodeDetail() {
         />
       </div>
 
-      {(episode.audio_path || episode.video_path) && (() => {
+      {(() => {
         const videoStep = steps.find((s) => s.step_name === "video");
         const videoOutputData = videoStep?.output_data as Record<string, unknown> | null;
+        if (!episode.audio_path && !episode.video_path && !videoOutputData) return null;
         const thumbnailPath = videoOutputData?.thumbnail_path as string | undefined;
         const srtPath = videoOutputData?.srt_path as string | undefined;
         // Cache bust: use step completed_at so re-runs show fresh media
@@ -627,6 +650,42 @@ export default function EpisodeDetail() {
                   ))}
                 </select>
               </label>
+            </div>
+          )}
+
+          {activeStep.step_name === "video" && canRunStep(activeStep) && activeStep.output_data && (
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-1.5">{t("episode.videoTargets")}</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                {(["all", "images", "video", "metadata", "shorts"] as const).map((target) => (
+                  <label key={target} className="flex items-center gap-1 text-sm text-gray-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={videoTargets.has(target)}
+                      onChange={(e) => {
+                        setVideoTargets(() => {
+                          if (target === "all") {
+                            return new Set(["all"]);
+                          }
+                          // Clicking an individual target: start from current individual selections
+                          const prev = new Set(videoTargets);
+                          prev.delete("all");
+                          if (e.target.checked) {
+                            prev.add(target);
+                          } else {
+                            prev.delete(target);
+                          }
+                          // If nothing selected or all 4 checked, revert to "all"
+                          if (prev.size === 0 || prev.size === 4) return new Set(["all"]);
+                          return prev;
+                        });
+                      }}
+                      className="rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                    />
+                    {t(`episode.videoTarget_${target}`)}
+                  </label>
+                ))}
+              </div>
             </div>
           )}
 

@@ -85,6 +85,7 @@ class AINewsRadioClient:
         queries: list[str] | None = None,
         tts_model: str | None = None,
         tts_voice: str | None = None,
+        video_targets: list[str] | None = None,
     ) -> dict:
         """POST /api/episodes/{episode_id}/steps/{step_name}/run"""
         body: dict = {}
@@ -94,6 +95,8 @@ class AINewsRadioClient:
             body["tts_model"] = tts_model
         if tts_voice:
             body["tts_voice"] = tts_voice
+        if video_targets:
+            body["video_targets"] = video_targets
         return await self._request("POST", f"/api/episodes/{episode_id}/steps/{step_name}/run", json=body)
 
     async def approve_step(self, step_id: int, excluded_item_ids: list[int] | None = None) -> dict:

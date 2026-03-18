@@ -115,6 +115,14 @@ def get_tool_definitions() -> list[Tool]:
                         "type": "string",
                         "description": "Override TTS voice for voice step (e.g., Kore, Puck, Charon, Fenrir, Aoede, Leda, Orus, Zephyr)",
                     },
+                    "video_targets": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": ["all", "images", "video", "metadata", "shorts"],
+                        },
+                        "description": "Partial re-run targets for video step. Options: all (full re-run, default), images (background/thumbnail/illustrations), video (frames+SRT+encode), metadata (YouTube metadata), shorts (short videos). First run must use 'all'.",
+                    },
                 },
                 "required": ["episode_id", "step_name"],
             },

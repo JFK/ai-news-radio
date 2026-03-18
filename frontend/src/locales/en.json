@@ -77,7 +77,13 @@
     "shortsVideos": "Short Videos",
     "illustrations": "Illustrations",
     "totalCost": "Total Cost",
-    "viewCostDetails": "Cost Details"
+    "viewCostDetails": "Cost Details",
+    "videoTargets": "Re-run Targets",
+    "videoTarget_all": "All (full re-run)",
+    "videoTarget_images": "Images (background, thumbnail, illustrations)",
+    "videoTarget_video": "Main video (frames + subtitles + encode)",
+    "videoTarget_metadata": "YouTube metadata",
+    "videoTarget_shorts": "Short videos"
   },
   "approval": {
     "title": "Approval Gate",
@@ -250,7 +256,7 @@
         "se_outro": "Outro SE (after ending)",
         "visual_provider": "Visual Provider",
         "visual_imagen_model": "Imagen Model",
-        "visual_veo_model": "Veo Model",
+        "visual_veo_model": "Veo Model (veo-3.0-*-001 for image-to-video)",
         "video_border_color": "Border Color (e.g. #DC1E1E)",
         "video_logo_path": "Logo Image (blank for 'AI NEWS RADIO' text)",
         "uploadLogo": "Upload Logo",

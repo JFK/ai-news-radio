@@ -117,6 +117,8 @@ async def run_step(
             kwargs["tts_model"] = body.tts_model
         if body.tts_voice:
             kwargs["tts_voice"] = body.tts_voice
+    if body and body.video_targets and step_enum == StepName.VIDEO:
+        kwargs["targets"] = body.video_targets
     task = asyncio.create_task(_run_step_background(episode_id, step_enum, **kwargs))
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)

@@ -77,7 +77,13 @@
     "shortsVideos": "ショート動画",
     "illustrations": "解説画像",
     "totalCost": "合計コスト",
-    "viewCostDetails": "コスト詳細"
+    "viewCostDetails": "コスト詳細",
+    "videoTargets": "再実行対象",
+    "videoTarget_all": "すべて（フル再実行）",
+    "videoTarget_images": "画像（背景・サムネイル・解説画像）",
+    "videoTarget_video": "メイン動画（フレーム + 字幕 + エンコード）",
+    "videoTarget_metadata": "YouTubeメタデータ",
+    "videoTarget_shorts": "ショート動画"
   },
   "approval": {
     "title": "承認ゲート",
@@ -250,7 +256,7 @@
         "se_outro": "アウトロ効果音（エンディング後）",
         "visual_provider": "ビジュアル プロバイダー",
         "visual_imagen_model": "Imagen モデル",
-        "visual_veo_model": "Veo モデル",
+        "visual_veo_model": "Veo モデル（veo-3.0-*-001 で画像→動画対応）",
         "video_border_color": "ボーダー色（例: #DC1E1E）",
         "video_logo_path": "ロゴ画像（空欄で「AI NEWS RADIO」テキスト）",
         "uploadLogo": "ロゴをアップロード",
