@@ -273,7 +273,8 @@
         "google_drive_folder_id": "Google Drive フォルダ ID",
         "script_default_mode": "台本デフォルトモード",
         "shorts_max_duration_seconds": "ショート最大秒数",
-        "shorts_video_provider": "ショート動画 プロバイダー"
+        "shorts_video_provider": "ショート動画 プロバイダー",
+        "shorts_veo_audio": "Veo 音声生成（TTS マージをスキップ）"
       },
       "sePreview": "試聴",
       "seDownload": "DL",

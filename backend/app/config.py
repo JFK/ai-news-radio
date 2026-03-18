@@ -120,6 +120,7 @@ class Settings(BaseSettings):
 
     # Shorts video
     shorts_video_provider: str = "ffmpeg"  # "ffmpeg" or "veo"
+    shorts_veo_audio: bool = True  # Use Veo's generate_audio (skip TTS merge)
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

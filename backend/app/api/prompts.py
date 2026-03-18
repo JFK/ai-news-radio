@@ -26,6 +26,7 @@ PROMPT_NAMES: dict[str, str] = {
     "analysis": "クリティカル分析",
     "script_item": "台本生成（個別記事）",
     "script_episode": "台本生成（エピソード構成）",
+    "shorts_veo_prompt": "ショート動画 Veo プロンプト",
     "youtube_metadata": "YouTube メタデータ",
     "export_notebooklm": "NotebookLM エクスポート",
     "export_notebooklm_instructions": "NotebookLM AIホスト指示",
