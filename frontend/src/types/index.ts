@@ -41,6 +41,8 @@ export interface Episode {
   drive_file_id: string | null;
   drive_file_url: string | null;
   shorts_enabled: boolean;
+  note_analysis_article: string | null;
+  note_video_article: string | null;
   pipeline_steps: PipelineStep[];
 }
 
@@ -172,6 +174,14 @@ export interface DriveExportResponse {
   drive_file_id: string;
   drive_file_url: string;
   source_text_length: number;
+  input_tokens: number;
+  output_tokens: number;
+}
+
+export interface NoteArticleResponse {
+  episode_id: number;
+  article_type: string;
+  markdown: string;
   input_tokens: number;
   output_tokens: number;
 }

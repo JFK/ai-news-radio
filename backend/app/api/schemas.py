@@ -105,6 +105,8 @@ class EpisodeResponse(BaseModel):
     drive_file_id: str | None = None
     drive_file_url: str | None = None
     shorts_enabled: bool = False
+    note_analysis_article: str | None = None
+    note_video_article: str | None = None
     pipeline_steps: list[StepResponse] = []
 
     model_config = {"from_attributes": True}
@@ -155,6 +157,16 @@ class NewsItemResponse(BaseModel):
             if len(self.body) > _BODY_TRUNCATE_CHARS:
                 self.body = self.body[:_BODY_TRUNCATE_CHARS] + "…"
         return self
+
+
+class NoteArticleResponse(BaseModel):
+    """Response for a generated note.com article."""
+
+    episode_id: int
+    article_type: str
+    markdown: str
+    input_tokens: int
+    output_tokens: int
 
 
 class PronunciationResponse(BaseModel):

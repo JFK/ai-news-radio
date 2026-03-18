@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, String, func
+from sqlalchemy import Boolean, DateTime, Enum, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -29,6 +29,8 @@ class Episode(Base):
     drive_file_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     drive_file_url: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     shorts_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    note_analysis_article: Mapped[str | None] = mapped_column(Text, nullable=True)
+    note_video_article: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     news_items: Mapped[list["NewsItem"]] = relationship(back_populates="episode", cascade="all, delete-orphan")
     pipeline_steps: Mapped[list["PipelineStep"]] = relationship(back_populates="episode", cascade="all, delete-orphan")

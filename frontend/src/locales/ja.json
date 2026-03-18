@@ -376,6 +376,23 @@
       "restore": "復元"
     }
   },
+  "note": {
+    "analysisTitle": "note.com 分析記事",
+    "videoTitle": "note.com 動画紹介記事",
+    "generate": "記事を生成",
+    "regenerate": "再生成",
+    "generating": "生成中...",
+    "generateFailed": "記事の生成に失敗しました",
+    "generateSuccess": "生成完了",
+    "copy": "コピー",
+    "copied": "コピーしました",
+    "download": "ダウンロード (.md)",
+    "coverGenerate": "カバー画像を生成",
+    "coverRegenerate": "カバー画像を再生成",
+    "coverGenerating": "カバー画像生成中...",
+    "coverFailed": "カバー画像の生成に失敗しました",
+    "coverImage": "カバー画像"
+  },
   "errors": {
     "fetchEpisodes": "エピソード一覧の取得に失敗しました",
     "fetchEpisode": "エピソードの取得に失敗しました"

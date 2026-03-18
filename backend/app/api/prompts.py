@@ -14,6 +14,7 @@ import app.pipeline.factchecker  # noqa: F401
 import app.pipeline.scriptwriter  # noqa: F401
 import app.pipeline.video  # noqa: F401
 import app.services.export_source_text  # noqa: F401
+import app.services.note_article  # noqa: F401
 from app.database import get_session
 from app.models.prompt_template import PromptTemplate
 from app.services.prompt_loader import get_all_defaults
@@ -30,6 +31,8 @@ PROMPT_NAMES: dict[str, str] = {
     "youtube_metadata": "YouTube メタデータ",
     "export_notebooklm": "NotebookLM エクスポート",
     "export_notebooklm_instructions": "NotebookLM AIホスト指示",
+    "note_analysis_article": "note.com 分析記事",
+    "note_video_article": "note.com 動画紹介記事",
 }
 
 
@@ -84,7 +87,9 @@ async def list_prompts(session: AsyncSession = Depends(get_session)):
 
     # Get all active templates
     result = await session.execute(
-        select(PromptTemplate).where(PromptTemplate.is_active == True).order_by(  # noqa: E712
+        select(PromptTemplate)
+        .where(PromptTemplate.is_active == True)  # noqa: E712
+        .order_by(
             PromptTemplate.key
         )
     )
@@ -144,16 +149,12 @@ async def update_prompt(key: str, body: PromptUpdateRequest, session: AsyncSessi
 
     # Get current max version
     result = await session.execute(
-        select(PromptTemplate.version).where(PromptTemplate.key == key).order_by(
-            PromptTemplate.version.desc()
-        ).limit(1)
+        select(PromptTemplate.version).where(PromptTemplate.key == key).order_by(PromptTemplate.version.desc()).limit(1)
     )
     max_version = result.scalar_one_or_none() or 0
 
     # Deactivate all existing versions for this key
-    await session.execute(
-        update(PromptTemplate).where(PromptTemplate.key == key).values(is_active=False)
-    )
+    await session.execute(update(PromptTemplate).where(PromptTemplate.key == key).values(is_active=False))
 
     # Create new version
     new_template = PromptTemplate(
@@ -185,9 +186,7 @@ async def rollback_prompt(key: str, version: int, session: AsyncSession = Depend
         raise HTTPException(status_code=404, detail=f"Version {version} not found for key: {key}")
 
     # Deactivate all versions
-    await session.execute(
-        update(PromptTemplate).where(PromptTemplate.key == key).values(is_active=False)
-    )
+    await session.execute(update(PromptTemplate).where(PromptTemplate.key == key).values(is_active=False))
 
     # Activate the target version
     target.is_active = True
@@ -204,7 +203,5 @@ async def reset_prompt(key: str, session: AsyncSession = Depends(get_session)):
     if key not in PROMPT_NAMES:
         raise HTTPException(status_code=404, detail=f"Unknown prompt key: {key}")
 
-    await session.execute(
-        update(PromptTemplate).where(PromptTemplate.key == key).values(is_active=False)
-    )
+    await session.execute(update(PromptTemplate).where(PromptTemplate.key == key).values(is_active=False))
     await session.commit()

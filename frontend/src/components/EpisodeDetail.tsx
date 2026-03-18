@@ -9,6 +9,7 @@ import { GEMINI_TTS_MODELS, GEMINI_TTS_VOICES } from "../constants/tts";
 import PipelineView from "./PipelineView";
 import ApprovalGate from "./ApprovalGate";
 import StepDataRenderer from "./step-renderers/StepDataRenderer";
+import NoteArticleSection from "./NoteArticleSection";
 
 const MEDIA_BASE_URL = "/media";
 
@@ -575,6 +576,32 @@ export default function EpisodeDetail() {
           </div>
         </PersistentDetails>
       )}
+
+      {analysisStep && analysisStep.status === "approved" && (
+        <PersistentDetails storageKey="episode-note-analysis-open" className="mb-6 bg-white rounded-lg shadow" summary={t("note.analysisTitle")}>
+          <NoteArticleSection
+            episodeId={episodeId}
+            articleType="analysis"
+            existingMarkdown={episode.note_analysis_article}
+            onGenerated={refetch}
+          />
+        </PersistentDetails>
+      )}
+
+      {(() => {
+        const vidStep = steps.find((s) => s.step_name === "video");
+        if (!vidStep || (vidStep.status !== "needs_approval" && vidStep.status !== "approved")) return null;
+        return (
+          <PersistentDetails storageKey="episode-note-video-open" className="mb-6 bg-white rounded-lg shadow" summary={t("note.videoTitle")}>
+            <NoteArticleSection
+              episodeId={episodeId}
+              articleType="video"
+              existingMarkdown={episode.note_video_article}
+              onGenerated={refetch}
+            />
+          </PersistentDetails>
+        );
+      })()}
 
       {activeStep && (
         <div className="bg-white rounded-lg shadow p-4">

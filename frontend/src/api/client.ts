@@ -13,6 +13,7 @@ import type {
   PromptHistory,
   PromptTemplateVersion,
   DriveExportResponse,
+  NoteArticleResponse,
   AppSettings,
   SpeakerProfile,
 } from "../types";
@@ -108,6 +109,17 @@ export const api = {
   // Drive export
   exportToDrive: (episodeId: number) =>
     client.post<DriveExportResponse>(`/episodes/${episodeId}/export/drive`),
+  // note.com articles
+  generateNoteAnalysis: (episodeId: number) =>
+    client.post<NoteArticleResponse>(`/episodes/${episodeId}/note/analysis`),
+  getNoteAnalysis: (episodeId: number) =>
+    client.get<NoteArticleResponse>(`/episodes/${episodeId}/note/analysis`),
+  generateNoteVideo: (episodeId: number) =>
+    client.post<NoteArticleResponse>(`/episodes/${episodeId}/note/video`),
+  getNoteVideo: (episodeId: number) =>
+    client.get<NoteArticleResponse>(`/episodes/${episodeId}/note/video`),
+  generateNoteCover: (episodeId: number, articleType: string) =>
+    client.post<{ episode_id: number; article_type: string; image_path: string }>(`/episodes/${episodeId}/note/${articleType}/cover`),
   // Google Drive OAuth
   getGoogleDriveAuthUrl: () =>
     client.get<{ auth_url: string }>("/auth/google/drive/url"),
