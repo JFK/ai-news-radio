@@ -154,6 +154,27 @@ class BaseStep(ABC):
         prev_value = STEP_ORDER[current_index - 1]
         return StepName(prev_value)
 
+    @staticmethod
+    def build_articles_text(items: list["NewsItem"], body_max_chars: int = 500) -> str:
+        """Format NewsItems into a text summary for AI prompts.
+
+        Args:
+            items: List of NewsItem instances.
+            body_max_chars: Max chars of body to include per item.
+        """
+        text = ""
+        for i, item in enumerate(items):
+            body_excerpt = ""
+            if item.body:
+                body_excerpt = f"\n  本文冒頭: {item.body[:body_max_chars]}"
+            text += (
+                f"\n[{i}] タイトル: {item.title}\n"
+                f"  ソース: {item.source_name}\n"
+                f"  要約: {item.summary or '(なし)'}"
+                f"{body_excerpt}\n"
+            )
+        return text
+
     async def record_usage(
         self,
         session: AsyncSession,

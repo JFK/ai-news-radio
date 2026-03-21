@@ -8,14 +8,19 @@ Performs agent-style iterative research:
 """
 
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.services.ai_provider import AIResponse, get_provider, get_step_provider
+from app.services.cost_estimator import estimate_cost
 
 logger = logging.getLogger(__name__)
+
+# Type for the cost recording callback
+RecordUsageFn = Callable[..., Awaitable[None]]
 
 INVESTIGATION_PLAN_PROMPT = """\
 あなたは調査ジャーナリストです。以下のニュース記事を読み、深層調査を計画してください。
@@ -118,14 +123,18 @@ class InvestigationResult:
 class DeepInvestigator:
     """Multi-round deep investigation engine."""
 
-    def __init__(self, session: AsyncSession, episode_id: int) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        episode_id: int,
+        record_usage_fn: RecordUsageFn | None = None,
+    ) -> None:
         self._session = session
         self._episode_id = episode_id
+        self._record_usage_fn = record_usage_fn
         self._research_notes: list[str] = []
         self._all_sources: list[str] = []
         self._total_cost_usd: float = 0.0
-        self._total_input_tokens: int = 0
-        self._total_output_tokens: int = 0
 
     async def investigate(
         self,
@@ -214,7 +223,7 @@ class DeepInvestigator:
             system = INVESTIGATION_INTEGRATE_PROMPT
 
         response = await provider.generate(prompt=plan_prompt, model=model, system=system)
-        self._track_cost(response)
+        await self._record_and_track(response)
 
         try:
             plan_data = parse_json_response(response.content)
@@ -258,7 +267,7 @@ class DeepInvestigator:
                 model=model,
                 system=INVESTIGATION_INTEGRATE_PROMPT,
             )
-            self._track_cost(integrate_response)
+            await self._record_and_track(integrate_response)
 
             try:
                 integrate_data = parse_json_response(integrate_response.content)
@@ -283,7 +292,7 @@ class DeepInvestigator:
             model=model,
             system=INVESTIGATION_FINAL_PROMPT,
         )
-        self._track_cost(response)
+        await self._record_and_track(response)
 
         try:
             return parse_json_response(response.content)
@@ -356,13 +365,21 @@ class DeepInvestigator:
                 logger.warning("Deep investigation crawl failed for '%s': %s", url, e)
         return results_text
 
-    def _track_cost(self, response: AIResponse) -> None:
-        """Track AI API costs (estimation based on token counts)."""
-        self._total_input_tokens += response.input_tokens
-        self._total_output_tokens += response.output_tokens
-        # Rough estimate: $3/1M input, $15/1M output (Claude-level pricing)
-        estimated = (response.input_tokens * 3.0 + response.output_tokens * 15.0) / 1_000_000
-        self._total_cost_usd += estimated
+    async def _record_and_track(self, response: AIResponse) -> None:
+        """Record API usage to DB and track cumulative cost."""
+        cost = await estimate_cost(self._session, response.model, response.input_tokens, response.output_tokens)
+        self._total_cost_usd += cost
+
+        if self._record_usage_fn:
+            await self._record_usage_fn(
+                session=self._session,
+                episode_id=self._episode_id,
+                provider=response.provider,
+                model=response.model,
+                input_tokens=response.input_tokens,
+                output_tokens=response.output_tokens,
+                cost_usd=cost,
+            )
 
     @staticmethod
     def _get_provider_and_model():

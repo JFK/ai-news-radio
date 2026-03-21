@@ -204,7 +204,7 @@ class CollectorStep(BaseStep):
         """
         items = await self._get_news_items(episode_id, session)
         if not items:
-            return {"crawled": 0, "youtube": 0, "documents": 0, "errors": 0}
+            return {"crawled": 0, "youtube": 0, "documents": 0, "images": 0, "errors": 0}
 
         stats = {"crawled": 0, "youtube": 0, "documents": 0, "images": 0, "errors": 0}
 
@@ -247,7 +247,9 @@ class CollectorStep(BaseStep):
                             item.body = result.text
                             # PDF visual analysis (Phase 4, opt-in)
                             if settings.collection_document_visual_analysis and result.doc_type == "pdf":
-                                visual_text = await self._visual_analyze_pdf(item.source_url, episode_id, session)
+                                visual_text = await self._visual_analyze_pdf(
+                                    episode_id, session, pdf_data=doc_svc.last_downloaded_data
+                                )
                                 if visual_text:
                                     item.body = (item.body or "") + f"\n\n[AI図表分析]\n{visual_text}"
                             stats["documents"] += 1
@@ -320,17 +322,7 @@ class CollectorStep(BaseStep):
         # --- Pass 1: Research plan ---
         plan_prompt, _ = await get_active_prompt(session, RESEARCH_PLAN_PROMPT_KEY)
 
-        articles_text = ""
-        for i, item in enumerate(items):
-            body_excerpt = ""
-            if item.body:
-                body_excerpt = f"\n  本文冒頭: {item.body[:500]}"
-            articles_text += (
-                f"\n[{i}] タイトル: {item.title}\n"
-                f"  ソース: {item.source_name}\n"
-                f"  要約: {item.summary or '(なし)'}"
-                f"{body_excerpt}\n"
-            )
+        articles_text = self.build_articles_text(items)
 
         response = await provider.generate(
             prompt=f"以下のニュース記事を分析してください:\n{articles_text}",
@@ -469,24 +461,30 @@ class CollectorStep(BaseStep):
         )
         return True
 
-    async def _visual_analyze_pdf(self, url: str, episode_id: int, session: AsyncSession) -> str | None:
+    async def _visual_analyze_pdf(
+        self, episode_id: int, session: AsyncSession, *, pdf_data: bytes | None = None
+    ) -> str | None:
         """Analyze PDF visuals using Google Gemini native PDF support (Phase 4).
 
-        Downloads the PDF and sends it to Gemini for figure/chart analysis.
+        Args:
+            episode_id: Episode ID for cost tracking.
+            session: DB session.
+            pdf_data: Already-downloaded PDF bytes (avoids re-download).
+
         Falls back gracefully if Gemini is unavailable.
         """
         from app.services.ai_provider import ContentPart, get_provider
 
+        if not pdf_data:
+            return None
+
         try:
-            from app.services.document_parser import DocumentParserService
-
-            doc_svc = DocumentParserService()
-            pdf_data = await doc_svc._download(url, timeout=30.0)
-
             provider = get_provider("google")
-            model = settings.default_ai_model
+            # Must use a Gemini model name for Google provider
             if settings.pipeline_analysis_provider == "google":
                 model = settings.pipeline_analysis_model
+            else:
+                model = "gemini-2.5-flash"
 
             response = await provider.generate(
                 prompt=(
@@ -508,7 +506,7 @@ class CollectorStep(BaseStep):
             if response.content and "図表なし" not in response.content:
                 return response.content
         except Exception as e:
-            logger.warning("PDF visual analysis failed for %s: %s", url, e)
+            logger.warning("Episode %d: PDF visual analysis failed: %s", episode_id, e)
 
         return None
 
@@ -543,7 +541,7 @@ class CollectorStep(BaseStep):
                 continue
 
             item.source_language = lang
-            item.body_original = item.body
+            original_body = item.body
 
             try:
                 response = await provider.generate(
@@ -551,7 +549,7 @@ class CollectorStep(BaseStep):
                         f"以下の{lang}の記事を日本語に翻訳し、日本の読者にとっての文脈を追加してください。\n\n"
                         f"タイトル: {item.title}\n"
                         f"ソース: {item.source_name}\n\n"
-                        f"本文:\n{item.body[:10000]}\n\n"
+                        f"本文:\n{original_body[:10000]}\n\n"
                         "以下の形式で回答してください:\n"
                         "【翻訳】\n（翻訳文）\n\n"
                         "【日本との関連・背景】\n（日本の読者に向けた文脈解説）"
@@ -562,6 +560,7 @@ class CollectorStep(BaseStep):
                         "単純な翻訳ではなく、日本の読者にとってなぜ重要かを含めた文脈化翻訳を行ってください。"
                     ),
                 )
+                item.body_original = original_body
                 item.body = response.content
                 await self.record_usage(
                     session=session,
@@ -642,20 +641,9 @@ class CollectorStep(BaseStep):
         if not items:
             return None
 
-        # Build articles text for the investigator
-        articles_text = ""
-        for i, item in enumerate(items):
-            body_excerpt = ""
-            if item.body:
-                body_excerpt = f"\n  本文冒頭: {item.body[:500]}"
-            articles_text += (
-                f"\n[{i}] タイトル: {item.title}\n"
-                f"  ソース: {item.source_name}\n"
-                f"  要約: {item.summary or '(なし)'}"
-                f"{body_excerpt}\n"
-            )
+        articles_text = self.build_articles_text(items)
 
-        investigator = DeepInvestigator(session, episode_id)
+        investigator = DeepInvestigator(session, episode_id, record_usage_fn=self.record_usage)
         result = await investigator.investigate(articles_text)
 
         if not result.success:

@@ -98,7 +98,7 @@ class ImageAnalyzerService:
         if len(response.content) > MAX_IMAGE_SIZE:
             raise ValueError(f"Image too large: {len(response.content)} bytes (max {MAX_IMAGE_SIZE})")
 
-        content_type = response.headers.get("content-type", "image/png")
+        content_type = response.headers.get("content-type", "image/png").split(";")[0].strip()
         # Normalize content type
         if "jpeg" in content_type or "jpg" in content_type:
             media_type = "image/jpeg"

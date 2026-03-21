@@ -23,7 +23,10 @@ class ParseResult:
 
 
 class DocumentParserService:
-    """Download and parse PDF/PPTX documents."""
+    """Download and parse PDF, PPTX, and Excel documents."""
+
+    def __init__(self) -> None:
+        self.last_downloaded_data: bytes | None = None
 
     @staticmethod
     def is_document_url(url: str) -> str | None:
@@ -53,6 +56,7 @@ class DocumentParserService:
 
         try:
             data = await self._download(url, timeout)
+            self.last_downloaded_data = data
         except Exception as e:
             return ParseResult(text="", doc_type=doc_type, pages=0, success=False, error=str(e))
 
