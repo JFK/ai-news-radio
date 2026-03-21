@@ -125,12 +125,6 @@ class CollectorStep(BaseStep):
         if settings.collection_ai_research_enabled:
             ai_research_done = await self._ai_research(episode_id, session)
 
-        # Deep investigation (Phase 7, opt-in)
-        deep_investigation_result = None
-        if settings.collection_deep_investigation_enabled:
-            await self.log_progress(episode_id, "深層調査モードを実行中")
-            deep_investigation_result = await self._deep_investigation(episode_id, session)
-
         logger.info(
             "Episode %d [%s]: found %d articles, saved %d new, enrichment=%s",
             episode_id,
@@ -140,6 +134,8 @@ class CollectorStep(BaseStep):
             enrichment_stats,
         )
 
+        # Build output early so factcheck_included is always persisted
+        # even if deep investigation hangs or fails
         output: dict = {
             "collection_method": method,
             "articles_found": len(articles),
@@ -151,8 +147,14 @@ class CollectorStep(BaseStep):
             output["factcheck_included"] = True
         if translation_count > 0:
             output["translated"] = translation_count
-        if deep_investigation_result:
-            output["deep_investigation"] = deep_investigation_result
+
+        # Deep investigation (Phase 7, opt-in) — runs after output is built
+        if settings.collection_deep_investigation_enabled:
+            await self.log_progress(episode_id, "深層調査モードを実行中")
+            deep_investigation_result = await self._deep_investigation(episode_id, session)
+            if deep_investigation_result:
+                output["deep_investigation"] = deep_investigation_result
+
         return output
 
     async def _collect_brave(
