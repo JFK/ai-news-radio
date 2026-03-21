@@ -74,8 +74,13 @@ class WebCrawlerService:
             if element:
                 text = element.get_text(separator="\n", strip=True)
                 if text:
-                    return text[:max_chars]
+                    return self._sanitize(text[:max_chars])
 
         # Fallback: entire document text
         text = soup.get_text(separator="\n", strip=True)
-        return text[:max_chars]
+        return self._sanitize(text[:max_chars])
+
+    @staticmethod
+    def _sanitize(text: str) -> str:
+        """Remove NULL bytes and other characters invalid for PostgreSQL UTF-8."""
+        return text.replace("\x00", "")

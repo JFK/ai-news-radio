@@ -7,6 +7,7 @@ Performs agent-style iterative research:
 4. Repeat until budget exhausted or gaps filled
 """
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -157,26 +158,30 @@ class DeepInvestigator:
         provider, model = self._get_provider_and_model()
         rounds: list[InvestigationRound] = []
 
+        # Overall timeout: 5 min per round max
+        overall_timeout = max_rounds * 300
+
         try:
-            for round_num in range(max_rounds):
-                if self._total_cost_usd >= max_cost_usd:
-                    logger.info(
-                        "Episode %d: Deep investigation stopped at round %d (cost limit: $%.4f)",
-                        self._episode_id,
-                        round_num,
-                        self._total_cost_usd,
-                    )
-                    break
+            async with asyncio.timeout(overall_timeout):
+                for round_num in range(max_rounds):
+                    if self._total_cost_usd >= max_cost_usd:
+                        logger.info(
+                            "Episode %d: Deep investigation stopped at round %d (cost limit: $%.4f)",
+                            self._episode_id,
+                            round_num,
+                            self._total_cost_usd,
+                        )
+                        break
 
-                round_result = await self._run_round(round_num, articles_text, provider, model, max_cost_usd)
-                rounds.append(round_result)
+                    round_result = await self._run_round(round_num, articles_text, provider, model, max_cost_usd)
+                    rounds.append(round_result)
 
-                # Check if AI thinks we should stop
-                if round_num > 0 and round_result.remaining_gaps == 0:
-                    break
+                    # Check if AI thinks we should stop
+                    if round_num > 0 and round_result.remaining_gaps == 0:
+                        break
 
-            # Final synthesis
-            final_result = await self._synthesize(articles_text, provider, model)
+                # Final synthesis
+                final_result = await self._synthesize(articles_text, provider, model)
 
             return InvestigationResult(
                 success=True,
@@ -184,6 +189,20 @@ class DeepInvestigator:
                 rounds=rounds,
                 findings=final_result.get("key_findings", []),
                 fact_check_updates=final_result.get("fact_check_updates", []),
+                total_cost_usd=self._total_cost_usd,
+            )
+        except TimeoutError:
+            logger.warning(
+                "Episode %d: Deep investigation timed out after %ds (%d rounds completed)",
+                self._episode_id,
+                overall_timeout,
+                len(rounds),
+            )
+            # Return partial results on timeout
+            return InvestigationResult(
+                success=True,
+                summary=f"調査はタイムアウトしましたが、{len(rounds)}ラウンドの部分結果を返します。",
+                rounds=rounds,
                 total_cost_usd=self._total_cost_usd,
             )
         except Exception as e:
@@ -300,27 +319,37 @@ class DeepInvestigator:
             return {"executive_summary": response.content}
 
     async def _web_search(self, queries: list[str]) -> str:
-        """Execute web searches and optionally crawl results."""
+        """Execute web searches and crawl top results for deeper info."""
         from app.services.brave_search import BraveSearchService
 
         results_text = ""
+        crawler = None
+        max_crawl_per_query = 2  # Limit crawls to avoid timeout
+
         for query in queries:
             try:
                 search_svc = BraveSearchService()
                 results = await search_svc.web_search(query, count=5)
+                crawled = 0
                 for r in results:
                     results_text += f"\n[Web: {query}] {r.title}: {r.description}\n  URL: {r.url}"
 
-                    # Crawl for deeper info
-                    if settings.collection_crawl_enabled:
-                        from app.services.web_crawler import WebCrawlerService
+                    # Crawl top N results only for deeper info
+                    if settings.collection_crawl_enabled and crawled < max_crawl_per_query:
+                        if crawler is None:
+                            from app.services.web_crawler import WebCrawlerService
 
-                        crawler = WebCrawlerService()
-                        crawl_result = await crawler.crawl(
-                            r.url, timeout=settings.collection_crawl_timeout, max_chars=3000
-                        )
-                        if crawl_result.success and crawl_result.body:
-                            results_text += f"\n  本文: {crawl_result.body[:2000]}"
+                            crawler = WebCrawlerService()
+                        try:
+                            crawl_result = await asyncio.wait_for(
+                                crawler.crawl(r.url, timeout=10.0, max_chars=3000),
+                                timeout=15.0,
+                            )
+                            if crawl_result.success and crawl_result.body:
+                                results_text += f"\n  本文: {crawl_result.body[:1500]}"
+                                crawled += 1
+                        except TimeoutError:
+                            logger.debug("Deep investigation crawl timed out for %s", r.url)
             except Exception as e:
                 logger.warning("Deep investigation web search failed for '%s': %s", query, e)
         return results_text
@@ -355,10 +384,14 @@ class DeepInvestigator:
         crawler = WebCrawlerService()
         for url in urls:
             try:
-                crawl_result = await crawler.crawl(url, timeout=settings.collection_crawl_timeout, max_chars=5000)
+                crawl_result = await asyncio.wait_for(
+                    crawler.crawl(url, timeout=10.0, max_chars=5000),
+                    timeout=15.0,
+                )
                 if crawl_result.success and crawl_result.body:
                     results_text += f"\n[Crawl: {url}]\n{crawl_result.body[:3000]}"
-
+            except TimeoutError:
+                logger.debug("Deep investigation crawl timed out for %s", url)
             except Exception as e:
                 logger.warning("Deep investigation crawl failed for '%s': %s", url, e)
         return results_text

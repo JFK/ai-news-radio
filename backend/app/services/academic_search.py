@@ -15,7 +15,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 SEMANTIC_SCHOLAR_API = "https://api.semanticscholar.org/graph/v1/paper/search"
-ARXIV_API = "http://export.arxiv.org/api/query"
+ARXIV_API = "https://export.arxiv.org/api/query"
 
 
 @dataclass
@@ -96,9 +96,12 @@ class AcademicSearchService:
         )
 
     async def _search_semantic_scholar(self, query: str, max_results: int) -> list[AcademicPaper]:
-        """Search Semantic Scholar API."""
+        """Search Semantic Scholar API. Respects 100req/5min rate limit."""
         papers: list[AcademicPaper] = []
         try:
+            # Brief delay between requests to respect rate limits
+            if self._request_count > 0:
+                await asyncio.sleep(3)
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 self._request_count += 1
                 response = await client.get(
