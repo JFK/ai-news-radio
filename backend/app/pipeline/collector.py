@@ -521,26 +521,33 @@ class CollectorStep(BaseStep):
         """
         from app.services.ai_provider import get_provider, get_step_provider
 
-        items = await self._get_news_items(episode_id, session, include_excluded=True)
+        # Detect language on ALL items (including excluded) for UI badges,
+        # but only spend tokens translating non-excluded items.
+        all_items = await self._get_news_items(episode_id, session, include_excluded=True)
         translated = 0
 
-        # Determine provider/model
+        # Phase 1: Detect language on all items (free, no API call)
+        items_to_translate: list[NewsItem] = []
+        for item in all_items:
+            if not item.body or item.source_language:
+                continue
+            lang = self._detect_language(item.body)
+            item.source_language = lang
+            if lang != "ja" and not item.excluded:
+                items_to_translate.append(item)
+
+        if not items_to_translate:
+            await session.commit()
+            return 0
+
+        # Phase 2: Translate non-excluded foreign articles
         if settings.collection_translation_provider and settings.collection_translation_model:
             provider = get_provider(settings.collection_translation_provider)
             model = settings.collection_translation_model
         else:
             provider, model = get_step_provider("analysis")
 
-        for item in items:
-            if not item.body or item.source_language:
-                continue  # Skip empty or already processed
-
-            lang = self._detect_language(item.body)
-            if lang == "ja":
-                item.source_language = "ja"
-                continue
-
-            item.source_language = lang
+        for item in items_to_translate:
             original_body = item.body
 
             try:
@@ -584,6 +591,9 @@ class CollectorStep(BaseStep):
     def _detect_language(text: str) -> str:
         """Detect language using CJK character ratio heuristic.
 
+        Counts only non-ASCII-space/punctuation characters to avoid
+        ratio dilution from whitespace and markup.
+
         Returns 'ja' for Japanese, 'zh' for Chinese, 'ko' for Korean,
         'en' for other (assumed English/foreign).
         """
@@ -591,19 +601,21 @@ class CollectorStep(BaseStep):
             return "en"
 
         sample = text[:2000]
-        total = len(sample)
-        if total == 0:
-            return "en"
 
-        # Count character types
+        # Count character types (ignore ASCII spaces/punct for ratio)
         cjk = 0
         hiragana = 0
         katakana = 0
         hangul = 0
+        meaningful = 0  # non-whitespace, non-ASCII-punct chars
 
         for ch in sample:
             cp = ord(ch)
-            if 0x4E00 <= cp <= 0x9FFF:  # CJK Unified Ideographs
+            # Skip ASCII whitespace and common punctuation
+            if cp <= 0x7F and (ch.isspace() or not ch.isalnum()):
+                continue
+            meaningful += 1
+            if 0x4E00 <= cp <= 0x9FFF or 0x3400 <= cp <= 0x4DBF:  # CJK Unified + Extension A
                 cjk += 1
             elif 0x3040 <= cp <= 0x309F:  # Hiragana
                 hiragana += 1
@@ -612,21 +624,20 @@ class CollectorStep(BaseStep):
             elif 0xAC00 <= cp <= 0xD7AF:  # Hangul Syllables
                 hangul += 1
 
-        japanese_chars = hiragana + katakana
-        cjk_total = cjk + japanese_chars + hangul
-
-        # Japanese: has hiragana/katakana
-        if japanese_chars > total * 0.05:
-            return "ja"
-        # Korean: has hangul
-        if hangul > total * 0.1:
-            return "ko"
-        # Chinese: lots of CJK but no kana
-        if cjk > total * 0.1:
-            return "zh"
-        # Otherwise, assume foreign (English etc.)
-        if cjk_total < total * 0.05:
+        if meaningful == 0:
             return "en"
+
+        japanese_chars = hiragana + katakana
+
+        # Japanese: hiragana/katakana presence is a definitive marker
+        if japanese_chars > meaningful * 0.05:
+            return "ja"
+        # Korean: hangul presence
+        if hangul > meaningful * 0.1:
+            return "ko"
+        # Chinese: CJK ideographs without kana
+        if cjk > meaningful * 0.15:
+            return "zh"
 
         return "en"
 

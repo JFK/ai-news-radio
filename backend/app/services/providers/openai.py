@@ -1,11 +1,14 @@
 """OpenAI AI provider implementation."""
 
 import base64
+import logging
 
 import openai
 
 from app.config import settings
 from app.services.ai_provider import AIProvider, AIResponse, ContentPart, SearchResult
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAIProvider(AIProvider):
@@ -68,6 +71,8 @@ class OpenAIProvider(AIProvider):
                         "image_url": {"url": f"data:{media};base64,{b64}"},
                     }
                 )
+            elif part.type == "pdf":
+                logger.warning("OpenAI does not support native PDF input; PDF content will be skipped")
         # Add prompt text at the end
         if prompt:
             blocks.append({"type": "text", "text": prompt})

@@ -133,7 +133,6 @@ class DeepInvestigator:
         self._episode_id = episode_id
         self._record_usage_fn = record_usage_fn
         self._research_notes: list[str] = []
-        self._all_sources: list[str] = []
         self._total_cost_usd: float = 0.0
 
     async def investigate(
@@ -311,7 +310,6 @@ class DeepInvestigator:
                 results = await search_svc.web_search(query, count=5)
                 for r in results:
                     results_text += f"\n[Web: {query}] {r.title}: {r.description}\n  URL: {r.url}"
-                    self._all_sources.append(r.url)
 
                     # Crawl for deeper info
                     if settings.collection_crawl_enabled:
@@ -344,7 +342,7 @@ class DeepInvestigator:
                         f"\n  要旨: {paper.abstract[:500]}"
                         f"\n  URL: {paper.url}"
                     )
-                    self._all_sources.append(paper.url)
+
             except Exception as e:
                 logger.warning("Deep investigation academic search failed for '%s': %s", query, e)
         return results_text
@@ -360,7 +358,7 @@ class DeepInvestigator:
                 crawl_result = await crawler.crawl(url, timeout=settings.collection_crawl_timeout, max_chars=5000)
                 if crawl_result.success and crawl_result.body:
                     results_text += f"\n[Crawl: {url}]\n{crawl_result.body[:3000]}"
-                    self._all_sources.append(url)
+
             except Exception as e:
                 logger.warning("Deep investigation crawl failed for '%s': %s", url, e)
         return results_text
