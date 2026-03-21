@@ -60,18 +60,33 @@ class FactcheckerStep(BaseStep):
         """
         # Skip path: collection AI research already did fact-checking
         if input_data.get("factcheck_included"):
+            await self.log_progress(
+                episode_id,
+                "収集ステップの AI Research で既にファクトチェック済み — スキップします",
+            )
             items = await self._get_news_items(episode_id, session)
             results = []
             for item in items:
-                results.append({
-                    "news_item_id": item.id,
-                    "title": item.title,
-                    "status": item.fact_check_status or "unverified",
-                    "score": item.fact_check_score or 1,
-                    "input_tokens": 0,
-                    "output_tokens": 0,
-                })
+                results.append(
+                    {
+                        "news_item_id": item.id,
+                        "title": item.title,
+                        "status": item.fact_check_status or "unverified",
+                        "score": item.fact_check_score or 1,
+                        "input_tokens": 0,
+                        "output_tokens": 0,
+                    }
+                )
             avg_score = sum(r["score"] for r in results) / len(results) if results else 0
+            await self.log_progress(
+                episode_id,
+                f"AI Research スコアを引き継ぎ: {len(results)}件, 平均{avg_score:.1f}/5（追加APIコストなし）",
+            )
+            logger.info(
+                "Episode %d: factcheck skipped (AI research scores exist, avg=%.1f)",
+                episode_id,
+                avg_score,
+            )
             return {
                 "items_checked": len(results),
                 "results": results,
@@ -118,9 +133,7 @@ class FactcheckerStep(BaseStep):
             result_data["prompt_version"] = prompt_version
         return result_data
 
-    async def _search_references(
-        self, item: NewsItem, session: AsyncSession, episode_id: int
-    ) -> str:
+    async def _search_references(self, item: NewsItem, session: AsyncSession, episode_id: int) -> str:
         """Search for reference material using Brave Search (if available)."""
         try:
             from app.config import settings
