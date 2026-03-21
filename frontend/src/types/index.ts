@@ -58,6 +58,8 @@ export interface NewsItem {
   fact_check_details: string | null;
   reference_urls: string[] | null;
   analysis_data: Record<string, unknown> | null;
+  body_original: string | null;
+  source_language: string | null;
   script_text: string | null;
   script_mode: string | null;
   script_data: Record<string, unknown> | null;

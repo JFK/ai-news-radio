@@ -27,8 +27,11 @@ class TestDocumentURLDetection:
         [
             ("https://example.com/report.pdf", "pdf"),
             ("https://example.com/slides.pptx", "pptx"),
+            ("https://example.com/data.xlsx", "xlsx"),
+            ("https://example.com/data.xls", "xlsx"),
             ("https://example.com/report.PDF", "pdf"),
             ("https://example.com/file.pdf?download=true", "pdf"),
+            ("https://example.com/data.xlsx?token=abc", "xlsx"),
             ("https://example.com/news/article", None),
             ("https://example.com/file.doc", None),
         ],
@@ -89,6 +92,23 @@ class TestDocumentParsing:
 
         assert result.success is False
         assert "too large" in (result.error or "")
+
+    async def test_parse_xlsx(self, parser: DocumentParserService):
+        """Should parse Excel content (mocked)."""
+        fake_xlsx_bytes = b"fake-xlsx-data"
+        response = _mock_response(200, content=fake_xlsx_bytes, headers={"content-type": "application/vnd.openxmlformats"})
+
+        with (
+            patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=response),
+            patch.object(DocumentParserService, "_parse_xlsx") as mock_parse,
+        ):
+            mock_parse.return_value = ParseResult(text="[Sheet: Sheet1]\nA\tB\n1\t2", doc_type="xlsx", pages=1, success=True)
+            result = await parser.download_and_parse("https://example.com/data.xlsx")
+
+        assert result.success is True
+        assert result.text == "[Sheet: Sheet1]\nA\tB\n1\t2"
+        assert result.doc_type == "xlsx"
+        assert result.pages == 1
 
     async def test_download_http_error(self, parser: DocumentParserService):
         """Should handle download failures gracefully."""

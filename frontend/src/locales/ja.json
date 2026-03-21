@@ -95,6 +95,12 @@
     "processing": "処理中...",
     "approveFailed": "承認に失敗しました",
     "rejectFailed": "却下に失敗しました",
+    "langBadge": {
+      "en": "EN",
+      "zh": "ZH",
+      "ko": "KO",
+      "translated": "翻訳済"
+    },
     "selectArticles": "承認する記事を選択してください",
     "selectAll": "すべて選択",
     "deselectAll": "すべて解除",
@@ -152,7 +158,12 @@
       "fetched": "取得記事数",
       "saved": "保存記事数",
       "title": "タイトル",
-      "source": "ソース"
+      "source": "ソース",
+      "images": "画像分析数",
+      "translated": "翻訳数",
+      "deepInvestigation": "深層調査",
+      "rounds": "ラウンド",
+      "findings": "発見"
     },
     "factcheck": {
       "checked": "チェック数",
@@ -248,6 +259,14 @@
         "collection_youtube_enabled": "YouTube 有効",
         "collection_document_enabled": "ドキュメント有効",
         "collection_ai_research_enabled": "AI リサーチ有効",
+        "collection_image_analysis_enabled": "画像分析有効",
+        "collection_document_visual_analysis": "PDF 図表分析（Gemini）",
+        "collection_academic_search_enabled": "学術論文検索有効",
+        "collection_academic_max_papers": "クエリあたり最大論文数",
+        "collection_translation_enabled": "外国語記事の自動翻訳",
+        "collection_deep_investigation_enabled": "深層調査モード",
+        "collection_deep_investigation_max_rounds": "最大調査ラウンド数",
+        "collection_deep_investigation_max_cost_usd": "調査コスト上限（USD）",
         "voice_section_silence": "セクション間の無音（秒）",
         "srt_offset": "字幕オフセット（秒、+で遅延）",
         "gemini_tts_model": "Gemini TTS モデル",

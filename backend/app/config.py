@@ -50,6 +50,30 @@ class Settings(BaseSettings):
     collection_ai_research_provider: str = ""
     collection_ai_research_model: str = ""
 
+    # Image analysis (Phase 3)
+    collection_image_analysis_enabled: bool = False
+    collection_image_analysis_provider: str = ""
+    collection_image_analysis_model: str = ""
+
+    # Document visual analysis (Phase 4)
+    collection_document_visual_analysis: bool = False
+
+    # Academic search (Phase 5)
+    collection_academic_search_enabled: bool = False
+    collection_academic_max_papers: int = 5
+
+    # Foreign article translation (Phase 6)
+    collection_translation_enabled: bool = False
+    collection_translation_provider: str = ""
+    collection_translation_model: str = ""
+
+    # Deep investigation (Phase 7)
+    collection_deep_investigation_enabled: bool = False
+    collection_deep_investigation_max_rounds: int = 3
+    collection_deep_investigation_max_cost_usd: float = 1.0
+    collection_deep_investigation_provider: str = ""
+    collection_deep_investigation_model: str = ""
+
     # Media
     media_dir: str = "/app/media"
 
@@ -97,9 +121,7 @@ class Settings(BaseSettings):
     # YouTube Outro after ending
     youtube_outro_enabled: bool = True
     youtube_outro_text: str = (
-        "ご視聴ありがとうございました。"
-        "チャンネル登録、高評価もよろしくお願いします。"
-        "また次回の放送でお会いしましょう。"
+        "ご視聴ありがとうございました。チャンネル登録、高評価もよろしくお願いします。また次回の放送でお会いしましょう。"
     )
 
     # Google Drive Export (OAuth 2.0)

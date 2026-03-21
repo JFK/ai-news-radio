@@ -138,6 +138,8 @@ class NewsItemResponse(BaseModel):
     fact_check_details: str | None = None
     reference_urls: list[str] | None = None
     analysis_data: dict | None = None
+    body_original: str | None = None
+    source_language: str | None = None
     script_text: str | None = None
     script_mode: str | None = None
     script_data: dict | None = None

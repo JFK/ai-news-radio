@@ -35,6 +35,10 @@ class NewsItem(Base):
     excluded: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     excluded_at_step: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
+    # Translation (Phase 6)
+    body_original: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_language: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
     # Script
     script_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     script_mode: Mapped[str | None] = mapped_column(String(20), nullable=True)
