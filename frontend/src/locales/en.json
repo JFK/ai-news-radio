@@ -376,6 +376,23 @@
       "restore": "Restore"
     }
   },
+  "note": {
+    "analysisTitle": "note.com Analysis Article",
+    "videoTitle": "note.com Video Article",
+    "generate": "Generate Article",
+    "regenerate": "Regenerate",
+    "generating": "Generating...",
+    "generateFailed": "Failed to generate article",
+    "generateSuccess": "Generated!",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "download": "Download (.md)",
+    "coverGenerate": "Generate Cover Image",
+    "coverRegenerate": "Regenerate Cover",
+    "coverGenerating": "Generating cover...",
+    "coverFailed": "Failed to generate cover image",
+    "coverImage": "Cover Image"
+  },
   "errors": {
     "fetchEpisodes": "Failed to fetch episodes",
     "fetchEpisode": "Failed to fetch episode"
