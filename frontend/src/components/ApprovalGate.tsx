@@ -94,6 +94,16 @@ export default function ApprovalGate({ step, newsItems, onUpdated }: Props) {
     );
   };
 
+  const getLangBadge = (item: NewsItem) => {
+    if (!item.source_language || item.source_language === "ja") return null;
+    const lang = item.source_language.toUpperCase();
+    return (
+      <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-blue-100 text-blue-800" title={t("approval.langBadge.translated")}>
+        {lang}
+      </span>
+    );
+  };
+
   return (
     <div className="border-2 border-yellow-300 bg-yellow-50 rounded-lg p-4 mt-4">
       <h3 className="text-sm font-semibold text-yellow-800 mb-3">{t("approval.title")}</h3>
@@ -154,6 +164,7 @@ export default function ApprovalGate({ step, newsItems, onUpdated }: Props) {
                   <span className={`text-sm flex-1 ${isExcluded ? "line-through text-gray-400" : "text-gray-800"}`}>
                     {item.title}
                   </span>
+                  {getLangBadge(item)}
                   {getScoreBadge(item)}
                   <span className="text-xs text-gray-400">{item.source_name}</span>
                 </label>

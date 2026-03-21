@@ -141,9 +141,20 @@ export default function AnalysisRenderer({ newsItems }: Props) {
     {} as Record<string, number>,
   );
 
+  // Build a lookup from item id → analysis_data for resolving merged_into references
+  const analysisLookup = new Map<number, AnalysisData>();
+  for (const item of newsItems) {
+    if (item.analysis_data && !("merged_into" in (item.analysis_data ?? {}))) {
+      analysisLookup.set(item.id, item.analysis_data as AnalysisData);
+    }
+  }
+
   const renderItemRow = (item: NewsItem, isGroupMember = false) => {
-    const data = item.analysis_data as AnalysisData | null;
-    const isMerged = data && "merged_into" in (item.analysis_data ?? {});
+    const rawData = item.analysis_data as AnalysisData | null;
+    const isMerged = rawData && "merged_into" in (item.analysis_data ?? {});
+    // For merged items, resolve to the primary's analysis data
+    const mergedIntoId = isMerged ? (item.analysis_data as Record<string, unknown>)?.merged_into as number : null;
+    const data = isMerged && mergedIntoId ? (analysisLookup.get(mergedIntoId) ?? null) : rawData;
 
     return (
       <div
@@ -202,8 +213,13 @@ export default function AnalysisRenderer({ newsItems }: Props) {
           </div>
         </button>
 
-        {expandedId === item.id && data && !isMerged && (
+        {expandedId === item.id && data && (
           <div className="px-3 pb-3 border-t mt-0">
+            {isMerged && (
+              <p className="text-xs text-gray-400 mt-2 mb-1">
+                {t("stepData.analysis.merged")} — {t("stepData.analysis.group")}の分析を表示
+              </p>
+            )}
             <div className="mt-2">
               <AnalysisDetail data={data} />
             </div>

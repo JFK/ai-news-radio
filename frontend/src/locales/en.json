@@ -95,6 +95,12 @@
     "processing": "Processing...",
     "approveFailed": "Approval failed",
     "rejectFailed": "Rejection failed",
+    "langBadge": {
+      "en": "EN",
+      "zh": "ZH",
+      "ko": "KO",
+      "translated": "Translated"
+    },
     "selectArticles": "Select articles to approve",
     "selectAll": "Select all",
     "deselectAll": "Deselect all",
@@ -152,7 +158,12 @@
       "fetched": "Fetched",
       "saved": "Saved",
       "title": "Title",
-      "source": "Source"
+      "source": "Source",
+      "images": "Images Analyzed",
+      "translated": "Translated",
+      "deepInvestigation": "Deep Investigation",
+      "rounds": "Rounds",
+      "findings": "Findings"
     },
     "factcheck": {
       "checked": "Checked",
@@ -248,6 +259,14 @@
         "collection_youtube_enabled": "YouTube Enabled",
         "collection_document_enabled": "Document Enabled",
         "collection_ai_research_enabled": "AI Research Enabled",
+        "collection_image_analysis_enabled": "Image Analysis Enabled",
+        "collection_document_visual_analysis": "PDF Visual Analysis (Gemini)",
+        "collection_academic_search_enabled": "Academic Search Enabled",
+        "collection_academic_max_papers": "Max Papers per Query",
+        "collection_translation_enabled": "Auto-translate Foreign Articles",
+        "collection_deep_investigation_enabled": "Deep Investigation Mode",
+        "collection_deep_investigation_max_rounds": "Max Investigation Rounds",
+        "collection_deep_investigation_max_cost_usd": "Investigation Cost Limit (USD)",
         "voice_section_silence": "Section Silence (seconds)",
         "srt_offset": "Subtitle Offset (sec, + = later)",
         "gemini_tts_model": "Gemini TTS Model",

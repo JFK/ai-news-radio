@@ -1,4 +1,4 @@
-"""Document parsing service for PDF and PPTX files."""
+"""Document parsing service for PDF, PPTX, and Excel files."""
 
 import io
 import logging
@@ -23,16 +23,21 @@ class ParseResult:
 
 
 class DocumentParserService:
-    """Download and parse PDF/PPTX documents."""
+    """Download and parse PDF, PPTX, and Excel documents."""
+
+    def __init__(self) -> None:
+        self.last_downloaded_data: bytes | None = None
 
     @staticmethod
     def is_document_url(url: str) -> str | None:
-        """Detect if URL points to a document. Returns 'pdf', 'pptx', or None."""
+        """Detect if URL points to a document. Returns 'pdf', 'pptx', 'xlsx', or None."""
         lower = url.lower().split("?")[0]
         if lower.endswith(".pdf"):
             return "pdf"
         if lower.endswith(".pptx"):
             return "pptx"
+        if lower.endswith(".xlsx") or lower.endswith(".xls"):
+            return "xlsx"
         return None
 
     async def download_and_parse(self, url: str, timeout: float = 30.0) -> ParseResult:
@@ -51,6 +56,7 @@ class DocumentParserService:
 
         try:
             data = await self._download(url, timeout)
+            self.last_downloaded_data = data
         except Exception as e:
             return ParseResult(text="", doc_type=doc_type, pages=0, success=False, error=str(e))
 
@@ -58,6 +64,8 @@ class DocumentParserService:
             return self._parse_pdf(data)
         elif doc_type == "pptx":
             return self._parse_pptx(data)
+        elif doc_type == "xlsx":
+            return self._parse_xlsx(data)
         return ParseResult(text="", doc_type=doc_type, pages=0, success=False, error=f"Unsupported type: {doc_type}")
 
     async def _download(self, url: str, timeout: float) -> bytes:
@@ -109,3 +117,25 @@ class DocumentParserService:
             return ParseResult(text=full_text, doc_type="pptx", pages=len(prs.slides), success=True)
         except Exception as e:
             return ParseResult(text="", doc_type="pptx", pages=0, success=False, error=str(e))
+
+    def _parse_xlsx(self, data: bytes) -> ParseResult:
+        """Parse Excel (.xlsx/.xls) document."""
+        try:
+            from openpyxl import load_workbook
+
+            wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+            sheets_text = []
+            for sheet_name in wb.sheetnames:
+                ws = wb[sheet_name]
+                rows_text = []
+                for row in ws.iter_rows(values_only=True):
+                    cells = [str(c) if c is not None else "" for c in row]
+                    if any(cells):
+                        rows_text.append("\t".join(cells))
+                if rows_text:
+                    sheets_text.append(f"[Sheet: {sheet_name}]\n" + "\n".join(rows_text))
+            wb.close()
+            full_text = "\n\n".join(sheets_text)
+            return ParseResult(text=full_text, doc_type="xlsx", pages=len(wb.sheetnames), success=True)
+        except Exception as e:
+            return ParseResult(text="", doc_type="xlsx", pages=0, success=False, error=str(e))

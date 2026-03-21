@@ -11,6 +11,20 @@ from app.config import settings
 
 
 @dataclass
+class ContentPart:
+    """A single part of multimodal content.
+
+    Use type="text" for text content, type="image" for images,
+    type="pdf" for PDF documents (Google Gemini native support).
+    """
+
+    type: str  # "text" | "image" | "pdf"
+    text: str | None = None
+    data: bytes | None = None  # raw binary data
+    media_type: str | None = None  # e.g. "image/png", "application/pdf"
+
+
+@dataclass
 class AIResponse:
     """Response from an AI provider."""
 
@@ -47,7 +61,6 @@ class AIProvider(ABC):
     async def web_search(self, query: str, **kwargs) -> SearchResult:
         """Perform a web search (provider-dependent)."""
         ...
-
 
 
 # Step order for pipeline navigation

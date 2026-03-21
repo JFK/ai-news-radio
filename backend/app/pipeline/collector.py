@@ -114,6 +114,12 @@ class CollectorStep(BaseStep):
         await self.log_progress(episode_id, f"{articles_saved}件の記事を保存。本文を取得中")
         enrichment_stats = await self._enrich_articles(episode_id, session)
 
+        # Translate foreign articles (Phase 6, opt-in)
+        translation_count = 0
+        if settings.collection_translation_enabled:
+            await self.log_progress(episode_id, "外国語記事を翻訳中")
+            translation_count = await self._translate_foreign_articles(episode_id, session)
+
         # AI multi-stage research (opt-in)
         ai_research_done = False
         if settings.collection_ai_research_enabled:
@@ -128,6 +134,8 @@ class CollectorStep(BaseStep):
             enrichment_stats,
         )
 
+        # Build output early so factcheck_included is always persisted
+        # even if deep investigation hangs or fails
         output: dict = {
             "collection_method": method,
             "articles_found": len(articles),
@@ -137,6 +145,16 @@ class CollectorStep(BaseStep):
         }
         if ai_research_done:
             output["factcheck_included"] = True
+        if translation_count > 0:
+            output["translated"] = translation_count
+
+        # Deep investigation (Phase 7, opt-in) — runs after output is built
+        if settings.collection_deep_investigation_enabled:
+            await self.log_progress(episode_id, "深層調査モードを実行中")
+            deep_investigation_result = await self._deep_investigation(episode_id, session)
+            if deep_investigation_result:
+                output["deep_investigation"] = deep_investigation_result
+
         return output
 
     async def _collect_brave(
@@ -188,14 +206,15 @@ class CollectorStep(BaseStep):
         """
         items = await self._get_news_items(episode_id, session)
         if not items:
-            return {"crawled": 0, "youtube": 0, "documents": 0, "errors": 0}
+            return {"crawled": 0, "youtube": 0, "documents": 0, "images": 0, "errors": 0}
 
-        stats = {"crawled": 0, "youtube": 0, "documents": 0, "errors": 0}
+        stats = {"crawled": 0, "youtube": 0, "documents": 0, "images": 0, "errors": 0}
 
         # Lazy-init services outside the loop
         yt_svc = None
         doc_svc = None
         crawl_svc = None
+        img_svc = None
 
         for item in items:
             if item.body:
@@ -228,9 +247,32 @@ class CollectorStep(BaseStep):
                         result = await doc_svc.download_and_parse(item.source_url)
                         if result.success:
                             item.body = result.text
+                            # PDF visual analysis (Phase 4, opt-in)
+                            if settings.collection_document_visual_analysis and result.doc_type == "pdf":
+                                visual_text = await self._visual_analyze_pdf(
+                                    episode_id, session, pdf_data=doc_svc.last_downloaded_data
+                                )
+                                if visual_text:
+                                    item.body = (item.body or "") + f"\n\n[AI図表分析]\n{visual_text}"
                             stats["documents"] += 1
                         else:
                             logger.warning("Document parse failed for %s: %s", item.source_url, result.error)
+                            stats["errors"] += 1
+                        continue
+
+                # Image URL → AI analysis (Phase 3, opt-in)
+                if settings.collection_image_analysis_enabled:
+                    from app.services.image_analyzer import ImageAnalyzerService
+
+                    if ImageAnalyzerService.is_image_url(item.source_url):
+                        if img_svc is None:
+                            img_svc = ImageAnalyzerService()
+                        result = await img_svc.analyze(item.source_url)
+                        if result.success:
+                            item.body = f"[画像分析]\n{result.description}"
+                            stats["images"] += 1
+                        else:
+                            logger.warning("Image analysis failed for %s: %s", item.source_url, result.error)
                             stats["errors"] += 1
                         continue
 
@@ -282,17 +324,7 @@ class CollectorStep(BaseStep):
         # --- Pass 1: Research plan ---
         plan_prompt, _ = await get_active_prompt(session, RESEARCH_PLAN_PROMPT_KEY)
 
-        articles_text = ""
-        for i, item in enumerate(items):
-            body_excerpt = ""
-            if item.body:
-                body_excerpt = f"\n  本文冒頭: {item.body[:500]}"
-            articles_text += (
-                f"\n[{i}] タイトル: {item.title}\n"
-                f"  ソース: {item.source_name}\n"
-                f"  要約: {item.summary or '(なし)'}"
-                f"{body_excerpt}\n"
-            )
+        articles_text = self.build_articles_text(items)
 
         response = await provider.generate(
             prompt=f"以下のニュース記事を分析してください:\n{articles_text}",
@@ -300,9 +332,12 @@ class CollectorStep(BaseStep):
             system=plan_prompt,
         )
         await self.record_usage(
-            session=session, episode_id=episode_id,
-            provider=response.provider, model=response.model,
-            input_tokens=response.input_tokens, output_tokens=response.output_tokens,
+            session=session,
+            episode_id=episode_id,
+            provider=response.provider,
+            model=response.model,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
         )
 
         try:
@@ -360,16 +395,33 @@ class CollectorStep(BaseStep):
                 cost_usd=brave_query_count * BRAVE_COST_PER_QUERY,
             )
 
+        # --- Pass 2.5: Academic search (Phase 5, opt-in) ---
+        if settings.collection_academic_search_enabled and search_queries:
+            from app.services.academic_search import AcademicSearchService
+
+            academic_svc = AcademicSearchService()
+            # Use first 2 queries for academic search
+            for query in search_queries[:2]:
+                try:
+                    result = await academic_svc.search(query, max_results=settings.collection_academic_max_papers)
+                    for paper in result.papers:
+                        additional_info += (
+                            f"\n- [学術: {query}] {paper.title}"
+                            f"\n  著者: {', '.join(paper.authors[:3])}"
+                            f"\n  年: {paper.year or 'N/A'}"
+                            f"\n  要旨: {paper.abstract[:300]}"
+                            f"\n  URL: {paper.url}"
+                        )
+                except Exception as e:
+                    logger.warning("Academic search failed for '%s': %s", query, e)
+
         if not additional_info:
             return False
 
         # --- Pass 3: Integration ---
         integrate_prompt, _ = await get_active_prompt(session, RESEARCH_INTEGRATE_PROMPT_KEY)
 
-        integrate_input = (
-            f"元の記事:\n{articles_text}\n\n"
-            f"追加調査結果:\n{additional_info}"
-        )
+        integrate_input = f"元の記事:\n{articles_text}\n\n追加調査結果:\n{additional_info}"
 
         response = await provider.generate(
             prompt=integrate_input,
@@ -377,9 +429,12 @@ class CollectorStep(BaseStep):
             system=integrate_prompt,
         )
         await self.record_usage(
-            session=session, episode_id=episode_id,
-            provider=response.provider, model=response.model,
-            input_tokens=response.input_tokens, output_tokens=response.output_tokens,
+            session=session,
+            episode_id=episode_id,
+            provider=response.provider,
+            model=response.model,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
         )
 
         try:
@@ -407,3 +462,236 @@ class CollectorStep(BaseStep):
             len(results_list),
         )
         return True
+
+    async def _visual_analyze_pdf(
+        self, episode_id: int, session: AsyncSession, *, pdf_data: bytes | None = None
+    ) -> str | None:
+        """Analyze PDF visuals using Google Gemini native PDF support (Phase 4).
+
+        Args:
+            episode_id: Episode ID for cost tracking.
+            session: DB session.
+            pdf_data: Already-downloaded PDF bytes (avoids re-download).
+
+        Falls back gracefully if Gemini is unavailable.
+        """
+        from app.services.ai_provider import ContentPart, get_provider
+
+        if not pdf_data:
+            return None
+
+        try:
+            provider = get_provider("google")
+            # Must use a Gemini model name for Google provider
+            if settings.pipeline_analysis_provider == "google":
+                model = settings.pipeline_analysis_model
+            else:
+                model = "gemini-2.5-flash"
+
+            response = await provider.generate(
+                prompt=(
+                    "このPDF文書に含まれる図表、グラフ、画像を分析してください。"
+                    "各図表について、内容・データ・意味を日本語で説明してください。"
+                    "図表がない場合は「図表なし」と回答してください。"
+                ),
+                model=model,
+                content=[ContentPart(type="pdf", data=pdf_data, media_type="application/pdf")],
+            )
+            await self.record_usage(
+                session=session,
+                episode_id=episode_id,
+                provider=response.provider,
+                model=response.model,
+                input_tokens=response.input_tokens,
+                output_tokens=response.output_tokens,
+            )
+            if response.content and "図表なし" not in response.content:
+                return response.content
+        except Exception as e:
+            logger.warning("Episode %d: PDF visual analysis failed: %s", episode_id, e)
+
+        return None
+
+    async def _translate_foreign_articles(self, episode_id: int, session: AsyncSession) -> int:
+        """Detect and translate non-Japanese articles (Phase 6).
+
+        Uses CJK character ratio heuristic for language detection.
+        Preserves original body in body_original.
+
+        Returns:
+            Number of articles translated.
+        """
+        from app.services.ai_provider import get_provider, get_step_provider
+
+        # Detect language on ALL items (including excluded) for UI badges,
+        # but only spend tokens translating non-excluded items.
+        all_items = await self._get_news_items(episode_id, session, include_excluded=True)
+        translated = 0
+
+        # Phase 1: Detect language on all items (free, no API call)
+        items_to_translate: list[NewsItem] = []
+        for item in all_items:
+            if not item.body or item.source_language:
+                continue
+            lang = self._detect_language(item.body)
+            item.source_language = lang
+            if lang != "ja" and not item.excluded:
+                items_to_translate.append(item)
+
+        if not items_to_translate:
+            await session.commit()
+            return 0
+
+        # Phase 2: Translate non-excluded foreign articles
+        if settings.collection_translation_provider and settings.collection_translation_model:
+            provider = get_provider(settings.collection_translation_provider)
+            model = settings.collection_translation_model
+        else:
+            provider, model = get_step_provider("analysis")
+
+        for item in items_to_translate:
+            original_body = item.body
+
+            try:
+                response = await provider.generate(
+                    prompt=(
+                        f"以下の{lang}の記事を日本語に翻訳し、日本の読者にとっての文脈を追加してください。\n\n"
+                        f"タイトル: {item.title}\n"
+                        f"ソース: {item.source_name}\n\n"
+                        f"本文:\n{original_body[:10000]}\n\n"
+                        "以下の形式で回答してください:\n"
+                        "【翻訳】\n（翻訳文）\n\n"
+                        "【日本との関連・背景】\n（日本の読者に向けた文脈解説）"
+                    ),
+                    model=model,
+                    system=(
+                        "あなたは国際ニュース翻訳の専門家です。"
+                        "単純な翻訳ではなく、日本の読者にとってなぜ重要かを含めた文脈化翻訳を行ってください。"
+                    ),
+                )
+                item.body_original = original_body
+                item.body = response.content
+                await self.record_usage(
+                    session=session,
+                    episode_id=episode_id,
+                    provider=response.provider,
+                    model=response.model,
+                    input_tokens=response.input_tokens,
+                    output_tokens=response.output_tokens,
+                )
+                translated += 1
+            except Exception as e:
+                logger.warning("Translation failed for %s: %s", item.source_url, e)
+
+        if translated > 0:
+            await session.commit()
+            await self.log_progress(episode_id, f"{translated}件の外国語記事を翻訳しました")
+
+        return translated
+
+    @staticmethod
+    def _detect_language(text: str) -> str:
+        """Detect language using CJK character ratio heuristic.
+
+        Counts only non-ASCII-space/punctuation characters to avoid
+        ratio dilution from whitespace and markup.
+
+        Returns 'ja' for Japanese, 'zh' for Chinese, 'ko' for Korean,
+        'en' for other (assumed English/foreign).
+        """
+        if not text:
+            return "en"
+
+        sample = text[:2000]
+
+        # Count character types (ignore ASCII spaces/punct for ratio)
+        cjk = 0
+        hiragana = 0
+        katakana = 0
+        hangul = 0
+        meaningful = 0  # non-whitespace, non-ASCII-punct chars
+
+        for ch in sample:
+            cp = ord(ch)
+            # Skip ASCII whitespace and common punctuation
+            if cp <= 0x7F and (ch.isspace() or not ch.isalnum()):
+                continue
+            meaningful += 1
+            if 0x4E00 <= cp <= 0x9FFF or 0x3400 <= cp <= 0x4DBF:  # CJK Unified + Extension A
+                cjk += 1
+            elif 0x3040 <= cp <= 0x309F:  # Hiragana
+                hiragana += 1
+            elif 0x30A0 <= cp <= 0x30FF:  # Katakana
+                katakana += 1
+            elif 0xAC00 <= cp <= 0xD7AF:  # Hangul Syllables
+                hangul += 1
+
+        if meaningful == 0:
+            return "en"
+
+        japanese_chars = hiragana + katakana
+
+        # Japanese: hiragana/katakana presence is a definitive marker
+        if japanese_chars > meaningful * 0.05:
+            return "ja"
+        # Korean: hangul presence
+        if hangul > meaningful * 0.1:
+            return "ko"
+        # Chinese: CJK ideographs without kana
+        if cjk > meaningful * 0.15:
+            return "zh"
+
+        return "en"
+
+    async def _deep_investigation(self, episode_id: int, session: AsyncSession) -> dict | None:
+        """Run deep investigation mode (Phase 7).
+
+        Returns investigation summary dict or None on failure.
+        """
+        from app.services.deep_investigator import DeepInvestigator
+
+        items = await self._get_news_items(episode_id, session)
+        if not items:
+            return None
+
+        articles_text = self.build_articles_text(items)
+
+        investigator = DeepInvestigator(
+            session,
+            episode_id,
+            record_usage_fn=self.record_usage,
+            log_progress_fn=self.log_progress,
+        )
+        result = await investigator.investigate(articles_text)
+
+        if not result.success:
+            logger.warning("Episode %d: Deep investigation failed: %s", episode_id, result.error)
+            return None
+
+        # Apply fact-check updates from investigation
+        for fc_update in result.fact_check_updates:
+            idx = fc_update.get("article_index")
+            if idx is not None and 0 <= idx < len(items):
+                item = items[idx]
+                item.fact_check_status = fc_update.get("fact_check_status", item.fact_check_status)
+                item.fact_check_score = fc_update.get("fact_check_score", item.fact_check_score)
+                item.fact_check_details = fc_update.get("fact_check_details", item.fact_check_details)
+                new_refs = fc_update.get("reference_urls", [])
+                existing_refs = item.reference_urls or []
+                item.reference_urls = list(set(existing_refs + new_refs))
+
+        await session.commit()
+
+        logger.info(
+            "Episode %d: Deep investigation completed, %d rounds, $%.4f cost",
+            episode_id,
+            len(result.rounds),
+            result.total_cost_usd,
+        )
+
+        return {
+            "summary": result.summary,
+            "rounds": len(result.rounds),
+            "findings_count": len(result.findings),
+            "total_cost_usd": result.total_cost_usd,
+        }

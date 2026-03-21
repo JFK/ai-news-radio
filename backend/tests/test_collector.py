@@ -18,6 +18,22 @@ def collector() -> CollectorStep:
     return CollectorStep()
 
 
+def _set_default_mock_settings(mock_settings: MagicMock) -> None:
+    """Set default values for new settings attributes added by the deep-research feature."""
+    mock_settings.collection_image_analysis_enabled = False
+    mock_settings.collection_document_visual_analysis = False
+    mock_settings.collection_academic_search_enabled = False
+    mock_settings.collection_academic_max_papers = 5
+    mock_settings.collection_translation_enabled = False
+    mock_settings.collection_translation_provider = ""
+    mock_settings.collection_translation_model = ""
+    mock_settings.collection_deep_investigation_enabled = False
+    mock_settings.collection_deep_investigation_max_rounds = 3
+    mock_settings.collection_deep_investigation_max_cost_usd = 1.0
+    mock_settings.collection_deep_investigation_provider = ""
+    mock_settings.collection_deep_investigation_model = ""
+
+
 def _make_brave_results(n: int = 3) -> list[BraveSearchResult]:
     """Create N sample BraveSearchResult instances."""
     return [
@@ -48,6 +64,7 @@ class TestCollectorStep:
         mock_settings.collection_youtube_enabled = False
         mock_settings.collection_document_enabled = False
         mock_settings.collection_ai_research_enabled = False
+        _set_default_mock_settings(mock_settings)
 
         results = _make_brave_results(3)
 
@@ -82,6 +99,7 @@ class TestCollectorStep:
         mock_settings.collection_youtube_enabled = False
         mock_settings.collection_document_enabled = False
         mock_settings.collection_ai_research_enabled = False
+        _set_default_mock_settings(mock_settings)
 
         results = _make_brave_results(2)
 
@@ -112,6 +130,7 @@ class TestCollectorStep:
         mock_settings.collection_youtube_enabled = False
         mock_settings.collection_document_enabled = False
         mock_settings.collection_ai_research_enabled = False
+        _set_default_mock_settings(mock_settings)
 
         engine = PipelineEngine()
         episode = await engine.create_episode("Test", session)
@@ -159,6 +178,7 @@ class TestEnrichment:
         mock_settings.collection_youtube_enabled = False
         mock_settings.collection_document_enabled = False
         mock_settings.collection_ai_research_enabled = False
+        _set_default_mock_settings(mock_settings)
 
         engine = PipelineEngine()
         episode = await engine.create_episode("Test", session)
@@ -202,6 +222,7 @@ class TestEnrichment:
         mock_settings.collection_youtube_enabled = False
         mock_settings.collection_document_enabled = False
         mock_settings.collection_ai_research_enabled = False
+        _set_default_mock_settings(mock_settings)
 
         engine = PipelineEngine()
         episode = await engine.create_episode("Test", session)
@@ -235,6 +256,7 @@ class TestEnrichment:
         mock_settings.collection_youtube_enabled = False
         mock_settings.collection_document_enabled = False
         mock_settings.collection_ai_research_enabled = False
+        _set_default_mock_settings(mock_settings)
 
         engine = PipelineEngine()
         episode = await engine.create_episode("Test", session)
@@ -280,6 +302,7 @@ class TestAIResearch:
         mock_settings.collection_ai_research_max_rounds = 1
         mock_settings.collection_ai_research_provider = ""
         mock_settings.collection_ai_research_model = ""
+        _set_default_mock_settings(mock_settings)
 
         engine = PipelineEngine()
         episode = await engine.create_episode("Test", session)
@@ -349,6 +372,7 @@ class TestAIResearch:
         mock_settings.collection_youtube_enabled = False
         mock_settings.collection_document_enabled = False
         mock_settings.collection_ai_research_enabled = False
+        _set_default_mock_settings(mock_settings)
 
         engine = PipelineEngine()
         episode = await engine.create_episode("Test", session)
@@ -379,6 +403,7 @@ class TestBraveSearchCostTracking:
         mock_settings.collection_youtube_enabled = False
         mock_settings.collection_document_enabled = False
         mock_settings.collection_ai_research_enabled = False
+        _set_default_mock_settings(mock_settings)
 
         engine = PipelineEngine()
         episode = await engine.create_episode("Test", session)
