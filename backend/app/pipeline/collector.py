@@ -654,7 +654,12 @@ class CollectorStep(BaseStep):
 
         articles_text = self.build_articles_text(items)
 
-        investigator = DeepInvestigator(session, episode_id, record_usage_fn=self.record_usage)
+        investigator = DeepInvestigator(
+            session,
+            episode_id,
+            record_usage_fn=self.record_usage,
+            log_progress_fn=self.log_progress,
+        )
         result = await investigator.investigate(articles_text)
 
         if not result.success:

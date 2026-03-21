@@ -20,8 +20,9 @@ from app.services.cost_estimator import estimate_cost
 
 logger = logging.getLogger(__name__)
 
-# Type for the cost recording callback
+# Type for callbacks
 RecordUsageFn = Callable[..., Awaitable[None]]
+LogProgressFn = Callable[[int, str], Awaitable[None]]
 
 INVESTIGATION_PLAN_PROMPT = """\
 あなたは調査ジャーナリストです。以下のニュース記事を読み、深層調査を計画してください。
@@ -129,10 +130,12 @@ class DeepInvestigator:
         session: AsyncSession,
         episode_id: int,
         record_usage_fn: RecordUsageFn | None = None,
+        log_progress_fn: LogProgressFn | None = None,
     ) -> None:
         self._session = session
         self._episode_id = episode_id
         self._record_usage_fn = record_usage_fn
+        self._log_progress_fn = log_progress_fn
         self._research_notes: list[str] = []
         self._total_cost_usd: float = 0.0
 
@@ -162,6 +165,7 @@ class DeepInvestigator:
         overall_timeout = max_rounds * 300
 
         try:
+            await self._log(f"深層調査開始（最大{max_rounds}ラウンド, 予算${max_cost_usd:.2f}）")
             async with asyncio.timeout(overall_timeout):
                 for round_num in range(max_rounds):
                     if self._total_cost_usd >= max_cost_usd:
@@ -181,7 +185,13 @@ class DeepInvestigator:
                         break
 
                 # Final synthesis
+                await self._log("最終レポートを作成中...")
                 final_result = await self._synthesize(articles_text, provider, model)
+                await self._log(
+                    f"深層調査完了: {len(rounds)}ラウンド, "
+                    f"発見{len(final_result.get('key_findings', []))}件, "
+                    f"コスト${self._total_cost_usd:.4f}"
+                )
 
             return InvestigationResult(
                 success=True,
@@ -227,6 +237,7 @@ class DeepInvestigator:
         from app.pipeline.utils import parse_json_response
 
         round_record = InvestigationRound(round_num=round_num)
+        await self._log(f"[Round {round_num + 1}] 調査計画を策定中...")
 
         # Step 1: Plan (or re-plan with accumulated notes)
         if round_num == 0:
@@ -255,20 +266,35 @@ class DeepInvestigator:
         academic_queries = search_queries.get("academic", [])
         urls_to_crawl = search_queries.get("urls_to_crawl", [])
 
+        # Log plan details
+        gaps = plan_data.get("knowledge_gaps") or plan_data.get("remaining_gaps", [])
+        if gaps:
+            gap_topics = [g.get("topic", "") for g in gaps[:5]]
+            await self._log(f"[Round {round_num + 1}] 知識ギャップ: {', '.join(gap_topics)}")
+        reasoning = plan_data.get("reasoning", "")
+        if reasoning:
+            await self._log(f"[Round {round_num + 1}] 計画根拠: {reasoning[:200]}")
+        all_queries = web_queries + academic_queries
+        if all_queries:
+            await self._log(f"[Round {round_num + 1}] 検索クエリ: {', '.join(all_queries[:5])}")
+
         search_results = ""
 
         # Web search
         if web_queries and self._total_cost_usd < max_cost_usd:
+            await self._log(f"[Round {round_num + 1}] Web検索中... ({len(web_queries[:3])}クエリ)")
             search_results += await self._web_search(web_queries[:3])
             round_record.queries_executed.extend(web_queries[:3])
 
         # Academic search
         if academic_queries and settings.collection_academic_search_enabled and self._total_cost_usd < max_cost_usd:
+            await self._log(f"[Round {round_num + 1}] 学術論文検索中...")
             search_results += await self._academic_search(academic_queries[:2])
             round_record.queries_executed.extend(academic_queries[:2])
 
         # Targeted URL crawling
         if urls_to_crawl and settings.collection_crawl_enabled and self._total_cost_usd < max_cost_usd:
+            await self._log(f"[Round {round_num + 1}] 指定URL調査中... ({len(urls_to_crawl[:3])}件)")
             search_results += await self._crawl_urls(urls_to_crawl[:3])
 
         if search_results:
@@ -276,6 +302,7 @@ class DeepInvestigator:
 
         # Step 3: Analyze round results
         if round_num > 0 and search_results:
+            await self._log(f"[Round {round_num + 1}] 調査結果を統合・分析中...")
             integrate_response = await provider.generate(
                 prompt=(
                     f"元の記事:\n{articles_text}\n\n"
@@ -291,9 +318,19 @@ class DeepInvestigator:
                 integrate_data = parse_json_response(integrate_response.content)
                 round_record.findings_count = len(integrate_data.get("findings", []))
                 round_record.remaining_gaps = len(integrate_data.get("remaining_gaps", []))
+                # Log findings summary
+                findings = integrate_data.get("findings", [])
+                if findings:
+                    finding_topics = [f.get("topic", "")[:50] for f in findings[:3]]
+                    await self._log(f"[Round {round_num + 1}] 発見{len(findings)}件: {'; '.join(finding_topics)}")
+                if round_record.remaining_gaps > 0:
+                    await self._log(f"[Round {round_num + 1}] 残る知識ギャップ: {round_record.remaining_gaps}件")
+                else:
+                    await self._log(f"[Round {round_num + 1}] 知識ギャップ解消 — 調査完了")
             except Exception:
                 pass
 
+        await self._log(f"[Round {round_num + 1}] 完了 (累積コスト: ${self._total_cost_usd:.4f})")
         round_record.cost_usd = self._total_cost_usd
         return round_record
 
@@ -395,6 +432,11 @@ class DeepInvestigator:
             except Exception as e:
                 logger.warning("Deep investigation crawl failed for '%s': %s", url, e)
         return results_text
+
+    async def _log(self, message: str) -> None:
+        """Send progress log to UI via callback."""
+        if self._log_progress_fn:
+            await self._log_progress_fn(self._episode_id, message)
 
     async def _record_and_track(self, response: AIResponse) -> None:
         """Record API usage to DB and track cumulative cost."""
