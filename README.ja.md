@@ -20,6 +20,9 @@
 - **マルチAIプロバイダー** — Anthropic Claude / OpenAI GPT / Google Gemini を切り替え可能
 - **マルチTTSプロバイダー** — Gemini TTS / VOICEVOX / OpenAI TTS / ElevenLabs / Google Cloud TTS
 - **Brave Search 連携** — ニュース収集・ファクトチェック用のWeb検索
+- **マルチソース分析** — Excel/PDF/画像解析、YouTubeトランスクリプト抽出
+- **深層調査** — マルチラウンドAI調査エンジン + 学術論文検索（Semantic Scholar + arXiv）
+- **海外ニュース翻訳** — 言語自動検出（CJKヒューリスティック）→ AI翻訳 + 日本語文脈解説
 - **コスト追跡** — AIプロバイダーのトークン使用量とコストをダッシュボードで可視化
 - **Google Drive エクスポート** — 分析結果を NotebookLM 用ソーステキストとしてエクスポート
 - **WebUI 設定管理** — ブラウザから全設定を管理（APIキー、プロバイダー、プロンプト等）

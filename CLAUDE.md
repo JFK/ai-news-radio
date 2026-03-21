@@ -68,7 +68,7 @@ git@github.com:JFK/ai-news-radio.git
 
 | # | ステップ | AIモデル使用 | 主な処理 |
 |---|---------|-------------|---------|
-| 1 | 収集 (collection) | - | Brave Search API、重複排除、直近ニュース絞り込み |
+| 1 | 収集 (collection) | ✅ (opt-in) | Brave Search API、重複排除、コンテンツ取得（Web/YouTube/PDF/Excel/画像）、外国語翻訳、AI Research、深層調査 |
 | 2 | ファクトチェック (factcheck) | ✅ (+ web検索) | 事実確認、ソース信頼性スコア、裏取りURL取得 |
 | 3 | 分析 (analysis) | ✅ | 背景・文脈分析、複数視点抽出、データ検証、影響評価 |
 | 4 | 台本生成 (script) | ✅ | クリティカルシンキング＋わかりやすさを統合した台本 |

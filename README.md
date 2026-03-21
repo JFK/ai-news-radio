@@ -18,6 +18,9 @@ A web application that automates the entire news broadcast pipeline — from col
 - **Multi AI provider** — Anthropic Claude / OpenAI GPT / Google Gemini, switchable per step
 - **Multi TTS provider** — Gemini TTS / VOICEVOX / OpenAI TTS / ElevenLabs / Google Cloud TTS
 - **Brave Search integration** — Web search for news collection and fact-checking
+- **Multi-source analysis** — Excel/PDF/image parsing, YouTube transcript extraction
+- **Deep research** — Multi-round AI investigation with academic paper search (Semantic Scholar + arXiv)
+- **Foreign news translation** — Auto-detect language (CJK heuristic) → AI translate + Japanese context
 - **Cost tracking** — Token usage and cost visualization on the dashboard
 - **Google Drive export** — Export analysis results as NotebookLM source text
 - **WebUI settings** — Manage all settings from the browser (API keys, providers, prompts, etc.)
