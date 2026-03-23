@@ -329,18 +329,25 @@ class ScriptwriterStep(BaseStep):
             raise ValueError("No reliable news items to generate scripts for")
 
         # Phase 1: per-article scripts (with mode selection)
+        # Track previous approaches to avoid repetition
+        prev_approaches: list[str] = []
         for i, item in enumerate(items):
             mode = self._determine_script_mode(item, settings.script_default_mode)
+            variation_hint = self._build_variation_hint(item, i, len(items), prev_approaches)
             if mode == "explainer":
                 await self.log_progress(episode_id, f"[{i + 1}/{len(items)}] 「{item.title[:30]}」の対話台本を生成中")
                 result = await self._script_item_explainer(
                     item, provider, model, explainer_prompt, session, episode_id,
-                    all_items, speakers_by_role,
+                    all_items, speakers_by_role, variation_hint=variation_hint,
                 )
             else:
                 await self.log_progress(episode_id, f"[{i + 1}/{len(items)}] 「{item.title[:30]}」の台本を生成中")
-                result = await self._script_item(item, provider, model, item_prompt, session, episode_id, all_items)
+                result = await self._script_item(
+                    item, provider, model, item_prompt, session, episode_id, all_items,
+                    variation_hint=variation_hint,
+                )
             item_scripts.append(result)
+            prev_approaches.append(result.get("approach", "standard"))
             total_input_tokens += result["input_tokens"]
             total_output_tokens += result["output_tokens"]
 
@@ -408,6 +415,53 @@ class ScriptwriterStep(BaseStep):
             result["shorts"] = shorts_data
         return result
 
+    def _build_variation_hint(
+        self,
+        item: NewsItem,
+        index: int,
+        total: int,
+        prev_approaches: list[str],
+    ) -> str:
+        """Build a hint for the AI to vary script structure based on context."""
+        parts: list[str] = []
+
+        # News type classification from analysis
+        news_type = "general"
+        if item.analysis_data and isinstance(item.analysis_data, dict):
+            ad = item.analysis_data
+            perspectives = ad.get("perspectives", [])
+            has_data = bool(ad.get("data_validation"))
+            has_controversy = len(perspectives) >= 3
+            severity = ad.get("severity", "")
+
+            if severity in ("critical", "urgent"):
+                news_type = "breaking"
+            elif has_controversy:
+                news_type = "controversy"
+            elif has_data:
+                news_type = "data"
+            else:
+                news_type = "analysis"
+
+        type_hints = {
+            "breaking": "速報系: 事実→背景→影響の順で短く鋭く。緊張感のあるテンポで",
+            "controversy": "論争系: 対立する意見を交互に提示し、リスナーに判断材料を渡す構成で",
+            "data": "データ系: 数字・統計から入り、その意味を解きほぐす構成で。スケール変換を多用",
+            "analysis": "解説系: 問いかけから入り、背景→複数視点→まとめの流れで",
+            "general": "自由な構成で。ニュースの性質に最も合う入り方を選んでください",
+        }
+        parts.append(f"[ニュース種別] {type_hints.get(news_type, type_hints['general'])}")
+
+        # Position context
+        parts.append(f"[位置] {index + 1}番目/{total}件")
+
+        # Anti-repetition: tell what previous items used
+        if prev_approaches:
+            parts.append(f"[前のニュースで使ったアプローチ] {', '.join(prev_approaches[-3:])}")
+            parts.append("※ 前のニュースと異なるつかみ・構成パターンを使ってください")
+
+        return "\n".join(parts)
+
     async def _script_item(
         self,
         item: NewsItem,
@@ -417,6 +471,7 @@ class ScriptwriterStep(BaseStep):
         session: AsyncSession,
         episode_id: int,
         all_items: list[NewsItem] | None = None,
+        variation_hint: str = "",
     ) -> dict:
         """Generate a script for a single news item."""
         analysis_info = ""
@@ -459,6 +514,8 @@ class ScriptwriterStep(BaseStep):
             f"{analysis_info}"
             f"{group_sources_info}"
         )
+        if variation_hint:
+            prompt += f"\n\n## バリエーション指示\n{variation_hint}"
 
         response = await provider.generate(
             prompt=prompt,
@@ -467,7 +524,8 @@ class ScriptwriterStep(BaseStep):
         )
 
         data = parse_json_response(response.content)
-        item.script_text = data.get("script_text", "")
+        script_text = data.get("script_text", "")
+        item.script_text = script_text
         item.script_mode = "solo"
         item.script_data = {"illustration_prompt": data.get("illustration_prompt", "")}
 
@@ -480,10 +538,14 @@ class ScriptwriterStep(BaseStep):
             output_tokens=response.output_tokens,
         )
 
+        # Detect approach used for anti-repetition tracking
+        approach = self._detect_approach(script_text)
+
         return {
             "news_item_id": item.id,
             "title": item.title,
             "mode": "solo",
+            "approach": approach,
             "input_tokens": response.input_tokens,
             "output_tokens": response.output_tokens,
         }
@@ -510,6 +572,26 @@ class ScriptwriterStep(BaseStep):
 
         return "solo"
 
+    @staticmethod
+    def _detect_approach(script_text: str) -> str:
+        """Detect the opening approach used in a script for anti-repetition tracking."""
+        if not script_text:
+            return "narrative"
+        first_line = script_text.split("\n")[0]
+        # Strip speaker name prefix for explainer mode (e.g., "MC名: ")
+        if ": " in first_line:
+            first_line = first_line.split(": ", 1)[1]
+        # Simple heuristic based on opening patterns
+        if "？" in first_line or "ですか" in first_line:
+            return "question"
+        if any(c.isdigit() for c in first_line[:30]):
+            return "number"
+        if "実は" in first_line or "知って" in first_line:
+            return "surprising_fact"
+        if "さて" in first_line or "続いて" in first_line:
+            return "transition"
+        return "narrative"
+
     async def _script_item_explainer(
         self,
         item: NewsItem,
@@ -520,6 +602,7 @@ class ScriptwriterStep(BaseStep):
         episode_id: int,
         all_items: list[NewsItem] | None = None,
         speakers_by_role: dict[str, SpeakerProfile] | None = None,
+        variation_hint: str = "",
     ) -> dict:
         """Generate a dialogue-style script for a news item (explainer mode)."""
         analysis_info = ""
@@ -561,6 +644,8 @@ class ScriptwriterStep(BaseStep):
             f"{analysis_info}"
             f"{group_sources_info}"
         )
+        if variation_hint:
+            prompt += f"\n\n## バリエーション指示\n{variation_hint}"
 
         response = await provider.generate(
             prompt=prompt,
@@ -593,7 +678,8 @@ class ScriptwriterStep(BaseStep):
             speaker = turn.get("speaker", "speaker_a")
             name = speaker_a_name if speaker == "speaker_a" else speaker_b_name
             flat_lines.append(f"{name}: {turn.get('text', '')}")
-        item.script_text = "\n".join(flat_lines)
+        flat_text = "\n".join(flat_lines)
+        item.script_text = flat_text
 
         await self.record_usage(
             session=session,
@@ -604,10 +690,13 @@ class ScriptwriterStep(BaseStep):
             output_tokens=response.output_tokens,
         )
 
+        approach = self._detect_approach(flat_text)
+
         return {
             "news_item_id": item.id,
             "title": item.title,
             "mode": "explainer",
+            "approach": approach,
             "input_tokens": response.input_tokens,
             "output_tokens": response.output_tokens,
         }
