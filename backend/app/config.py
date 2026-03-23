@@ -69,7 +69,7 @@ class Settings(BaseSettings):
 
     # Deep investigation (Phase 7)
     collection_deep_investigation_enabled: bool = False
-    collection_deep_investigation_max_rounds: int = 3
+    collection_deep_investigation_max_rounds: int = 1
     collection_deep_investigation_max_cost_usd: float = 1.0
     collection_deep_investigation_provider: str = ""
     collection_deep_investigation_model: str = ""
@@ -91,6 +91,7 @@ class Settings(BaseSettings):
     gemini_tts_model: str = "gemini-2.5-flash-preview-tts"
     gemini_tts_voice: str = "Kore"  # Prebuilt voice name
     gemini_tts_instructions: str = "落ち着いたニュースキャスターのように、明瞭で聞き取りやすく話してください"
+    tts_chunk_timeout: int = 120  # Timeout per TTS chunk in seconds
 
     # Sound Effects (SE)
     se_intro: str = "intro_chime"  # Preset name or "none"

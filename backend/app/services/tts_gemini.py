@@ -5,6 +5,7 @@ Unlike Google Cloud TTS (Neural2), this uses LLM-based speech generation
 with natural language style control.
 """
 
+import asyncio
 import io
 import logging
 import wave
@@ -70,8 +71,11 @@ class GeminiTTSProvider(TTSProvider):
 
         return concatenate_wav(audio_chunks)
 
-    async def _synthesize_chunk(self, text: str) -> bytes:
-        """Synthesize a single chunk, returning raw PCM bytes."""
+    async def _synthesize_chunk(self, text: str, retry: bool = True) -> bytes:
+        """Synthesize a single chunk, returning raw PCM bytes.
+
+        Applies a per-chunk timeout and retries once on timeout.
+        """
         # Prepend style instructions if configured
         if self._instructions:
             content = f"{self._instructions}: {text}"
@@ -89,11 +93,26 @@ class GeminiTTSProvider(TTSProvider):
             ),
         )
 
-        response = await self._client.aio.models.generate_content(
-            model=self._model,
-            contents=content,
-            config=config,
-        )
+        timeout = settings.tts_chunk_timeout
+        try:
+            response = await asyncio.wait_for(
+                self._client.aio.models.generate_content(
+                    model=self._model,
+                    contents=content,
+                    config=config,
+                ),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError:
+            if retry:
+                logger.warning(
+                    "Gemini TTS chunk timed out after %ds (%d chars), retrying once",
+                    timeout, len(text),
+                )
+                return await self._synthesize_chunk(text, retry=False)
+            raise TimeoutError(
+                f"Gemini TTS chunk timed out after {timeout}s ({len(text)} chars)"
+            )
 
         pcm_data = response.candidates[0].content.parts[0].inline_data.data
 

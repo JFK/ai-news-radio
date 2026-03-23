@@ -128,9 +128,9 @@ class VoiceStep(BaseStep):
         sample_rate = 24000  # Default; updated after first TTS output
         elapsed = 0.0  # Cumulative time tracking for accurate SRT timestamps
 
+        intro_se_inserted = False
         for i, section in enumerate(sections):
             tts_text = self._prepare_tts_text(section["text"], pronunciations)
-            total_chars += len(section["text"])
 
             # Convert to SSML for natural prosody (Google TTS only)
             await self.log_progress(episode_id, f"[{i + 1}/{len(sections)}] 「{section['label'][:30]}」を音声合成中")
@@ -154,33 +154,47 @@ class VoiceStep(BaseStep):
 
             # Use multi-speaker for dialogue sections, single-speaker otherwise
             script_data = section.get("script_data")
-            if (
-                script_data
-                and isinstance(script_data, dict)
-                and script_data.get("mode") == "explainer"
-                and multi_provider
-            ):
-                dialogue = script_data.get("dialogue", [])
-                # Apply pronunciation to each dialogue turn
-                processed_dialogue = []
-                for turn in dialogue:
-                    processed_text = self._prepare_tts_text(turn.get("text", ""), pronunciations)
-                    processed_dialogue.append({"speaker": turn.get("speaker", "speaker_a"), "text": processed_text})
-                audio_bytes = await multi_provider.synthesize_dialogue(processed_dialogue)
-                logger.info(
-                    "Episode %d: multi-speaker synthesis for section '%s' (%d turns)",
-                    episode_id, section["key"], len(dialogue),
+            try:
+                if (
+                    script_data
+                    and isinstance(script_data, dict)
+                    and script_data.get("mode") == "explainer"
+                    and multi_provider
+                ):
+                    dialogue = script_data.get("dialogue", [])
+                    # Apply pronunciation to each dialogue turn
+                    processed_dialogue = []
+                    for turn in dialogue:
+                        processed_text = self._prepare_tts_text(turn.get("text", ""), pronunciations)
+                        processed_dialogue.append({"speaker": turn.get("speaker", "speaker_a"), "text": processed_text})
+                    audio_bytes = await multi_provider.synthesize_dialogue(processed_dialogue)
+                    logger.info(
+                        "Episode %d: multi-speaker synthesis for section '%s' (%d turns)",
+                        episode_id, section["key"], len(dialogue),
+                    )
+                else:
+                    audio_bytes = await provider.synthesize(tts_input)
+            except TimeoutError:
+                logger.error(
+                    "Episode %d: TTS timed out for section '%s', skipping",
+                    episode_id, section["key"],
                 )
-            else:
-                audio_bytes = await provider.synthesize(tts_input)
+                await self.log_progress(
+                    episode_id,
+                    f"⚠ 「{section['label'][:30]}」の音声合成がタイムアウトしました。スキップします。"
+                )
+                continue
+
+            total_chars += len(section["text"])
 
             # Generate silence chunk matching the sample rate of the first WAV
             if silence_chunk is None and audio_format == "wav":
                 sample_rate = self._get_wav_sample_rate(audio_bytes)
                 silence_chunk = self._generate_silence(_silence_seconds(), audio_format, sample_rate)
 
-            # Insert intro SE before the very first section
-            if i == 0 and audio_format == "wav":
+            # Insert intro SE before the first successfully synthesized section
+            if not intro_se_inserted and audio_format == "wav":
+                intro_se_inserted = True
                 se_intro = load_se(settings.se_intro, sample_rate)
                 if se_intro:
                     all_audio_chunks.append(se_intro)
@@ -317,16 +331,20 @@ class VoiceStep(BaseStep):
                     f"ショート音声 [{i + 1}/{len(shorts_input)}] を生成中"
                 )
 
-                if mode == "explainer" and multi_provider and short.get("dialogue"):
-                    dialogue = short["dialogue"]
-                    processed = [
-                        {"speaker": t.get("speaker", "speaker_a"), "text": self._prepare_tts_text(t.get("text", ""), pronunciations)}
-                        for t in dialogue
-                    ]
-                    short_audio = await multi_provider.synthesize_dialogue(processed)
-                else:
-                    short_text = self._prepare_tts_text(short.get("text", ""), pronunciations)
-                    short_audio = await provider.synthesize(short_text)
+                try:
+                    if mode == "explainer" and multi_provider and short.get("dialogue"):
+                        dialogue = short["dialogue"]
+                        processed = [
+                            {"speaker": t.get("speaker", "speaker_a"), "text": self._prepare_tts_text(t.get("text", ""), pronunciations)}
+                            for t in dialogue
+                        ]
+                        short_audio = await multi_provider.synthesize_dialogue(processed)
+                    else:
+                        short_text = self._prepare_tts_text(short.get("text", ""), pronunciations)
+                        short_audio = await provider.synthesize(short_text)
+                except TimeoutError:
+                    logger.error("Episode %d: TTS timed out for short %s, skipping", episode_id, item_id)
+                    continue
 
                 short_filename = f"short_{item_id}.{audio_format}"
                 short_path = os.path.join(shorts_dir, short_filename)

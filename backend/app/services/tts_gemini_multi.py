@@ -4,6 +4,7 @@ Uses Gemini 2.5 Flash/Pro TTS models with MultiSpeakerMarkup for
 natural two-speaker dialogue synthesis (max 2 speakers).
 """
 
+import asyncio
 import io
 import logging
 import wave
@@ -136,12 +137,7 @@ class GeminiMultiSpeakerTTSProvider(TTSProvider):
                 ),
             )
 
-            response = await self._client.aio.models.generate_content(
-                model=self._model,
-                contents=content,
-                config=config,
-            )
-
+            response = await self._generate_with_retry(content, config, len(chunk))
             pcm_data = response.candidates[0].content.parts[0].inline_data.data
 
             if response.usage_metadata:
@@ -158,6 +154,31 @@ class GeminiMultiSpeakerTTSProvider(TTSProvider):
             )
 
         return concatenate_wav(audio_chunks) if len(audio_chunks) > 1 else audio_chunks[0]
+
+    async def _generate_with_retry(self, content: str, config: types.GenerateContentConfig, chunk_chars: int):
+        """Call Gemini API with timeout and one retry."""
+        timeout = settings.tts_chunk_timeout
+        for attempt in range(2):
+            try:
+                return await asyncio.wait_for(
+                    self._client.aio.models.generate_content(
+                        model=self._model,
+                        contents=content,
+                        config=config,
+                    ),
+                    timeout=timeout,
+                )
+            except asyncio.TimeoutError:
+                if attempt == 0:
+                    logger.warning(
+                        "Gemini MultiSpeaker TTS chunk timed out after %ds (%d chars), retrying once",
+                        timeout, chunk_chars,
+                    )
+                else:
+                    raise TimeoutError(
+                        f"Gemini MultiSpeaker TTS chunk timed out after {timeout}s ({chunk_chars} chars)"
+                    )
+        raise TimeoutError("Unreachable")  # satisfy type checker
 
     def _pcm_to_wav(self, pcm_data: bytes) -> bytes:
         """Wrap raw PCM data in a WAV header."""
