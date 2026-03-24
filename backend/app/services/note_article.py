@@ -34,6 +34,7 @@ ANALYSIS_SYSTEM_PROMPT = """\
 - 専門用語はその場で言い換え
 - 断定を避け、複数の視点を公平に提示
 - 1段落3-4行以内
+- メディアバイアス情報がある場合、ソースの傾向（左右・体制/草の根）に言及し、読者がバイアスを意識できるようにする
 
 ## note.com最適化
 - 見出し（##）を効果的に使用
@@ -110,6 +111,16 @@ def _build_items_text(news_items: list[NewsItem]) -> str:
                 items_text += f"不確実性: {ad['uncertainties']}\n"
             if ad.get("source_comparison"):
                 items_text += f"ソース比較: {ad['source_comparison']}\n"
+            if ad.get("media_bias"):
+                mb = ad["media_bias"]
+                pl = mb.get("political_leaning", 0)
+                ps = mb.get("power_structure", 0)
+                pl_label = "左傾" if pl < -1 else "右傾" if pl > 1 else "中立"
+                ps_label = "草の根目線" if ps < -1 else "体制寄り" if ps > 1 else "中立"
+                items_text += f"メディアバイアス: {pl_label}({pl:+d}) / {ps_label}({ps:+d})"
+                if mb.get("bias_rationale"):
+                    items_text += f" — {mb['bias_rationale']}"
+                items_text += "\n"
         items_text += "\n"
     return items_text
 
