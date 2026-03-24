@@ -171,9 +171,11 @@ class AINewsRadioClient:
 
     # ---- Search ----
 
-    async def search_news(self, query: str, count: int = 10, freshness: str | None = None) -> list[dict]:
+    async def search_news(
+        self, query: str, count: int = 10, freshness: str | None = None, source: str = "brave"
+    ) -> list[dict]:
         """GET /api/search/news"""
-        params: dict[str, Any] = {"q": query, "count": count}
+        params: dict[str, Any] = {"q": query, "count": count, "source": source}
         if freshness:
             params["freshness"] = freshness
         return await self._request("GET", "/api/search/news", params=params)

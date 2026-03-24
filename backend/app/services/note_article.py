@@ -11,6 +11,7 @@ from app.services.ai_provider import AIResponse, get_provider
 from app.services.cost_estimator import estimate_cost
 from app.services.prompt_loader import get_active_prompt, register_default
 from app.services.visual_provider import get_visual_provider
+from app.services.youtube_transcript import YouTubeTranscriptService
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +34,17 @@ ANALYSIS_SYSTEM_PROMPT = """\
 - 専門用語はその場で言い換え
 - 断定を避け、複数の視点を公平に提示
 - 1段落3-4行以内
+- メディアバイアス情報がある場合、ソースの傾向（左右・体制/草の根）に言及し、読者がバイアスを意識できるようにする
 
 ## note.com最適化
 - 見出し（##）を効果的に使用
 - 引用（>）で重要ポイント強調
-- 箇条書きで複数視点を整理"""
+- 箇条書きで複数視点を整理
+- YouTube動画URLが提供された場合、URLを独立した行に記載（note.comが自動で埋め込みプレーヤーに変換）
+
+## 記事構成（追加）
+6. **関連動画**: YouTube動画URLが提供された場合、記事末尾に動画リンクセクションを追加（URLをそのまま行に記載）
+7. **タグ**: 記事の最終行に、note.com用のハッシュタグを5〜10個生成（例: `#ニュース #国際情勢 #AI分析`）。記事の主要トピック・地域・テーマを反映させる"""
 
 register_default(ANALYSIS_PROMPT_KEY, ANALYSIS_SYSTEM_PROMPT)
 
@@ -63,7 +70,9 @@ VIDEO_SYSTEM_PROMPT = """\
 
 ## note.com最適化
 - 見出し（##）を効果的に使用
-- YouTube URL は {{YOUTUBE_URL}} プレースホルダー"""
+- YouTube動画URLが提供された場合、URLを独立した行に記載（note.comが自動で埋め込みプレーヤーに変換）
+- ソースとなったYouTube動画も適切な箇所に埋め込む
+- 記事の最終行に、note.com用のハッシュタグを5〜10個生成（例: `#動画 #ニュース解説 #AI分析`）"""
 
 register_default(VIDEO_PROMPT_KEY, VIDEO_SYSTEM_PROMPT)
 
@@ -74,6 +83,8 @@ def _build_items_text(news_items: list[NewsItem]) -> str:
     for i, item in enumerate(news_items):
         items_text += f"\n## ニュース {i + 1}: {item.title}\n"
         items_text += f"ソース: {item.source_name} ({item.source_url})\n"
+        if item.source_url and YouTubeTranscriptService.is_youtube_url(item.source_url):
+            items_text += f"YouTube動画: {item.source_url}\n"
         if item.summary:
             items_text += f"要約: {item.summary}\n"
         if item.fact_check_score is not None:
@@ -100,8 +111,31 @@ def _build_items_text(news_items: list[NewsItem]) -> str:
                 items_text += f"不確実性: {ad['uncertainties']}\n"
             if ad.get("source_comparison"):
                 items_text += f"ソース比較: {ad['source_comparison']}\n"
+            if ad.get("media_bias"):
+                mb = ad["media_bias"]
+                pl = mb.get("political_leaning", 0)
+                ps = mb.get("power_structure", 0)
+                pl_label = "左傾" if pl < -1 else "右傾" if pl > 1 else "中立"
+                ps_label = "草の根目線" if ps < -1 else "体制寄り" if ps > 1 else "中立"
+                items_text += f"メディアバイアス: {pl_label}({pl:+d}) / {ps_label}({ps:+d})"
+                if mb.get("bias_rationale"):
+                    items_text += f" — {mb['bias_rationale']}"
+                items_text += "\n"
         items_text += "\n"
     return items_text
+
+
+def _collect_youtube_urls(news_items: list[NewsItem]) -> list[dict]:
+    """Collect YouTube video URLs from news items for embedding in articles."""
+    youtube_items = []
+    for item in news_items:
+        if item.source_url and YouTubeTranscriptService.is_youtube_url(item.source_url):
+            youtube_items.append({
+                "title": item.title,
+                "url": item.source_url,
+                "source_name": item.source_name,
+            })
+    return youtube_items
 
 
 async def _record_usage(
@@ -142,8 +176,25 @@ async def generate_note_analysis(
     system_prompt, _ = await get_active_prompt(session, ANALYSIS_PROMPT_KEY)
 
     items_text = _build_items_text(news_items)
-    user_prompt = (
-        f"# エピソード: {episode.title}\n\n"
+    youtube_urls = _collect_youtube_urls(news_items)
+
+    user_prompt = f"# エピソード: {episode.title}\n\n"
+
+    # Add ai-news-radio episode info
+    user_prompt += (
+        "## AI News Radio エピソード情報\n"
+        f"エピソード ID: {episode.id}\n"
+        f"作成日: {episode.created_at.strftime('%Y年%m月%d日') if episode.created_at else '不明'}\n\n"
+    )
+
+    if youtube_urls:
+        user_prompt += "## 関連YouTube動画\n"
+        user_prompt += "以下のYouTube動画を記事内に埋め込みリンクとして含めてください:\n"
+        for yt in youtube_urls:
+            user_prompt += f"- {yt['title']} ({yt['source_name']}): {yt['url']}\n"
+        user_prompt += "\n"
+
+    user_prompt += (
         f"以下の{len(news_items)}件のニュース分析結果を、"
         f"note.com用のマークダウン記事に変換してください。\n"
         f"{items_text}"
@@ -190,9 +241,35 @@ async def generate_note_video(
             if yt_meta.get("tags"):
                 video_info += f"タグ: {', '.join(yt_meta['tags'])}\n"
 
+    youtube_urls = _collect_youtube_urls(news_items)
+
     user_prompt = f"# エピソード: {episode.title}\n\n"
+
+    # Add ai-news-radio episode info
+    user_prompt += (
+        "## AI News Radio エピソード情報\n"
+        f"エピソード ID: {episode.id}\n"
+        f"作成日: {episode.created_at.strftime('%Y年%m月%d日') if episode.created_at else '不明'}\n"
+    )
+
+    # Add generated video/audio info from video step
+    if video_output:
+        if video_output.get("video_path"):
+            user_prompt += f"生成動画パス: {video_output['video_path']}\n"
+        if video_output.get("duration_seconds"):
+            user_prompt += f"動画の長さ: {video_output['duration_seconds']}秒\n"
+    user_prompt += "\n"
+
     if video_info:
         user_prompt += f"## 動画メタデータ\n{video_info}\n"
+
+    if youtube_urls:
+        user_prompt += "## ソースとなったYouTube動画\n"
+        user_prompt += "以下のYouTube動画URLを記事内に参考リンクとして含めてください:\n"
+        for yt in youtube_urls:
+            user_prompt += f"- {yt['title']} ({yt['source_name']}): {yt['url']}\n"
+        user_prompt += "\n"
+
     user_prompt += (
         f"以下の{len(news_items)}件のニュースを取り上げたYouTube動画の紹介記事を、"
         f"note.com用のマークダウンで作成してください。\n"

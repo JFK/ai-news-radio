@@ -290,8 +290,9 @@ async def _search_news(args: dict) -> str:
     query = args["query"]
     count = args.get("count", 10)
     freshness = args.get("freshness")
+    source = args.get("source", "brave")
 
-    results = await client.search_news(query, count, freshness)
+    results = await client.search_news(query, count, freshness, source=source)
 
     if not results:
         return f"No results found for '{query}'."

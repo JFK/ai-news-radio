@@ -44,9 +44,21 @@ ANALYSIS_SYSTEM_PROMPT = """\
   "uncertainties": "不確実な点、確認できない点",
   "severity": "high または medium または low（ニュースの重要度）",
   "topics": ["関連トピックタグ1", "関連トピックタグ2"],
+  "media_bias": {
+    "political_leaning": "整数 -5（左傾/リベラル）〜 0（中立）〜 +5（右傾/保守）",
+    "power_structure": "整数 -5（草の根/市民目線/bottom-up）〜 0（中立）〜 +5（体制寄り/エリート目線/top-down）",
+    "bias_confidence": "整数 1〜5（判定の確信度）",
+    "bias_rationale": "この判定に至った根拠（メディアの立場、記事の論調、使われている情報源の傾向などから判断）"
+  },
   "recommended_format": "explainer または solo（推奨される台本フォーマット）",
   "format_reason": "推奨理由の簡潔な説明"
 }
+
+media_bias の判定基準:
+- political_leaning: 記事の論調、引用される専門家・政治家の傾向、フレーミング（例: 政府批判的 vs 政府擁護的）から判定
+- power_structure: 情報源が政府・企業・エリート層中心か、市民・現場・草の根の声を重視しているかで判定
+- 判定はメディア全体の傾向ではなく「この記事の」傾向を評価する
+- 確信度が低い（1-2）場合は、判定が難しい理由をbias_rationaleに記載
 
 recommended_format の判定基準:
 - 専門的・技術的テーマ、背景説明が多い、複数視点あり、データ検証が必要 → "explainer"（MC＋解説者の2人対話形式）
@@ -110,9 +122,28 @@ ANALYSIS_GROUP_SYSTEM_PROMPT = """\
   "source_comparison": "各ソース間の報道の一致点・相違点",
   "severity": "high または medium または low（ニュースの重要度）",
   "topics": ["関連トピックタグ1", "関連トピックタグ2"],
+  "media_bias": {
+    "political_leaning": "整数 -5（左傾/リベラル）〜 0（中立）〜 +5（右傾/保守）— グループ全体の重心",
+    "power_structure": "整数 -5（草の根/市民目線/bottom-up）〜 0（中立）〜 +5（体制寄り/エリート目線/top-down）— グループ全体の重心",
+    "bias_confidence": "整数 1〜5（判定の確信度）",
+    "bias_rationale": "グループ内の各ソースの傾向と、統合した判定の根拠",
+    "per_source": [
+      {
+        "source_name": "メディア名",
+        "political_leaning": "整数 -5〜+5",
+        "power_structure": "整数 -5〜+5"
+      }
+    ]
+  },
   "recommended_format": "explainer または solo（推奨される台本フォーマット）",
   "format_reason": "推奨理由の簡潔な説明"
 }
+
+media_bias の判定基準:
+- political_leaning: 記事の論調、引用される専門家・政治家の傾向、フレーミングから判定
+- power_structure: 情報源が体制寄りか市民目線かで判定
+- グループ分析では各ソース個別の傾向（per_source）と、グループ全体の重心を両方出力
+- 確信度が低い場合は理由をbias_rationaleに記載
 
 recommended_format の判定基準:
 - 専門的・技術的テーマ、背景説明が多い、複数視点あり、ソース間の比較が必要 → "explainer"（MC＋解説者の2人対話形式）
