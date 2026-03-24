@@ -18,7 +18,10 @@ A web application that automates the entire news broadcast pipeline — from col
 - **Multi AI provider** — Anthropic Claude / OpenAI GPT / Google Gemini, switchable per step
 - **Multi TTS provider** — Gemini TTS / VOICEVOX / OpenAI TTS / ElevenLabs / Google Cloud TTS
 - **Brave Search integration** — Web search for news collection and fact-checking
+- **YouTube Data API v3** — Search YouTube videos as news sources (opt-in)
 - **Multi-source analysis** — Excel/PDF/image parsing, YouTube transcript extraction
+- **Media bias analysis** — 2-axis evaluation (political leaning / power structure) per news source
+- **note.com article generation** — Markdown articles with YouTube embeds, episode info, and auto-generated hashtags
 - **Deep research** — Multi-round AI investigation with academic paper search (Semantic Scholar + arXiv)
 - **Foreign news translation** — Auto-detect language (CJK heuristic) → AI translate + Japanese context
 - **Cost tracking** — Token usage and cost visualization on the dashboard
@@ -55,6 +58,7 @@ Each `✅` is a human approval gate. No step proceeds without explicit approval.
 | [OpenAI](https://platform.openai.com/) | AI (GPT) / TTS | One AI provider required |
 | [Anthropic](https://console.anthropic.com/) | AI (Claude) | One AI provider required |
 | [Google AI](https://aistudio.google.com/) | AI (Gemini) / TTS / Imagen | One AI provider required |
+| [YouTube Data API v3](https://console.cloud.google.com/apis/library/youtube.googleapis.com) | YouTube video search | Optional |
 
 ## Quick Start
 

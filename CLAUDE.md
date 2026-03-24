@@ -68,9 +68,9 @@ git@github.com:JFK/ai-news-radio.git
 
 | # | ステップ | AIモデル使用 | 主な処理 |
 |---|---------|-------------|---------|
-| 1 | 収集 (collection) | ✅ (opt-in) | Brave Search API、重複排除、コンテンツ取得（Web/YouTube/PDF/Excel/画像）、外国語翻訳、AI Research、深層調査 |
+| 1 | 収集 (collection) | ✅ (opt-in) | Brave Search API、YouTube Data API v3（opt-in）、重複排除、コンテンツ取得（Web/YouTube/PDF/Excel/画像）、外国語翻訳、AI Research、深層調査 |
 | 2 | ファクトチェック (factcheck) | ✅ (+ web検索) | 事実確認、ソース信頼性スコア、裏取りURL取得 |
-| 3 | 分析 (analysis) | ✅ | 背景・文脈分析、複数視点抽出、データ検証、影響評価 |
+| 3 | 分析 (analysis) | ✅ | 背景・文脈分析、複数視点抽出、データ検証、影響評価、メディアバイアス2軸評価（政治的傾向 / 権力構造の視点） |
 | 4 | 台本生成 (script) | ✅ | クリティカルシンキング＋わかりやすさを統合した台本 |
 | 5 | 音声生成 (voice) | - | TTS で台本→音声合成（Gemini TTS / VOICEVOX / OpenAI / ElevenLabs / Google Cloud TTS） |
 | 6 | 動画化 (video) | ✅ (画像生成) | Imagen 4 で背景・サムネイル生成 + FFmpeg で合成→MP4 |
@@ -172,6 +172,8 @@ ai-news-radio/
 │   │   │   │   └── google.py    # Gemini API
 │   │   │   ├── voicevox.py      # VOICEVOX API wrapper
 │   │   │   ├── brave_search.py  # Brave Search API
+│   │   │   ├── youtube_search.py # YouTube Data API v3
+│   │   │   ├── note_article.py  # note.com 記事生成
 │   │   │   ├── google_drive.py  # Google Drive API wrapper
 │   │   │   └── export_source_text.py  # NotebookLM エクスポート
 │   │   └── tasks.py             # Celery tasks
@@ -240,6 +242,20 @@ ai-news-radio/
 ## ニュース収集
 
 Brave Search API を使用。検索クエリは環境変数 `COLLECTION_QUERIES` で設定可能。
+
+YouTube Data API v3（opt-in）でYouTube動画も検索可能。WebUIから `collection_youtube_search_enabled` を有効化し、`collection_youtube_api_key` を設定する。MCP `search_news` ツールでも `source=youtube` で利用可能。
+
+### メディアバイアス分析
+
+分析ステップで各ニュースのメディアバイアスを2軸で評価:
+- **political_leaning**: -5（左傾/リベラル）〜 0（中立）〜 +5（右傾/保守）
+- **power_structure**: -5（草の根/市民目線）〜 0（中立）〜 +5（体制寄り/エリート目線）
+
+結果は `analysis_data.media_bias` に格納され、台本生成・note記事生成で活用される。
+
+### note.com 記事生成
+
+分析・動画ステップ後にnote.com用のマークダウン記事を生成。YouTube動画リンクの自動埋め込み、エピソード情報の付与、ハッシュタグ自動生成に対応。
 
 ## VOICEVOX 設定
 
