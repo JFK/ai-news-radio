@@ -21,6 +21,7 @@ SENSITIVE_KEYS = {
     "brave_search_api_key",
     "elevenlabs_api_key",
     "google_drive_client_secret",
+    "collection_youtube_api_key",
 }
 
 # Keys managed internally (not editable via settings UI)

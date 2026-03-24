@@ -258,8 +258,9 @@ def get_tool_definitions() -> list[Tool]:
         Tool(
             name="search_news",
             description=(
-                "Search for news articles using Brave Search. "
+                "Search for news articles using Brave Search or YouTube Data API. "
                 "Returns titles, URLs, descriptions, and age. "
+                "Use source='youtube' to search YouTube videos. "
                 "Use the results to select articles for create_episode_from_articles."
             ),
             inputSchema={
@@ -275,6 +276,12 @@ def get_tool_definitions() -> list[Tool]:
                         "type": "string",
                         "enum": ["pd", "pw", "pm"],
                         "description": "Time filter: pd=past day, pw=past week, pm=past month",
+                    },
+                    "source": {
+                        "type": "string",
+                        "enum": ["brave", "youtube"],
+                        "description": "Search source: brave (default) or youtube",
+                        "default": "brave",
                     },
                 },
                 "required": ["query"],

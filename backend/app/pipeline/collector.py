@@ -197,6 +197,47 @@ class CollectorStep(BaseStep):
                 cost_usd=service.query_count * BRAVE_COST_PER_QUERY,
             )
 
+        # YouTube Data API v3 search (opt-in)
+        if settings.collection_youtube_search_enabled and settings.collection_youtube_api_key:
+            from app.services.youtube_search import YouTubeSearchService
+
+            try:
+                yt_search = YouTubeSearchService()
+                for query in queries:
+                    yt_results = await yt_search.search(
+                        query,
+                        max_results=settings.collection_youtube_search_max_results,
+                        order=settings.collection_youtube_search_order,
+                        region_code=settings.collection_youtube_search_region,
+                        relevance_language=settings.collection_youtube_search_language,
+                    )
+                    for result in yt_results:
+                        if result.url in seen_urls:
+                            continue
+                        seen_urls.add(result.url)
+                        all_articles.append(
+                            {
+                                "title": result.title,
+                                "url": result.url,
+                                "summary": result.description,
+                                "source_name": f"YouTube ({result.channel_name})",
+                            }
+                        )
+
+                # Record YouTube API usage (quota-based, no monetary cost for free tier)
+                if yt_search.query_count > 0:
+                    await self.record_usage(
+                        session=session,
+                        episode_id=episode_id,
+                        provider="youtube",
+                        model="youtube-data-api-v3",
+                        input_tokens=yt_search.query_count,
+                        output_tokens=0,
+                        cost_usd=0.0,
+                    )
+            except Exception as e:
+                logger.warning("YouTube search failed, continuing with Brave results only: %s", e)
+
         return all_articles
 
     async def _enrich_articles(self, episode_id: int, session: AsyncSession) -> dict:

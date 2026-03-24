@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     collection_youtube_enabled: bool = True
     collection_document_enabled: bool = True
 
+    # YouTube Data API v3 search
+    collection_youtube_search_enabled: bool = False
+    collection_youtube_api_key: str = ""
+    collection_youtube_search_max_results: int = 5
+    collection_youtube_search_order: str = "relevance"  # relevance, date, viewCount
+    collection_youtube_search_region: str = ""  # ISO 3166-1 (e.g. JP, US)
+    collection_youtube_search_language: str = ""  # ISO 639-1 (e.g. ja, en)
+
     # AI multi-stage research
     collection_ai_research_enabled: bool = False
     collection_ai_research_max_rounds: int = 2
